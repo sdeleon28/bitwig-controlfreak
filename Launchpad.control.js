@@ -19,7 +19,20 @@ var colors = {
     white: 3
 };
 
+// Pad configuration: Map note numbers to labels (bottom 4 rows)
+var padConfig = {
+    // Row 0 (bottom)
+    11: "pad1",  12: "pad2",  13: "pad3",  14: "pad4",  15: "pad5",  16: "pad6",  17: "pad7",  18: "pad8",
+    // Row 1
+    21: "pad9",  22: "pad10", 23: "pad11", 24: "pad12", 25: "pad13", 26: "pad14", 27: "pad15", 28: "pad16",
+    // Row 2
+    31: "pad17", 32: "pad18", 33: "pad19", 34: "pad20", 35: "pad21", 36: "pad22", 37: "pad23", 38: "pad24",
+    // Row 3
+    41: "pad25", 42: "pad26", 43: "pad27", 44: "pad28", 45: "pad29", 46: "pad30", 47: "pad31", 48: "pad32"
+};
+
 var midiOut;
+var selectedPad = null;
 
 function init() {
     transport = host.createTransport();
@@ -39,19 +52,36 @@ function init() {
     println("Sending SysEx to enter Programmer Mode...");
     midiOut.sendSysex("F0 00 20 29 02 18 21 01 F7");
 
-    println("Launchpad MK2 set to Programmer Mode");
+    println("Launchpad MK2 initialized - ready for pad selection");
+}
 
-    // Light up bottom-left pad (note 11 on MK2, which is first pad of bottom row)
-    println("Sending MIDI: 0x90, 11, " + colors.green);
-    midiOut.sendMidi(0x90, 11, colors.green);
+function selectPad(note) {
+    // Check if this pad is in our config
+    if (!padConfig[note]) {
+        return;
+    }
 
-    println("Bottom-left pad should now be lit up with green color");
+    // Turn off previously selected pad
+    if (selectedPad !== null) {
+        midiOut.sendMidi(0x90, selectedPad, colors.off);
+    }
+
+    // Light up new pad
+    midiOut.sendMidi(0x90, note, colors.green);
+
+    // Update state
+    selectedPad = note;
+
+    // Print to console
+    println(padConfig[note] + " selected");
 }
 
 function onMidi(status, data1, data2) {
     printMidi(status, data1, data2);
-    if (status === 0x90 && data1 === 11) {
-        println("Bottom-left pad pressed!");
+
+    // Handle pad press (note on with velocity > 0)
+    if (status === 0x90 && data2 > 0) {
+        selectPad(data1);
     }
 }
 
