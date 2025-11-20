@@ -1,8 +1,9 @@
 loadAPI(17);
 
-host.defineController("Generic", "Launchpad", "1.0", "3ffac818-54ac-45e0-928a-d01628afceac", "xan_t");
-host.defineMidiPorts(1, 1);
-host.addDeviceNameBasedDiscoveryPair(["Launchpad"], ["Launchpad"]);
+host.defineController("Generic", "Launchpad + Twister", "1.0", "3ffac818-54ac-45e0-928a-d01628afceac", "xan_t");
+host.defineMidiPorts(2, 2);
+// Multi-device setup - add manually in Bitwig Settings > Controllers
+// host.addDeviceNameBasedDiscoveryPair(["Launchpad"], ["Launchpad"]);
 
 var colors = {
     off: 0,
@@ -31,26 +32,43 @@ var padConfig = {
     41: "pad25", 42: "pad26", 43: "pad27", 44: "pad28", 45: "pad29", 46: "pad30", 47: "pad31", 48: "pad32"
 };
 
-var midiOut;
+var launchpadOut;
+var twisterOut;
 var selectedPad = null;
+
+// Bitwig API objects
+var trackBank;
+var track1Volume;
 
 function init() {
     transport = host.createTransport();
 
-    // Get MIDI output port
-    midiOut = host.getMidiOutPort(0);
-    println("MIDI Output port: " + (midiOut ? "Connected" : "NULL"));
+    // Launchpad on port 0
+    launchpadOut = host.getMidiOutPort(0);
+    println("Launchpad MIDI Output: " + (launchpadOut ? "Connected" : "NULL"));
 
     noteIn = host.getMidiInPort(0).createNoteInput("Launchpad", "??????");
     noteIn.setShouldConsumeEvents(false);
 
-    host.getMidiInPort(0).setMidiCallback(onMidi);
+    host.getMidiInPort(0).setMidiCallback(onLaunchpadMidi);
     host.getMidiInPort(0).setSysexCallback(onSysex);
+
+    // MIDI Fighter Twister on port 1
+    twisterOut = host.getMidiOutPort(1);
+    println("Twister MIDI Output: " + (twisterOut ? "Connected" : "NULL"));
+
+    host.getMidiInPort(1).setMidiCallback(onTwisterMidi);
+
+    // Create track bank and get first track volume
+    trackBank = host.createTrackBank(8, 0, 0);
+    track1Volume = trackBank.getItemAt(0).volume();
+    track1Volume.setIndication(true); // Enable parameter control and visual feedback
+    println("Track 1 volume control created and enabled");
 
     // Enter Programmer Mode on Launchpad MK2
     // SysEx: F0h 00h 20h 29h 02h 18h 21h 01h F7h
     println("Sending SysEx to enter Programmer Mode...");
-    midiOut.sendSysex("F0 00 20 29 02 18 21 01 F7");
+    launchpadOut.sendSysex("F0 00 20 29 02 18 21 01 F7");
 
     println("Launchpad MK2 initialized - ready for pad selection");
 }
@@ -63,11 +81,11 @@ function selectPad(note) {
 
     // Turn off previously selected pad
     if (selectedPad !== null) {
-        midiOut.sendMidi(0x90, selectedPad, colors.off);
+        launchpadOut.sendMidi(0x90, selectedPad, colors.off);
     }
 
     // Light up new pad
-    midiOut.sendMidi(0x90, note, colors.green);
+    launchpadOut.sendMidi(0x90, note, colors.green);
 
     // Update state
     selectedPad = note;
@@ -76,12 +94,26 @@ function selectPad(note) {
     println(padConfig[note] + " selected");
 }
 
-function onMidi(status, data1, data2) {
+function onLaunchpadMidi(status, data1, data2) {
     printMidi(status, data1, data2);
 
     // Handle pad press (note on with velocity > 0)
     if (status === 0x90 && data2 > 0) {
         selectPad(data1);
+    }
+}
+
+function onTwisterMidi(status, data1, data2) {
+    // Only respond to CC messages when pad1 is selected
+    if ((status & 0xF0) === 0xB0) {
+        println("Twister CC: " + data1 + " value: " + data2);
+
+        // CC 12 (bottom-left encoder) controls track 1 volume when pad1 is selected
+        if (data1 === 12 && selectedPad === 11) {
+            var normalizedValue = data2 / 127.0;
+            track1Volume.set(normalizedValue);
+            println("Track 1 volume set to: " + normalizedValue.toFixed(2));
+        }
     }
 }
 
@@ -95,12 +127,12 @@ function flush() {
 function exit() {
     // Turn off all pads
     for (var i = 0; i < 128; i++) {
-        midiOut.sendMidi(0x90, i, 0);
+        launchpadOut.sendMidi(0x90, i, 0);
     }
 
     // Return to Live mode on Launchpad MK2
     // SysEx: F0h 00h 20h 29h 02h 18h 21h 00h F7h
-    midiOut.sendSysex("F0 00 20 29 02 18 21 00 F7");
+    launchpadOut.sendSysex("F0 00 20 29 02 18 21 00 F7");
 
-    println("Launchpad Controller Script Exited");
+    println("Launchpad + Twister Controller Script Exited");
 }
