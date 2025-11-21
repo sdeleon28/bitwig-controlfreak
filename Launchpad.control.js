@@ -61,9 +61,10 @@ function init() {
     // Create track bank to access all tracks
     trackBank = host.createTrackBank(64, 0, 0);
 
-    // Subscribe to all track names so we can read them
+    // Subscribe to all track names and solo states so we can read/control them
     for (var i = 0; i < 64; i++) {
         trackBank.getItemAt(i).name().markInterested();
+        trackBank.getItemAt(i).solo().markInterested();
     }
 
     println("Track bank created with 64 tracks");
@@ -115,24 +116,51 @@ function findTrackByCC(ccNumber) {
 
         if (trackName.indexOf(searchString) !== -1) {
             println("Found track: " + trackName + " for CC " + ccNumber);
-            return track.volume();
+            return track;
         }
     }
     return null;
 }
 
 function onTwisterMidi(status, data1, data2) {
-    // Only respond to CC messages when pad1 is selected
-    if ((status & 0xF0) === 0xB0 && selectedPad === 11) {
-        println("Twister CC: " + data1 + " value: " + data2);
+    // Only respond when pad1 is selected
+    if (selectedPad !== 11) {
+        return;
+    }
+
+    // Handle encoder turn (CC on channel 0, status 0xB0)
+    if (status === 0xB0) {
+        println("Twister Encoder: " + data1 + " value: " + data2);
 
         // Find track with "(CC#)" in the name
-        var trackVolume = findTrackByCC(data1);
+        var track = findTrackByCC(data1);
 
-        if (trackVolume) {
+        if (track) {
             var normalizedValue = data2 / 127.0;
-            trackVolume.set(normalizedValue);
+            track.volume().set(normalizedValue);
             println("Volume set to: " + normalizedValue.toFixed(2));
+        } else {
+            println("No track found with (" + data1 + ") in name");
+        }
+    }
+
+    // Handle button press (CC on channel 1, status 0xB1)
+    if (status === 0xB1) {
+        println("Twister Button: " + data1 + " value: " + data2);
+
+        // Find track with "(CC#)" in the name
+        var track = findTrackByCC(data1);
+
+        if (track) {
+            if (data2 > 0) {
+                // Button pressed - solo track
+                track.solo().set(true);
+                println("Track soloed");
+            } else {
+                // Button released - unsolo track
+                track.solo().set(false);
+                println("Track unsoloed");
+            }
         } else {
             println("No track found with (" + data1 + ") in name");
         }
