@@ -38,7 +38,6 @@ var selectedPad = null;
 
 // Bitwig API objects
 var trackBank;
-var track1Volume;
 
 function init() {
     transport = host.createTransport();
@@ -59,11 +58,15 @@ function init() {
 
     host.getMidiInPort(1).setMidiCallback(onTwisterMidi);
 
-    // Create track bank and get first track volume
-    trackBank = host.createTrackBank(8, 0, 0);
-    track1Volume = trackBank.getItemAt(0).volume();
-    track1Volume.setIndication(true); // Enable parameter control and visual feedback
-    println("Track 1 volume control created and enabled");
+    // Create track bank to access all tracks
+    trackBank = host.createTrackBank(64, 0, 0);
+
+    // Subscribe to all track names so we can read them
+    for (var i = 0; i < 64; i++) {
+        trackBank.getItemAt(i).name().markInterested();
+    }
+
+    println("Track bank created with 64 tracks");
 
     // Enter Programmer Mode on Launchpad MK2
     // SysEx: F0h 00h 20h 29h 02h 18h 21h 01h F7h
@@ -103,16 +106,35 @@ function onLaunchpadMidi(status, data1, data2) {
     }
 }
 
+function findTrackByCC(ccNumber) {
+    // Search through all tracks to find one with "(CC#)" in the name
+    for (var i = 0; i < 64; i++) {
+        var track = trackBank.getItemAt(i);
+        var trackName = track.name().get();
+        var searchString = "(" + ccNumber + ")";
+
+        if (trackName.indexOf(searchString) !== -1) {
+            println("Found track: " + trackName + " for CC " + ccNumber);
+            return track.volume();
+        }
+    }
+    return null;
+}
+
 function onTwisterMidi(status, data1, data2) {
     // Only respond to CC messages when pad1 is selected
-    if ((status & 0xF0) === 0xB0) {
+    if ((status & 0xF0) === 0xB0 && selectedPad === 11) {
         println("Twister CC: " + data1 + " value: " + data2);
 
-        // CC 12 (bottom-left encoder) controls track 1 volume when pad1 is selected
-        if (data1 === 12 && selectedPad === 11) {
+        // Find track with "(CC#)" in the name
+        var trackVolume = findTrackByCC(data1);
+
+        if (trackVolume) {
             var normalizedValue = data2 / 127.0;
-            track1Volume.set(normalizedValue);
-            println("Track 1 volume set to: " + normalizedValue.toFixed(2));
+            trackVolume.set(normalizedValue);
+            println("Volume set to: " + normalizedValue.toFixed(2));
+        } else {
+            println("No track found with (" + data1 + ") in name");
         }
     }
 }
