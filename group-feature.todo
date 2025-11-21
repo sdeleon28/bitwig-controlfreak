@@ -1,0 +1,18 @@
+i need a group feature
+
+bottom right quadrant becomes group selector
+group is a tag such as "gtr", "bass"
+these labels will map to track names
+gtr is red
+bass is blue
+drums is green
+inst is orange
+keys is purple
+fx is cyan
+
+when a group is selected:
+
+encoders are re-mapped
+so for example: when group gtr is selected, tracks "gtr rtm L (1)" and "gtr lead (3)" light up
+"gtr rtm L (1)" is red
+"gtr lead (3)" is purple
