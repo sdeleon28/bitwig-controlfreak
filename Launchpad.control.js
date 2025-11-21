@@ -32,6 +32,29 @@ var padConfig = {
     41: "mode13", 42: "mode14", 43: "mode15", 44: "mode16"
 };
 
+// MIDI Fighter Twister color palette (approximate indices based on available colors)
+var twisterColors = [
+    {idx: 0,   r: 0,   g: 0,   b: 0},      // Black/Off
+    {idx: 1,   r: 40,  g: 40,  b: 40},     // Dark gray
+    {idx: 5,   r: 0,   g: 0,   b: 200},    // Blue
+    {idx: 7,   r: 0,   g: 150, b: 255},    // Light blue
+    {idx: 9,   r: 0,   g: 200, b: 200},    // Cyan
+    {idx: 11,  r: 0,   g: 255, b: 150},    // Cyan-green
+    {idx: 13,  r: 0,   g: 255, b: 0},      // Green
+    {idx: 15,  r: 150, g: 255, b: 0},      // Lime
+    {idx: 17,  r: 255, g: 255, b: 0},      // Yellow
+    {idx: 19,  r: 255, g: 180, b: 0},      // Gold
+    {idx: 21,  r: 255, g: 100, b: 0},      // Orange
+    {idx: 23,  r: 255, g: 50,  b: 0},      // Red-orange
+    {idx: 25,  r: 255, g: 0,   b: 0},      // Red
+    {idx: 27,  r: 255, g: 0,   b: 100},    // Pink-red
+    {idx: 29,  r: 255, g: 0,   b: 200},    // Pink
+    {idx: 31,  r: 255, g: 0,   b: 255},    // Magenta
+    {idx: 33,  r: 200, g: 0,   b: 255},    // Purple-magenta
+    {idx: 35,  r: 150, g: 0,   b: 255},    // Purple
+    {idx: 37,  r: 100, g: 0,   b: 200}     // Dark purple
+];
+
 var launchpadOut;
 var twisterOut;
 var selectedPad = null;
@@ -61,10 +84,11 @@ function init() {
     // Create track bank to access all tracks
     trackBank = host.createTrackBank(64, 0, 0);
 
-    // Subscribe to all track names, solo states, and volumes
+    // Subscribe to all track names, solo states, volumes, and colors
     for (var i = 0; i < 64; i++) {
         trackBank.getItemAt(i).name().markInterested();
         trackBank.getItemAt(i).solo().markInterested();
+        trackBank.getItemAt(i).color().markInterested();
 
         // Add volume observer to update encoder LEDs in real-time
         (function(trackIndex) {
@@ -77,6 +101,23 @@ function init() {
                     var searchString = "(" + cc + ")";
                     if (trackName.indexOf(searchString) !== -1) {
                         updateEncoderLED(cc, value);
+                    }
+                }
+            });
+
+            // Add color observer to update encoder colors in real-time
+            trackBank.getItemAt(trackIndex).color().addValueObserver(function(red, green, blue) {
+                // When color changes, find which encoder(s) map to this track and update them
+                var trackName = trackBank.getItemAt(trackIndex).name().get();
+                var redMidi = Math.round(red * 255);
+                var greenMidi = Math.round(green * 255);
+                var blueMidi = Math.round(blue * 255);
+
+                // Check each CC 0-15 to see if this track is mapped to it
+                for (var cc = 0; cc < 16; cc++) {
+                    var searchString = "(" + cc + ")";
+                    if (trackName.indexOf(searchString) !== -1) {
+                        updateEncoderColor(cc, redMidi, greenMidi, blueMidi);
                     }
                 }
             });
@@ -98,25 +139,115 @@ function updateEncoderLED(ccNumber, value) {
     twisterOut.sendMidi(0xB0, ccNumber, value);
 }
 
+function rgbToHue(r, g, b) {
+    // Convert RGB (0-255) to HSV hue (0-360)
+    r = r / 255;
+    g = g / 255;
+    b = b / 255;
+
+    var max = Math.max(r, g, b);
+    var min = Math.min(r, g, b);
+    var delta = max - min;
+
+    if (delta === 0) {
+        return 0; // Gray/black/white - no hue
+    }
+
+    var hue;
+    if (max === r) {
+        hue = 60 * (((g - b) / delta) % 6);
+    } else if (max === g) {
+        hue = 60 * (((b - r) / delta) + 2);
+    } else {
+        hue = 60 * (((r - g) / delta) + 4);
+    }
+
+    if (hue < 0) {
+        hue += 360;
+    }
+
+    return hue;
+}
+
+function findClosestColorIndex(r, g, b) {
+    // Convert RGB to hue and map to MF Twister color index (0-127)
+    var max = Math.max(r, g, b);
+    var min = Math.min(r, g, b);
+    var saturation = (max === 0) ? 0 : (max - min) / max;
+    var hue = rgbToHue(r, g, b);
+
+    // Log color info for debugging
+    println("Color: RGB(" + r + ", " + g + ", " + b +
+            ") Hue: " + hue.toFixed(1) +
+            "° Sat: " + saturation.toFixed(2) +
+            " Bright: " + max);
+
+    // Special case: Grayscale colors (low saturation)
+    if (saturation < 0.15) {
+        println("  -> Grayscale detected");
+        // TODO: Find correct grayscale index
+        return 0;
+    }
+
+    // Special case: Purple colors (hue 270-330°)
+    // Purple seems to be in a different range - try mapping to higher indices for darker purples
+    if (hue >= 270 && hue <= 330) {
+        println("  -> Purple detected, hue: " + hue.toFixed(1));
+        // Map purple (270-330°) to indices around 105-120 for darker purples
+        var purpleRange = hue - 270;  // 0-60
+        var colorIndex = Math.round(105 + (purpleRange * 15 / 60));
+        println("  -> Purple mapped to index: " + colorIndex);
+        return colorIndex;
+    }
+
+    // Map hue (0-360) to color index (0-127)
+    // MF Twister uses inverted hue + 240° rotation
+    var invertedHue = 360 - hue;
+    var adjustedHue = (invertedHue + 240) % 360;
+    var colorIndex = Math.round(adjustedHue * 127 / 360);
+
+    println("  -> Index: " + colorIndex);
+
+    return colorIndex;
+}
+
+function updateEncoderColor(ccNumber, red, green, blue) {
+    // Find closest color index in MF Twister palette
+    var colorIndex = findClosestColorIndex(red, green, blue);
+
+    // Send color index on channel 2 (RGB indicator channel)
+    twisterOut.sendMidi(0xB1, ccNumber, colorIndex);
+}
+
 function clearEncoderLEDs() {
-    // Turn off all encoder LEDs
+    // Turn off all encoder LEDs and colors
     for (var i = 0; i < 16; i++) {
         updateEncoderLED(i, 0);
+        updateEncoderColor(i, 0, 0, 0); // Clear color (black)
     }
-    println("Encoder LEDs cleared");
+    println("Encoder LEDs and colors cleared");
 }
 
 function syncEncoderToTrack(ccNumber) {
-    // Find track with (CC#) in name and sync encoder LED to its volume
+    // Find track with (CC#) in name and sync encoder LED value and color
     var track = findTrackByCC(ccNumber);
 
     if (track) {
+        // Sync volume value
         var volumeValue = track.volume().get();
         var midiValue = Math.round(volumeValue * 127);
         updateEncoderLED(ccNumber, midiValue);
+
+        // Sync track color
+        var color = track.color();
+        var red = Math.round(color.red() * 255);
+        var green = Math.round(color.green() * 255);
+        var blue = Math.round(color.blue() * 255);
+        updateEncoderColor(ccNumber, red, green, blue);
     } else {
-        // No track mapped - turn off encoder LED
+        // No track mapped - turn off encoder LED and color
         updateEncoderLED(ccNumber, 0);
+        updateEncoderColor(ccNumber, 0, 0, 0);
     }
 }
 
