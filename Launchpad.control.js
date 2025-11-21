@@ -61,10 +61,26 @@ function init() {
     // Create track bank to access all tracks
     trackBank = host.createTrackBank(64, 0, 0);
 
-    // Subscribe to all track names and solo states so we can read/control them
+    // Subscribe to all track names, solo states, and volumes
     for (var i = 0; i < 64; i++) {
         trackBank.getItemAt(i).name().markInterested();
         trackBank.getItemAt(i).solo().markInterested();
+
+        // Add volume observer to update encoder LEDs in real-time
+        (function(trackIndex) {
+            trackBank.getItemAt(trackIndex).volume().addValueObserver(128, function(value) {
+                // When volume changes, find which encoder(s) map to this track and update them
+                var trackName = trackBank.getItemAt(trackIndex).name().get();
+
+                // Check each CC 0-15 to see if this track is mapped to it
+                for (var cc = 0; cc < 16; cc++) {
+                    var searchString = "(" + cc + ")";
+                    if (trackName.indexOf(searchString) !== -1) {
+                        updateEncoderLED(cc, value);
+                    }
+                }
+            });
+        })(i);
     }
 
     // Enter Programmer Mode on Launchpad MK2
@@ -76,11 +92,50 @@ function init() {
     println("Volume mode selected on startup");
 }
 
+// Encoder LED feedback functions
+function updateEncoderLED(ccNumber, value) {
+    // Send CC on channel 0 to update encoder LED ring
+    twisterOut.sendMidi(0xB0, ccNumber, value);
+}
+
+function clearEncoderLEDs() {
+    // Turn off all encoder LEDs
+    for (var i = 0; i < 16; i++) {
+        updateEncoderLED(i, 0);
+    }
+    println("Encoder LEDs cleared");
+}
+
+function syncEncoderToTrack(ccNumber) {
+    // Find track with (CC#) in name and sync encoder LED to its volume
+    var track = findTrackByCC(ccNumber);
+
+    if (track) {
+        var volumeValue = track.volume().get();
+        var midiValue = Math.round(volumeValue * 127);
+        updateEncoderLED(ccNumber, midiValue);
+    } else {
+        // No track mapped - turn off encoder LED
+        updateEncoderLED(ccNumber, 0);
+    }
+}
+
+function syncAllEncoders() {
+    // Sync all 16 encoders to their mapped tracks
+    println("Syncing all encoder LEDs...");
+    for (var i = 0; i < 16; i++) {
+        syncEncoderToTrack(i);
+    }
+}
+
 function selectPad(note) {
     // Check if this pad is in our config
     if (!padConfig[note]) {
         return;
     }
+
+    // Clear encoder LEDs when switching modes
+    clearEncoderLEDs();
 
     // Turn off previously selected pad
     if (selectedPad !== null) {
@@ -92,6 +147,9 @@ function selectPad(note) {
 
     // Update state
     selectedPad = note;
+
+    // Sync encoder LEDs to track volumes for new mode
+    syncAllEncoders();
 }
 
 function onLaunchpadMidi(status, data1, data2) {
@@ -161,6 +219,9 @@ function flush() {
 }
 
 function exit() {
+    // Turn off all encoder LEDs
+    clearEncoderLEDs();
+
     // Turn off all pads
     for (var i = 0; i < 128; i++) {
         launchpadOut.sendMidi(0x90, i, 0);

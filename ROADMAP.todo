@@ -2,9 +2,16 @@
 
 [X] make it so that mode selection uses the part on the left
 [X] default selection to first pad and name it "volume"
-[ ] initialize encoders to their correct values
-    [ ] on startup
-    [ ] on mode selection
+[X] initialize encoders to their correct values
+    [X] on startup
+    [X] on mode selection
+    [X] power lights down
+        [X] on teardown
+        [X] on mode selection
+[ ] colors
+    [ ] track colors should dictate encoder color
+        [ ] update on startup
+        [ ] update on color change
 [ ] track grid -> top left
 [ ] encoders
     [ ] number the UI mapping left to right, bottom to top
@@ -27,7 +34,10 @@
     [ ] multi-select - affects track grid
 [ ] reactive architecture
 [ ] spike: set color on an encoder
-[ ] group selection from launchpad (second quadrant)
+[ ] group grid (second quadrant)
+    [ ] group colors should dictate launchpad color
+        [ ] update on startup
+        [ ] update on color change
     [ ] should "go into group"
     [ ] should set encoder colors to track colors
 [ ] main group
