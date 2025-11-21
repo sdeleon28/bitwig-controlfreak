@@ -1,18 +1,15 @@
-i need a group feature
+i've reset the group feature because i realized i needed different requirements
 
-bottom right quadrant becomes group selector
-group is a tag such as "gtr", "bass"
-these labels will map to track names
-gtr is red
-bass is blue
-drums is green
-inst is orange
-keys is purple
-fx is cyan
+i need a group feature:
 
-when a group is selected:
-
-encoders are re-mapped
-so for example: when group gtr is selected, tracks "gtr rtm L (1)" and "gtr lead (3)" light up
-"gtr rtm L (1)" is red
-"gtr lead (3)" is purple
+* bottom right 4x4 quadrant becomes group selector
+* groups are numbered 1-15, the 16th is the "default" group which enables top level tracks (with "(x)" suffix) + global mappings (TBD)
+* group 1 is bottom left, default (16) is top right
+* selecting group 1 performs these actions:
+  * selects group track labeled "(1)"
+  * performs the bitwig action to "go into" that group
+  * clears out encoder mappings
+  * maps encoders only to the ones in the currently selected group
+    * encoders colors and values are updated (taking into account currnent mode)
+* groups should activate with the color corresponding to the colors on the group track
+  * we'll probably need to figure out how to map the encoder colors that we already have functionality to calculate so that we can map those to launchpad colors (hacky but could work)
