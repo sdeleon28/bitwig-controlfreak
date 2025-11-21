@@ -20,16 +20,16 @@ var colors = {
     white: 3
 };
 
-// Pad configuration: Map note numbers to labels (bottom 4 rows)
+// Pad configuration: Map note numbers to mode labels (bottom-left 4x4 quadrant)
 var padConfig = {
     // Row 0 (bottom)
-    11: "pad1",  12: "pad2",  13: "pad3",  14: "pad4",  15: "pad5",  16: "pad6",  17: "pad7",  18: "pad8",
+    11: "volume", 12: "mode2",  13: "mode3",  14: "mode4",
     // Row 1
-    21: "pad9",  22: "pad10", 23: "pad11", 24: "pad12", 25: "pad13", 26: "pad14", 27: "pad15", 28: "pad16",
+    21: "mode5",  22: "mode6",  23: "mode7",  24: "mode8",
     // Row 2
-    31: "pad17", 32: "pad18", 33: "pad19", 34: "pad20", 35: "pad21", 36: "pad22", 37: "pad23", 38: "pad24",
+    31: "mode9",  32: "mode10", 33: "mode11", 34: "mode12",
     // Row 3
-    41: "pad25", 42: "pad26", 43: "pad27", 44: "pad28", 45: "pad29", 46: "pad30", 47: "pad31", 48: "pad32"
+    41: "mode13", 42: "mode14", 43: "mode15", 44: "mode16"
 };
 
 var launchpadOut;
@@ -70,6 +70,10 @@ function init() {
     // Enter Programmer Mode on Launchpad MK2
     // SysEx: F0h 00h 20h 29h 02h 18h 21h 01h F7h
     launchpadOut.sendSysex("F0 00 20 29 02 18 21 01 F7");
+
+    // Auto-select "volume" mode on startup
+    selectPad(11);
+    println("Volume mode selected on startup");
 }
 
 function selectPad(note) {
