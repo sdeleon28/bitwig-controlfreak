@@ -67,14 +67,9 @@ function init() {
         trackBank.getItemAt(i).solo().markInterested();
     }
 
-    println("Track bank created with 64 tracks");
-
     // Enter Programmer Mode on Launchpad MK2
     // SysEx: F0h 00h 20h 29h 02h 18h 21h 01h F7h
-    println("Sending SysEx to enter Programmer Mode...");
     launchpadOut.sendSysex("F0 00 20 29 02 18 21 01 F7");
-
-    println("Launchpad MK2 initialized - ready for pad selection");
 }
 
 function selectPad(note) {
@@ -93,9 +88,6 @@ function selectPad(note) {
 
     // Update state
     selectedPad = note;
-
-    // Print to console
-    println(padConfig[note] + " selected");
 }
 
 function onLaunchpadMidi(status, data1, data2) {
@@ -115,7 +107,6 @@ function findTrackByCC(ccNumber) {
         var searchString = "(" + ccNumber + ")";
 
         if (trackName.indexOf(searchString) !== -1) {
-            println("Found track: " + trackName + " for CC " + ccNumber);
             return track;
         }
     }
@@ -147,22 +138,13 @@ function onTwisterMidi(status, data1, data2) {
     // Handle button press (CC on channel 1, status 0xB1)
     if (status === 0xB1) {
         println("Twister Button: " + data1 + " value: " + data2);
-
-        // Find track with "(CC#)" in the name
         var track = findTrackByCC(data1);
-
         if (track) {
             if (data2 > 0) {
-                // Button pressed - solo track
                 track.solo().set(true);
-                println("Track soloed");
             } else {
-                // Button released - unsolo track
                 track.solo().set(false);
-                println("Track unsoloed");
             }
-        } else {
-            println("No track found with (" + data1 + ") in name");
         }
     }
 }
@@ -183,6 +165,4 @@ function exit() {
     // Return to Live mode on Launchpad MK2
     // SysEx: F0h 00h 20h 29h 02h 18h 21h 00h F7h
     launchpadOut.sendSysex("F0 00 20 29 02 18 21 00 F7");
-
-    println("Launchpad + Twister Controller Script Exited");
 }
