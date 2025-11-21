@@ -33,7 +33,6 @@
     [ ] select - affects track grid
     [ ] multi-select - affects track grid
 [ ] reactive architecture
-[ ] spike: set color on an encoder
 [ ] group grid (second quadrant)
     [ ] group colors should dictate launchpad color
         [ ] update on startup
@@ -51,3 +50,4 @@
 [ ] page system
     [ ] mixer
     [ ] plugin / device shortcuts
+[ ] st pauls mode
