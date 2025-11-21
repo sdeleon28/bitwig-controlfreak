@@ -1,0 +1,43 @@
+# ROADMAP
+
+[X] make it so that mode selection uses the part on the left
+[X] default selection to first pad and name it "volume"
+[ ] initialize encoders to their correct values
+    [ ] on startup
+    [ ] on mode selection
+[ ] track grid -> top left
+[ ] encoders
+    [ ] number the UI mapping left to right, bottom to top
+    [ ] special encoder
+        [ ] special group encoder for group vol / panning / solo
+[ ] group actions -> top right
+    [ ] mute
+    [ ] solo
+    [ ] select
+    [ ] go into
+    [ ] go out of
+    [ ] group
+    [ ] ungroup
+[ ] modes
+    [ ] volume - affects encoders
+    [ ] pan - affects encoders
+    [ ] mute - affects track grid
+    [ ] solo - affects track grid
+    [ ] select - affects track grid
+    [ ] multi-select - affects track grid
+[ ] reactive architecture
+[ ] spike: set color on an encoder
+[ ] group selection from launchpad (second quadrant)
+    [ ] should "go into group"
+    [ ] should set encoder colors to track colors
+[ ] main group
+    [ ] master volume
+    [ ] tempo
+[ ] extra group features
+    [ ] group mute button
+    [ ] group solo button
+[ ] mute grid
+[ ] solo grid
+[ ] page system
+    [ ] mixer
+    [ ] plugin / device shortcuts
