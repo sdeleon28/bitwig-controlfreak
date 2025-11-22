@@ -8,10 +8,203 @@ host.defineMidiPorts(2, 2);
 // ============================================================================
 
 /**
+ * @typedef {Object} BitwigTrack
+ * @property {number} id - Track index in bank (0-63)
+ * @property {string} name - Track name
+ * @property {boolean} isGroup - Whether track is a group
+ * @property {number} depth - Hierarchy depth (0=top, 1=child, 2=grandchild)
+ * @property {BitwigTrack[]} children - Child tracks
+ */
+
+/**
+ * @typedef {Object} BitwigColor
+ * @property {number} red - Red component (0-1)
+ * @property {number} green - Green component (0-1)
+ * @property {number} blue - Blue component (0-1)
+ */
+
+/**
  * Bitwig API abstraction
  * @namespace
  */
-var Bitwig = {};
+var Bitwig = {
+    /**
+     * Internal reference to track bank
+     * @private
+     */
+    _trackBank: null,
+
+    /**
+     * Cached track tree structure
+     * @private
+     */
+    _trackTree: null,
+
+    /**
+     * Track depth information
+     * @private
+     */
+    _trackDepths: [],
+
+    /**
+     * Initialize Bitwig API
+     * @param {Object} trackBank - Bitwig track bank object
+     */
+    init: function(trackBank) {
+        this._trackBank = trackBank;
+        this._trackDepths = [];
+        this._trackTree = null;
+    },
+
+    /**
+     * Get track by ID
+     * @param {number} id - Track ID (0-63)
+     * @returns {Object|null} Track object or null if not found
+     */
+    getTrack: function(id) {
+        if (!this._trackBank || id < 0 || id >= 64) {
+            return null;
+        }
+        var track = this._trackBank.getItemAt(id);
+        return track.exists().get() ? track : null;
+    },
+
+    /**
+     * Get hierarchical track tree
+     * @returns {BitwigTrack[]} Array of top-level tracks with nested children
+     */
+    getTrackTree: function() {
+        if (this._trackTree) {
+            return this._trackTree;
+        }
+
+        // Build tree from track bank
+        var tree = [];
+        var parentStack = [{ children: tree }];
+
+        for (var i = 0; i < 64; i++) {
+            var track = this.getTrack(i);
+            if (!track) continue;
+
+            var trackInfo = {
+                id: i,
+                name: track.name().get(),
+                isGroup: track.isGroup().get(),
+                depth: this._trackDepths[i] || 0,
+                children: []
+            };
+
+            // Truncate parent stack to current depth
+            parentStack.length = trackInfo.depth + 1;
+
+            // Get parent at current depth
+            var parent = parentStack[trackInfo.depth] || parentStack[0];
+            parent.children.push(trackInfo);
+
+            // Update stack for this depth level
+            parentStack[trackInfo.depth + 1] = trackInfo;
+        }
+
+        this._trackTree = tree;
+        return tree;
+    },
+
+    /**
+     * Get child tracks of a group
+     * @param {number} id - Group track ID
+     * @returns {BitwigTrack[]} Array of child tracks
+     */
+    getTrackChildren: function(id) {
+        var tree = this.getTrackTree();
+
+        // Find track in tree
+        function findTrack(tracks, targetId) {
+            for (var i = 0; i < tracks.length; i++) {
+                if (tracks[i].id === targetId) {
+                    return tracks[i];
+                }
+                var found = findTrack(tracks[i].children, targetId);
+                if (found) return found;
+            }
+            return null;
+        }
+
+        var track = findTrack(tree, id);
+        return track ? track.children : [];
+    },
+
+    /**
+     * Get track color
+     * @param {number} id - Track ID
+     * @returns {BitwigColor|null} Color object or null
+     */
+    getTrackColor: function(id) {
+        var track = this.getTrack(id);
+        if (!track) return null;
+
+        var color = track.color();
+        return {
+            red: color.red(),
+            green: color.green(),
+            blue: color.blue()
+        };
+    },
+
+    /**
+     * Get track volume
+     * @param {number} id - Track ID
+     * @returns {number} Volume value (0-1) or -1 if not found
+     */
+    getTrackVolume: function(id) {
+        var track = this.getTrack(id);
+        if (!track) return -1;
+
+        return track.volume().get();
+    },
+
+    /**
+     * Set track volume
+     * @param {number} id - Track ID
+     * @param {number} value - Volume value (0-1)
+     */
+    setTrackVolume: function(id, value) {
+        var track = this.getTrack(id);
+        if (!track) return;
+
+        track.volume().set(value);
+    },
+
+    /**
+     * Find track by name predicate
+     * @param {Function} predicate - Function that tests track name
+     * @returns {Object|null} First matching track or null
+     */
+    findTrackByName: function(predicate) {
+        for (var i = 0; i < 64; i++) {
+            var track = this.getTrack(i);
+            if (track && predicate(track.name().get())) {
+                return track;
+            }
+        }
+        return null;
+    },
+
+    /**
+     * Update track depths (called after calculation)
+     * @param {number[]} depths - Array of track depths
+     */
+    setTrackDepths: function(depths) {
+        this._trackDepths = depths;
+        this._trackTree = null; // Clear cache
+    },
+
+    /**
+     * Clear cached data
+     */
+    clearCache: function() {
+        this._trackTree = null;
+    }
+};
 
 /**
  * Launchpad hardware abstraction
@@ -100,13 +293,14 @@ function calculateTrackDepths() {
     // - Tracks after "top" group are depth 1
     // - Tracks after a depth-1 group are depth 2
 
+    var depths = [];
     var currentTopGroup = -1;  // Index of current top-level group
     var currentChildGroup = -1;  // Index of current child group
 
     for (var i = 0; i < 64; i++) {
-        var track = trackBank.getItemAt(i);
-        if (!track.exists().get()) {
-            trackDepths[i] = 0;
+        var track = Bitwig.getTrack(i);
+        if (!track) {
+            depths[i] = 0;
             continue;
         }
 
@@ -115,14 +309,14 @@ function calculateTrackDepths() {
 
         // Check if this is a top-level group
         if (trackName && trackName.toLowerCase().indexOf("top ") === 0) {
-            trackDepths[i] = 0;
+            depths[i] = 0;
             currentTopGroup = i;
             currentChildGroup = -1;  // Reset child group
             println("[" + i + "] '" + trackName + "' -> depth 0 (top group)");
         }
         // Check if this is a child group (depth 1 group)
         else if (isGroup && currentTopGroup >= 0) {
-            trackDepths[i] = 1;
+            depths[i] = 1;
             currentChildGroup = i;
             println("[" + i + "] '" + trackName + "' -> depth 1 (child group)");
         }
@@ -130,19 +324,22 @@ function calculateTrackDepths() {
         else {
             if (currentChildGroup >= 0) {
                 // We're inside a child group
-                trackDepths[i] = 2;
+                depths[i] = 2;
                 println("[" + i + "] '" + trackName + "' -> depth 2 (inside child group)");
             } else if (currentTopGroup >= 0) {
                 // We're inside a top group but not a child group
-                trackDepths[i] = 1;
+                depths[i] = 1;
                 println("[" + i + "] '" + trackName + "' -> depth 1 (inside top group)");
             } else {
                 // No parent group
-                trackDepths[i] = 0;
+                depths[i] = 0;
                 println("[" + i + "] '" + trackName + "' -> depth 0 (no parent)");
             }
         }
     }
+
+    // Store depths in Bitwig namespace
+    Bitwig.setTrackDepths(depths);
 }
 
 function buildTrackTree() {
@@ -234,6 +431,9 @@ function init() {
     // Create main track bank to access all tracks (flat list including nested tracks)
     trackBank = host.createMainTrackBank(64, 0, 0);
 
+    // Initialize Bitwig namespace with track bank
+    Bitwig.init(trackBank);
+
     // Subscribe to all track properties
     for (var i = 0; i < 64; i++) {
         var track = trackBank.getItemAt(i);
@@ -290,7 +490,7 @@ function init() {
         println("=== Calculating track depths ===");
         calculateTrackDepths();
         println("=== Building track tree ===");
-        var tree = buildTrackTree();
+        var tree = Bitwig.getTrackTree();
         printTrackTree(tree);
     }, null, 100);  // Wait 100ms for track bank to populate
 }
@@ -456,16 +656,10 @@ function onLaunchpadMidi(status, data1, data2) {
 
 function findTrackByCC(ccNumber) {
     // Search through all tracks to find one with "(CC#)" in the name
-    for (var i = 0; i < 64; i++) {
-        var track = trackBank.getItemAt(i);
-        var trackName = track.name().get();
-        var searchString = "(" + ccNumber + ")";
-
-        if (trackName.indexOf(searchString) !== -1) {
-            return track;
-        }
-    }
-    return null;
+    var searchString = "(" + ccNumber + ")";
+    return Bitwig.findTrackByName(function(name) {
+        return name.indexOf(searchString) !== -1;
+    });
 }
 
 function onTwisterMidi(status, data1, data2) {
