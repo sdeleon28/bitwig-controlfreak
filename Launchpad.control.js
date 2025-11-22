@@ -2,38 +2,46 @@ loadAPI(17);
 
 host.defineController("Generic", "Launchpad + Twister", "1.0", "3ffac818-54ac-45e0-928a-d01628afceac", "xan_t");
 host.defineMidiPorts(2, 2);
-// Multi-device setup - add manually in Bitwig Settings > Controllers
-// host.addDeviceNameBasedDiscoveryPair(["Launchpad"], ["Launchpad"]);
 
-var colors = {
-    off: 0,
-    green: 21,
-    red: 5,
-    amber: 17,
-    yellow: 13,
-    orange: 9,
-    lime: 37,
-    cyan: 41,
-    blue: 45,
-    purple: 49,
-    pink: 53,
-    white: 3
+// ============================================================================
+// Namespace Structure
+// ============================================================================
+
+/**
+ * Bitwig API abstraction
+ * @namespace
+ */
+var Bitwig = {};
+
+/**
+ * Launchpad hardware abstraction
+ * @namespace
+ */
+var Launchpad = {
+    // Launchpad color constants
+    colors: {
+        off: 0,
+        green: 21,
+        red: 5,
+        amber: 17,
+        yellow: 13,
+        orange: 9,
+        lime: 37,
+        cyan: 41,
+        blue: 45,
+        purple: 49,
+        pink: 53,
+        white: 3
+    }
 };
 
-// Pad configuration: Map note numbers to mode labels (bottom-left 4x4 quadrant)
-var padConfig = {
-    // Row 0 (bottom)
-    11: "volume", 12: "mode2",  13: "mode3",  14: "mode4",
-    // Row 1
-    21: "mode5",  22: "mode6",  23: "mode7",  24: "mode8",
-    // Row 2
-    31: "mode9",  32: "mode10", 33: "mode11", 34: "mode12",
-    // Row 3
-    41: "mode13", 42: "mode14", 43: "mode15", 44: "mode16"
-};
-
-// MIDI Fighter Twister color palette (approximate indices based on available colors)
-var twisterColors = [
+/**
+ * MIDI Fighter Twister hardware abstraction
+ * @namespace
+ */
+var Twister = {
+    // MIDI Fighter Twister color palette (approximate indices)
+    colors: [
     {idx: 0,   r: 0,   g: 0,   b: 0},      // Black/Off
     {idx: 1,   r: 40,  g: 40,  b: 40},     // Dark gray
     {idx: 5,   r: 0,   g: 0,   b: 200},    // Blue
@@ -53,11 +61,34 @@ var twisterColors = [
     {idx: 33,  r: 200, g: 0,   b: 255},    // Purple-magenta
     {idx: 35,  r: 150, g: 0,   b: 255},    // Purple
     {idx: 37,  r: 100, g: 0,   b: 200}     // Dark purple
-];
+    ]
+};
+
+/**
+ * Controller business logic
+ * @namespace
+ */
+var Controller = {
+    // Pad configuration: Map note numbers to mode labels (bottom-left 4x4 quadrant)
+    padConfig: {
+        // Row 0 (bottom)
+        11: "volume", 12: "mode2",  13: "mode3",  14: "mode4",
+        // Row 1
+        21: "mode5",  22: "mode6",  23: "mode7",  24: "mode8",
+        // Row 2
+        31: "mode9",  32: "mode10", 33: "mode11", 34: "mode12",
+        // Row 3
+        41: "mode13", 42: "mode14", 43: "mode15", 44: "mode16"
+    },
+    selectedPad: null
+};
+
+// ============================================================================
+// Global Variables (to be refactored)
+// ============================================================================
 
 var launchpadOut;
 var twisterOut;
-var selectedPad = null;
 
 // Bitwig API objects
 var trackBank;
@@ -392,7 +423,7 @@ function syncAllEncoders() {
 
 function selectPad(note) {
     // Check if this pad is in our config
-    if (!padConfig[note]) {
+    if (!Controller.padConfig[note]) {
         return;
     }
 
@@ -400,15 +431,15 @@ function selectPad(note) {
     clearEncoderLEDs();
 
     // Turn off previously selected pad
-    if (selectedPad !== null) {
-        launchpadOut.sendMidi(0x90, selectedPad, colors.off);
+    if (Controller.selectedPad !== null) {
+        launchpadOut.sendMidi(0x90, Controller.selectedPad, Launchpad.colors.off);
     }
 
     // Light up new pad
-    launchpadOut.sendMidi(0x90, note, colors.green);
+    launchpadOut.sendMidi(0x90, note, Launchpad.colors.green);
 
     // Update state
-    selectedPad = note;
+    Controller.selectedPad = note;
 
     // Sync encoder LEDs to track volumes for new mode
     syncAllEncoders();
@@ -439,7 +470,7 @@ function findTrackByCC(ccNumber) {
 
 function onTwisterMidi(status, data1, data2) {
     // Only respond when pad1 is selected
-    if (selectedPad !== 11) {
+    if (Controller.selectedPad !== 11) {
         return;
     }
 
