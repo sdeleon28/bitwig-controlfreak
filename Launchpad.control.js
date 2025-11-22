@@ -207,6 +207,11 @@ var Bitwig = {
 };
 
 /**
+ * @typedef {Object} LaunchpadColor
+ * @property {number} value - MIDI color value for Launchpad
+ */
+
+/**
  * Launchpad hardware abstraction
  * @namespace
  */
@@ -225,8 +230,128 @@ var Launchpad = {
         purple: 49,
         pink: 53,
         white: 3
+    },
+
+    /**
+     * Internal reference to MIDI output
+     * @private
+     */
+    _output: null,
+
+    /**
+     * Initialize Launchpad hardware
+     * @param {Object} midiOutput - MIDI output port
+     */
+    init: function(midiOutput) {
+        this._output = midiOutput;
+        println("Launchpad initialized: " + (midiOutput ? "Connected" : "NULL"));
+    },
+
+    /**
+     * Set pad color
+     * @param {number} padNumber - MIDI note number for pad
+     * @param {number|string} color - Color value or color name from Launchpad.colors
+     */
+    setPadColor: function(padNumber, color) {
+        if (!this._output) {
+            println("Warning: Launchpad not initialized");
+            return;
+        }
+
+        var colorValue = color;
+
+        // If color is a string, look it up in colors object
+        if (typeof color === 'string') {
+            colorValue = this.colors[color];
+            if (colorValue === undefined) {
+                println("Warning: Unknown color '" + color + "'");
+                return;
+            }
+        }
+
+        this._output.sendMidi(0x90, padNumber, colorValue);
+    },
+
+    /**
+     * Clear a pad (turn it off)
+     * @param {number} padNumber - MIDI note number for pad
+     */
+    clearPad: function(padNumber) {
+        this.setPadColor(padNumber, this.colors.off);
+    },
+
+    /**
+     * Clear all pads
+     */
+    clearAll: function() {
+        if (!this._output) return;
+
+        for (var i = 0; i < 128; i++) {
+            this.clearPad(i);
+        }
+    },
+
+    /**
+     * Enter programmer mode (required for Launchpad MK2)
+     * SysEx: F0h 00h 20h 29h 02h 18h 21h 01h F7h
+     */
+    enterProgrammerMode: function() {
+        if (!this._output) return;
+
+        this._output.sendSysex("F0 00 20 29 02 18 21 01 F7");
+        println("Launchpad entered programmer mode");
+    },
+
+    /**
+     * Exit programmer mode and return to Live mode
+     * SysEx: F0h 00h 20h 29h 02h 18h 21h 00h F7h
+     */
+    exitProgrammerMode: function() {
+        if (!this._output) return;
+
+        this._output.sendSysex("F0 00 20 29 02 18 21 00 F7");
+        println("Launchpad exited programmer mode");
+    },
+
+    /**
+     * Set multiple pads at once
+     * @param {Object} padColors - Object mapping pad numbers to colors
+     */
+    setPads: function(padColors) {
+        for (var pad in padColors) {
+            if (padColors.hasOwnProperty(pad)) {
+                this.setPadColor(parseInt(pad), padColors[pad]);
+            }
+        }
+    },
+
+    /**
+     * Flash a pad (for visual feedback)
+     * @param {number} padNumber - MIDI note number for pad
+     * @param {number} color - Color to flash
+     * @param {number} duration - Duration in milliseconds
+     */
+    flashPad: function(padNumber, color, duration) {
+        var self = this;
+        var originalColor = this.colors.off; // Store original state
+
+        // Set flash color
+        this.setPadColor(padNumber, color);
+
+        // Restore after duration
+        host.scheduleTask(function() {
+            self.clearPad(padNumber);
+        }, null, duration || 100);
     }
 };
+
+/**
+ * @typedef {Object} TwisterColor
+ * @property {number} idx - MIDI color index
+ * @property {number} r - Red component (0-255)
+ * @property {number} g - Green component (0-255)
+ * @property {number} b - Blue component (0-255)
+ */
 
 /**
  * MIDI Fighter Twister hardware abstraction
@@ -254,7 +379,172 @@ var Twister = {
     {idx: 33,  r: 200, g: 0,   b: 255},    // Purple-magenta
     {idx: 35,  r: 150, g: 0,   b: 255},    // Purple
     {idx: 37,  r: 100, g: 0,   b: 200}     // Dark purple
-    ]
+    ],
+
+    /**
+     * Internal reference to MIDI output
+     * @private
+     */
+    _output: null,
+
+    /**
+     * Initialize Twister hardware
+     * @param {Object} midiOutput - MIDI output port
+     */
+    init: function(midiOutput) {
+        this._output = midiOutput;
+        println("Twister initialized: " + (midiOutput ? "Connected" : "NULL"));
+    },
+
+    /**
+     * Convert encoder number (1-16) to CC number (0-15)
+     * @param {number} encoderNumber - Encoder number (1-16, bottom-left origin)
+     * @returns {number} CC number (0-15)
+     */
+    encoderToCC: function(encoderNumber) {
+        if (encoderNumber < 1 || encoderNumber > 16) {
+            println("Warning: Invalid encoder number " + encoderNumber + " (must be 1-16)");
+            return 0;
+        }
+        return encoderNumber - 1;
+    },
+
+    /**
+     * Set encoder LED ring value
+     * @param {number} encoderNumber - Encoder number (1-16)
+     * @param {number} value - LED ring value (0-127)
+     */
+    setEncoderLED: function(encoderNumber, value) {
+        if (!this._output) {
+            println("Warning: Twister not initialized");
+            return;
+        }
+
+        var cc = this.encoderToCC(encoderNumber);
+        // Send CC on channel 0 to update encoder LED ring
+        this._output.sendMidi(0xB0, cc, value);
+    },
+
+    /**
+     * Set encoder RGB color
+     * @param {number} encoderNumber - Encoder number (1-16)
+     * @param {number} red - Red component (0-255)
+     * @param {number} green - Green component (0-255)
+     * @param {number} blue - Blue component (0-255)
+     */
+    setEncoderColor: function(encoderNumber, red, green, blue) {
+        if (!this._output) {
+            println("Warning: Twister not initialized");
+            return;
+        }
+
+        var cc = this.encoderToCC(encoderNumber);
+        var colorIndex = this.findClosestColorIndex(red, green, blue);
+
+        // Send color index on channel 2 (RGB indicator channel)
+        this._output.sendMidi(0xB1, cc, colorIndex);
+    },
+
+    /**
+     * Clear encoder LED and color
+     * @param {number} encoderNumber - Encoder number (1-16)
+     */
+    clearEncoder: function(encoderNumber) {
+        this.setEncoderLED(encoderNumber, 0);
+        this.setEncoderColor(encoderNumber, 0, 0, 0);
+    },
+
+    /**
+     * Clear all encoders
+     */
+    clearAll: function() {
+        for (var i = 1; i <= 16; i++) {
+            this.clearEncoder(i);
+        }
+        println("All Twister encoders cleared");
+    },
+
+    /**
+     * Find closest color index in palette
+     * @param {number} r - Red (0-255)
+     * @param {number} g - Green (0-255)
+     * @param {number} b - Blue (0-255)
+     * @returns {number} Color index (0-127)
+     * @private
+     */
+    findClosestColorIndex: function(r, g, b) {
+        var hue = this._rgbToHue(r, g, b);
+        var max = Math.max(r, g, b);
+        var min = Math.min(r, g, b);
+        var saturation = (max === 0) ? 0 : (max - min) / max;
+
+        // Log color info for debugging
+        println("Color: RGB(" + r + ", " + g + ", " + b +
+                ") Hue: " + hue.toFixed(1) +
+                "° Sat: " + saturation.toFixed(2) +
+                " Bright: " + max);
+
+        // Special case: Grayscale colors (low saturation)
+        if (saturation < 0.15) {
+            println("  -> Grayscale detected");
+            return 0;
+        }
+
+        // Special case: Purple colors (hue 270-330°)
+        if (hue >= 270 && hue <= 330) {
+            println("  -> Purple detected, hue: " + hue.toFixed(1));
+            var purpleRange = hue - 270;  // 0-60
+            var colorIndex = Math.round(105 + (purpleRange * 15 / 60));
+            println("  -> Purple mapped to index: " + colorIndex);
+            return colorIndex;
+        }
+
+        // Map hue (0-360) to color index (0-127)
+        // MF Twister uses inverted hue + 240° rotation
+        var invertedHue = 360 - hue;
+        var adjustedHue = (invertedHue + 240) % 360;
+        var colorIndex = Math.round(adjustedHue * 127 / 360);
+
+        println("  -> Index: " + colorIndex);
+        return colorIndex;
+    },
+
+    /**
+     * Convert RGB to hue angle
+     * @param {number} r - Red (0-255)
+     * @param {number} g - Green (0-255)
+     * @param {number} b - Blue (0-255)
+     * @returns {number} Hue angle (0-360)
+     * @private
+     */
+    _rgbToHue: function(r, g, b) {
+        r = r / 255;
+        g = g / 255;
+        b = b / 255;
+
+        var max = Math.max(r, g, b);
+        var min = Math.min(r, g, b);
+        var delta = max - min;
+
+        if (delta === 0) {
+            return 0; // Gray/black/white - no hue
+        }
+
+        var hue;
+        if (max === r) {
+            hue = 60 * (((g - b) / delta) % 6);
+        } else if (max === g) {
+            hue = 60 * (((b - r) / delta) + 2);
+        } else {
+            hue = 60 * (((r - g) / delta) + 4);
+        }
+
+        if (hue < 0) {
+            hue += 360;
+        }
+
+        return hue;
+    }
 };
 
 /**
@@ -273,7 +563,172 @@ var Controller = {
         // Row 3
         41: "mode13", 42: "mode14", 43: "mode15", 44: "mode16"
     },
-    selectedPad: null
+
+    /**
+     * Currently selected pad/mode
+     * @private
+     */
+    selectedPad: null,
+
+    /**
+     * Initialize controller
+     */
+    init: function() {
+        // Auto-select "volume" mode on startup
+        this.selectPad(11);
+        println("Controller initialized - Volume mode selected");
+    },
+
+    /**
+     * Select a mode pad
+     * @param {number} note - MIDI note number for the pad
+     */
+    selectPad: function(note) {
+        // Check if this pad is in our config
+        if (!this.padConfig[note]) {
+            return;
+        }
+
+        // Clear encoder LEDs when switching modes
+        Twister.clearAll();
+
+        // Turn off previously selected pad
+        if (this.selectedPad !== null) {
+            Launchpad.clearPad(this.selectedPad);
+        }
+
+        // Light up new pad
+        Launchpad.setPadColor(note, 'green');
+
+        // Update state
+        this.selectedPad = note;
+
+        // Sync encoder LEDs to track volumes for new mode
+        this.syncAllEncoders();
+    },
+
+    /**
+     * Find track by CC marker in name
+     * @param {number} ccNumber - CC number (0-15)
+     * @returns {Object|null} Track object or null
+     */
+    findTrackByCC: function(ccNumber) {
+        // Search for track with "(CC#)" in the name
+        var searchString = "(" + ccNumber + ")";
+        return Bitwig.findTrackByName(function(name) {
+            return name.indexOf(searchString) !== -1;
+        });
+    },
+
+    /**
+     * Find track by encoder number marker in name
+     * @param {number} encoderNumber - Encoder number (1-16)
+     * @returns {Object|null} Track object or null
+     */
+    findTrackByEncoder: function(encoderNumber) {
+        // Convert 1-based encoder to 0-based CC
+        return this.findTrackByCC(encoderNumber - 1);
+    },
+
+    /**
+     * Sync encoder to its mapped track
+     * @param {number} encoderNumber - Encoder number (1-16)
+     */
+    syncEncoderToTrack: function(encoderNumber) {
+        var track = this.findTrackByEncoder(encoderNumber);
+
+        if (track) {
+            // Sync volume value
+            var volumeValue = track.volume().get();
+            var midiValue = Math.round(volumeValue * 127);
+            Twister.setEncoderLED(encoderNumber, midiValue);
+
+            // Sync track color
+            var color = track.color();
+            var red = Math.round(color.red() * 255);
+            var green = Math.round(color.green() * 255);
+            var blue = Math.round(color.blue() * 255);
+            Twister.setEncoderColor(encoderNumber, red, green, blue);
+        } else {
+            // No track mapped - turn off encoder
+            Twister.clearEncoder(encoderNumber);
+        }
+    },
+
+    /**
+     * Sync all encoders to their mapped tracks
+     */
+    syncAllEncoders: function() {
+        println("Syncing all encoder LEDs...");
+        for (var i = 1; i <= 16; i++) {
+            this.syncEncoderToTrack(i);
+        }
+    },
+
+    /**
+     * Handle Launchpad MIDI input
+     * @param {number} status - MIDI status byte
+     * @param {number} data1 - MIDI data1 byte
+     * @param {number} data2 - MIDI data2 byte
+     */
+    onLaunchpadMidi: function(status, data1, data2) {
+        // Handle pad press (note on with velocity > 0)
+        if (status === 0x90 && data2 > 0) {
+            this.selectPad(data1);
+        }
+    },
+
+    /**
+     * Handle Twister MIDI input
+     * @param {number} status - MIDI status byte
+     * @param {number} data1 - MIDI data1 byte (CC number)
+     * @param {number} data2 - MIDI data2 byte (value)
+     */
+    onTwisterMidi: function(status, data1, data2) {
+        // Only respond when volume mode is selected
+        if (this.selectedPad !== 11) {
+            return;
+        }
+
+        // Handle encoder turn (CC on channel 0, status 0xB0)
+        if (status === 0xB0) {
+            println("Twister Encoder: " + data1 + " value: " + data2);
+
+            // Find track with "(CC#)" in the name
+            var track = this.findTrackByCC(data1);
+
+            if (track) {
+                var normalizedValue = data2 / 127.0;
+                track.volume().set(normalizedValue);
+                println("Volume set to: " + normalizedValue.toFixed(2));
+            } else {
+                println("No track found with (" + data1 + ") in name");
+            }
+        }
+
+        // Handle button press (CC on channel 1, status 0xB1)
+        if (status === 0xB1) {
+            println("Twister Button: " + data1 + " value: " + data2);
+            var track = this.findTrackByCC(data1);
+            if (track) {
+                if (data2 > 0) {
+                    track.solo().set(true);
+                } else {
+                    track.solo().set(false);
+                }
+            }
+        }
+    },
+
+    /**
+     * Clean up on exit
+     */
+    exit: function() {
+        // Clear hardware
+        Twister.clearAll();
+        Launchpad.clearAll();
+        Launchpad.exitProgrammerMode();
+    }
 };
 
 // ============================================================================
@@ -414,19 +869,24 @@ function init() {
 
     // Launchpad on port 0
     launchpadOut = host.getMidiOutPort(0);
-    println("Launchpad MIDI Output: " + (launchpadOut ? "Connected" : "NULL"));
+    Launchpad.init(launchpadOut);
 
     noteIn = host.getMidiInPort(0).createNoteInput("Launchpad", "??????");
     noteIn.setShouldConsumeEvents(false);
 
-    host.getMidiInPort(0).setMidiCallback(onLaunchpadMidi);
+    host.getMidiInPort(0).setMidiCallback(function(status, data1, data2) {
+        printMidi(status, data1, data2);
+        Controller.onLaunchpadMidi(status, data1, data2);
+    });
     host.getMidiInPort(0).setSysexCallback(onSysex);
 
     // MIDI Fighter Twister on port 1
     twisterOut = host.getMidiOutPort(1);
-    println("Twister MIDI Output: " + (twisterOut ? "Connected" : "NULL"));
+    Twister.init(twisterOut);
 
-    host.getMidiInPort(1).setMidiCallback(onTwisterMidi);
+    host.getMidiInPort(1).setMidiCallback(function(status, data1, data2) {
+        Controller.onTwisterMidi(status, data1, data2);
+    });
 
     // Create main track bank to access all tracks (flat list including nested tracks)
     trackBank = host.createMainTrackBank(64, 0, 0);
@@ -449,11 +909,11 @@ function init() {
                 // When volume changes, find which encoder(s) map to this track and update them
                 var trackName = trackBank.getItemAt(trackIndex).name().get();
 
-                // Check each CC 0-15 to see if this track is mapped to it
-                for (var cc = 0; cc < 16; cc++) {
-                    var searchString = "(" + cc + ")";
+                // Check each encoder 1-16 to see if this track is mapped to it
+                for (var encoder = 1; encoder <= 16; encoder++) {
+                    var searchString = "(" + (encoder - 1) + ")";
                     if (trackName.indexOf(searchString) !== -1) {
-                        updateEncoderLED(cc, value);
+                        Twister.setEncoderLED(encoder, value);
                     }
                 }
             });
@@ -466,11 +926,11 @@ function init() {
                 var greenMidi = Math.round(green * 255);
                 var blueMidi = Math.round(blue * 255);
 
-                // Check each CC 0-15 to see if this track is mapped to it
-                for (var cc = 0; cc < 16; cc++) {
-                    var searchString = "(" + cc + ")";
+                // Check each encoder 1-16 to see if this track is mapped to it
+                for (var encoder = 1; encoder <= 16; encoder++) {
+                    var searchString = "(" + (encoder - 1) + ")";
                     if (trackName.indexOf(searchString) !== -1) {
-                        updateEncoderColor(cc, redMidi, greenMidi, blueMidi);
+                        Twister.setEncoderColor(encoder, redMidi, greenMidi, blueMidi);
                     }
                 }
             });
@@ -478,12 +938,10 @@ function init() {
     }
 
     // Enter Programmer Mode on Launchpad MK2
-    // SysEx: F0h 00h 20h 29h 02h 18h 21h 01h F7h
-    launchpadOut.sendSysex("F0 00 20 29 02 18 21 01 F7");
+    Launchpad.enterProgrammerMode();
 
-    // Auto-select "volume" mode on startup
-    selectPad(11);
-    println("Volume mode selected on startup");
+    // Initialize controller logic
+    Controller.init();
 
     // Build and print track tree for debugging (delayed to allow track bank to populate)
     host.scheduleTask(function() {
@@ -495,208 +953,6 @@ function init() {
     }, null, 100);  // Wait 100ms for track bank to populate
 }
 
-// Encoder LED feedback functions
-function updateEncoderLED(ccNumber, value) {
-    // Send CC on channel 0 to update encoder LED ring
-    twisterOut.sendMidi(0xB0, ccNumber, value);
-}
-
-function rgbToHue(r, g, b) {
-    // Convert RGB (0-255) to HSV hue (0-360)
-    r = r / 255;
-    g = g / 255;
-    b = b / 255;
-
-    var max = Math.max(r, g, b);
-    var min = Math.min(r, g, b);
-    var delta = max - min;
-
-    if (delta === 0) {
-        return 0; // Gray/black/white - no hue
-    }
-
-    var hue;
-    if (max === r) {
-        hue = 60 * (((g - b) / delta) % 6);
-    } else if (max === g) {
-        hue = 60 * (((b - r) / delta) + 2);
-    } else {
-        hue = 60 * (((r - g) / delta) + 4);
-    }
-
-    if (hue < 0) {
-        hue += 360;
-    }
-
-    return hue;
-}
-
-function findClosestColorIndex(r, g, b) {
-    // Convert RGB to hue and map to MF Twister color index (0-127)
-    var max = Math.max(r, g, b);
-    var min = Math.min(r, g, b);
-    var saturation = (max === 0) ? 0 : (max - min) / max;
-    var hue = rgbToHue(r, g, b);
-
-    // Log color info for debugging
-    println("Color: RGB(" + r + ", " + g + ", " + b +
-            ") Hue: " + hue.toFixed(1) +
-            "° Sat: " + saturation.toFixed(2) +
-            " Bright: " + max);
-
-    // Special case: Grayscale colors (low saturation)
-    if (saturation < 0.15) {
-        println("  -> Grayscale detected");
-        // TODO: Find correct grayscale index
-        return 0;
-    }
-
-    // Special case: Purple colors (hue 270-330°)
-    // Purple seems to be in a different range - try mapping to higher indices for darker purples
-    if (hue >= 270 && hue <= 330) {
-        println("  -> Purple detected, hue: " + hue.toFixed(1));
-        // Map purple (270-330°) to indices around 105-120 for darker purples
-        var purpleRange = hue - 270;  // 0-60
-        var colorIndex = Math.round(105 + (purpleRange * 15 / 60));
-        println("  -> Purple mapped to index: " + colorIndex);
-        return colorIndex;
-    }
-
-    // Map hue (0-360) to color index (0-127)
-    // MF Twister uses inverted hue + 240° rotation
-    var invertedHue = 360 - hue;
-    var adjustedHue = (invertedHue + 240) % 360;
-    var colorIndex = Math.round(adjustedHue * 127 / 360);
-
-    println("  -> Index: " + colorIndex);
-
-    return colorIndex;
-}
-
-function updateEncoderColor(ccNumber, red, green, blue) {
-    // Find closest color index in MF Twister palette
-    var colorIndex = findClosestColorIndex(red, green, blue);
-
-    // Send color index on channel 2 (RGB indicator channel)
-    twisterOut.sendMidi(0xB1, ccNumber, colorIndex);
-}
-
-function clearEncoderLEDs() {
-    // Turn off all encoder LEDs and colors
-    for (var i = 0; i < 16; i++) {
-        updateEncoderLED(i, 0);
-        updateEncoderColor(i, 0, 0, 0); // Clear color (black)
-    }
-    println("Encoder LEDs and colors cleared");
-}
-
-function syncEncoderToTrack(ccNumber) {
-    // Find track with (CC#) in name and sync encoder LED value and color
-    var track = findTrackByCC(ccNumber);
-
-    if (track) {
-        // Sync volume value
-        var volumeValue = track.volume().get();
-        var midiValue = Math.round(volumeValue * 127);
-        updateEncoderLED(ccNumber, midiValue);
-
-        // Sync track color
-        var color = track.color();
-        var red = Math.round(color.red() * 255);
-        var green = Math.round(color.green() * 255);
-        var blue = Math.round(color.blue() * 255);
-        updateEncoderColor(ccNumber, red, green, blue);
-    } else {
-        // No track mapped - turn off encoder LED and color
-        updateEncoderLED(ccNumber, 0);
-        updateEncoderColor(ccNumber, 0, 0, 0);
-    }
-}
-
-function syncAllEncoders() {
-    // Sync all 16 encoders to their mapped tracks
-    println("Syncing all encoder LEDs...");
-    for (var i = 0; i < 16; i++) {
-        syncEncoderToTrack(i);
-    }
-}
-
-function selectPad(note) {
-    // Check if this pad is in our config
-    if (!Controller.padConfig[note]) {
-        return;
-    }
-
-    // Clear encoder LEDs when switching modes
-    clearEncoderLEDs();
-
-    // Turn off previously selected pad
-    if (Controller.selectedPad !== null) {
-        launchpadOut.sendMidi(0x90, Controller.selectedPad, Launchpad.colors.off);
-    }
-
-    // Light up new pad
-    launchpadOut.sendMidi(0x90, note, Launchpad.colors.green);
-
-    // Update state
-    Controller.selectedPad = note;
-
-    // Sync encoder LEDs to track volumes for new mode
-    syncAllEncoders();
-}
-
-function onLaunchpadMidi(status, data1, data2) {
-    printMidi(status, data1, data2);
-
-    // Handle pad press (note on with velocity > 0)
-    if (status === 0x90 && data2 > 0) {
-        selectPad(data1);
-    }
-}
-
-function findTrackByCC(ccNumber) {
-    // Search through all tracks to find one with "(CC#)" in the name
-    var searchString = "(" + ccNumber + ")";
-    return Bitwig.findTrackByName(function(name) {
-        return name.indexOf(searchString) !== -1;
-    });
-}
-
-function onTwisterMidi(status, data1, data2) {
-    // Only respond when pad1 is selected
-    if (Controller.selectedPad !== 11) {
-        return;
-    }
-
-    // Handle encoder turn (CC on channel 0, status 0xB0)
-    if (status === 0xB0) {
-        println("Twister Encoder: " + data1 + " value: " + data2);
-
-        // Find track with "(CC#)" in the name
-        var track = findTrackByCC(data1);
-
-        if (track) {
-            var normalizedValue = data2 / 127.0;
-            track.volume().set(normalizedValue);
-            println("Volume set to: " + normalizedValue.toFixed(2));
-        } else {
-            println("No track found with (" + data1 + ") in name");
-        }
-    }
-
-    // Handle button press (CC on channel 1, status 0xB1)
-    if (status === 0xB1) {
-        println("Twister Button: " + data1 + " value: " + data2);
-        var track = findTrackByCC(data1);
-        if (track) {
-            if (data2 > 0) {
-                track.solo().set(true);
-            } else {
-                track.solo().set(false);
-            }
-        }
-    }
-}
 
 function onSysex(data) {
     printSysex(data);
@@ -706,15 +962,5 @@ function flush() {
 }
 
 function exit() {
-    // Turn off all encoder LEDs
-    clearEncoderLEDs();
-
-    // Turn off all pads
-    for (var i = 0; i < 128; i++) {
-        launchpadOut.sendMidi(0x90, i, 0);
-    }
-
-    // Return to Live mode on Launchpad MK2
-    // SysEx: F0h 00h 20h 29h 02h 18h 21h 00h F7h
-    launchpadOut.sendSysex("F0 00 20 29 02 18 21 00 F7");
+    Controller.exit();
 }
