@@ -61,6 +61,125 @@ var selectedPad = null;
 
 // Bitwig API objects
 var trackBank;
+var trackDepths = []; // Store track depths detected during init
+
+function calculateTrackDepths() {
+    // Calculate depths based on naming convention:
+    // - "top xxx" groups are depth 0
+    // - Tracks after "top" group are depth 1
+    // - Tracks after a depth-1 group are depth 2
+
+    var currentTopGroup = -1;  // Index of current top-level group
+    var currentChildGroup = -1;  // Index of current child group
+
+    for (var i = 0; i < 64; i++) {
+        var track = trackBank.getItemAt(i);
+        if (!track.exists().get()) {
+            trackDepths[i] = 0;
+            continue;
+        }
+
+        var trackName = track.name().get();
+        var isGroup = track.isGroup().get();
+
+        // Check if this is a top-level group
+        if (trackName && trackName.toLowerCase().indexOf("top ") === 0) {
+            trackDepths[i] = 0;
+            currentTopGroup = i;
+            currentChildGroup = -1;  // Reset child group
+            println("[" + i + "] '" + trackName + "' -> depth 0 (top group)");
+        }
+        // Check if this is a child group (depth 1 group)
+        else if (isGroup && currentTopGroup >= 0) {
+            trackDepths[i] = 1;
+            currentChildGroup = i;
+            println("[" + i + "] '" + trackName + "' -> depth 1 (child group)");
+        }
+        // Regular track - determine depth based on parent groups
+        else {
+            if (currentChildGroup >= 0) {
+                // We're inside a child group
+                trackDepths[i] = 2;
+                println("[" + i + "] '" + trackName + "' -> depth 2 (inside child group)");
+            } else if (currentTopGroup >= 0) {
+                // We're inside a top group but not a child group
+                trackDepths[i] = 1;
+                println("[" + i + "] '" + trackName + "' -> depth 1 (inside top group)");
+            } else {
+                // No parent group
+                trackDepths[i] = 0;
+                println("[" + i + "] '" + trackName + "' -> depth 0 (no parent)");
+            }
+        }
+    }
+}
+
+function buildTrackTree() {
+    // Build hierarchical tree from trackBank using pre-calculated depths
+    var tree = [];
+    var parentStack = [{ children: tree }]; // Stack to track parents at each level
+
+    for (var i = 0; i < 64; i++) {
+        var track = trackBank.getItemAt(i);
+
+        if (!track.exists().get()) {
+            continue;
+        }
+
+        var trackInfo = {
+            index: i,
+            name: track.name().get(),
+            isGroup: track.isGroup().get(),
+            depth: trackDepths[i] || 0,
+            children: []
+        };
+
+        // Truncate parent stack to current depth
+        parentStack.length = trackInfo.depth + 1;
+
+        // Get parent (at depth level)
+        var parent = parentStack[trackInfo.depth] || parentStack[0];
+
+        // Add to parent's children
+        parent.children.push(trackInfo);
+
+        // Update stack for this depth level
+        parentStack[trackInfo.depth + 1] = trackInfo;
+    }
+
+    return tree;
+}
+
+function printTrack(track, indent) {
+    // Print track with indentation
+    var indentStr = "";
+    for (var i = 0; i < indent; i++) {
+        indentStr += "  ";
+    }
+
+    var line = indentStr + "[" + track.index + "] " + track.name;
+    if (track.isGroup) {
+        line += " (GROUP)";
+    }
+    line += " - depth = " + track.depth;
+
+    println(line);
+
+    // Recursively print children
+    for (var j = 0; j < track.children.length; j++) {
+        printTrack(track.children[j], indent + 1);
+    }
+}
+
+function printTrackTree(tree) {
+    println("=== TRACK TREE ===");
+
+    for (var i = 0; i < tree.length; i++) {
+        printTrack(tree[i], 0);
+    }
+
+    println("=== END TREE ===");
+}
 
 function init() {
     transport = host.createTransport();
@@ -81,14 +200,17 @@ function init() {
 
     host.getMidiInPort(1).setMidiCallback(onTwisterMidi);
 
-    // Create track bank to access all tracks
-    trackBank = host.createTrackBank(64, 0, 0);
+    // Create main track bank to access all tracks (flat list including nested tracks)
+    trackBank = host.createMainTrackBank(64, 0, 0);
 
-    // Subscribe to all track names, solo states, volumes, and colors
+    // Subscribe to all track properties
     for (var i = 0; i < 64; i++) {
-        trackBank.getItemAt(i).name().markInterested();
-        trackBank.getItemAt(i).solo().markInterested();
-        trackBank.getItemAt(i).color().markInterested();
+        var track = trackBank.getItemAt(i);
+        track.exists().markInterested();
+        track.name().markInterested();
+        track.isGroup().markInterested();
+        track.solo().markInterested();
+        track.color().markInterested();
 
         // Add volume observer to update encoder LEDs in real-time
         (function(trackIndex) {
@@ -131,6 +253,15 @@ function init() {
     // Auto-select "volume" mode on startup
     selectPad(11);
     println("Volume mode selected on startup");
+
+    // Build and print track tree for debugging (delayed to allow track bank to populate)
+    host.scheduleTask(function() {
+        println("=== Calculating track depths ===");
+        calculateTrackDepths();
+        println("=== Building track tree ===");
+        var tree = buildTrackTree();
+        printTrackTree(tree);
+    }, null, 100);  // Wait 100ms for track bank to populate
 }
 
 // Encoder LED feedback functions
