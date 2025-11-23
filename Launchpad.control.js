@@ -797,41 +797,6 @@ function calculateTrackDepths() {
     Bitwig.setTrackDepths(depths);
 }
 
-function buildTrackTree() {
-    // Build hierarchical tree from trackBank using pre-calculated depths
-    var tree = [];
-    var parentStack = [{ children: tree }]; // Stack to track parents at each level
-
-    for (var i = 0; i < 64; i++) {
-        var track = trackBank.getItemAt(i);
-
-        if (!track.exists().get()) {
-            continue;
-        }
-
-        var trackInfo = {
-            index: i,
-            name: track.name().get(),
-            isGroup: track.isGroup().get(),
-            depth: trackDepths[i] || 0,
-            children: []
-        };
-
-        // Truncate parent stack to current depth
-        parentStack.length = trackInfo.depth + 1;
-
-        // Get parent (at depth level)
-        var parent = parentStack[trackInfo.depth] || parentStack[0];
-
-        // Add to parent's children
-        parent.children.push(trackInfo);
-
-        // Update stack for this depth level
-        parentStack[trackInfo.depth + 1] = trackInfo;
-    }
-
-    return tree;
-}
 
 function printTrack(track, indent) {
     // Print track with indentation
@@ -840,7 +805,7 @@ function printTrack(track, indent) {
         indentStr += "  ";
     }
 
-    var line = indentStr + "[" + track.index + "] " + track.name;
+    var line = indentStr + "[" + track.id + "] " + track.name;
     if (track.isGroup) {
         line += " (GROUP)";
     }
