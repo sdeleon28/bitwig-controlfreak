@@ -206,6 +206,55 @@ var Bitwig = {
      */
     clearCache: function() {
         this._trackTree = null;
+    },
+
+    /**
+     * Get child tracks of a group
+     * @param {number} groupTrackId - Group track ID
+     * @returns {number[]} Array of child track IDs
+     */
+    getGroupChildren: function(groupTrackId) {
+        var children = this.getTrackChildren(groupTrackId);
+        return children.map(function(child) { return child.id; });
+    },
+
+    /**
+     * Find group track by group number (any depth)
+     * @param {number} groupNumber - Group number (1-16)
+     * @returns {number|null} Track ID or null
+     */
+    findGroupByNumber: function(groupNumber) {
+        var searchString = "(" + groupNumber + ")";
+
+        for (var i = 0; i < 64; i++) {
+            var track = this.getTrack(i);
+
+            // Find ANY group (any depth) with this number
+            if (track && track.isGroup().get()) {
+                var name = track.name().get();
+                if (name.indexOf(searchString) !== -1) {
+                    return i;
+                }
+            }
+        }
+        return null;
+    },
+
+    /**
+     * Get all top-level tracks (depth 0)
+     * @returns {number[]} Array of top-level track IDs
+     */
+    getTopLevelTracks: function() {
+        var topLevel = [];
+        for (var i = 0; i < 64; i++) {
+            if (this._trackDepths[i] === 0) {
+                var track = this.getTrack(i);
+                if (track) {
+                    topLevel.push(i);
+                }
+            }
+        }
+        return topLevel;
     }
 };
 
@@ -345,6 +394,70 @@ var Launchpad = {
         host.scheduleTask(function() {
             self.clearPad(padNumber);
         }, null, duration || 100);
+    }
+};
+
+/**
+ * Launchpad quadrant configuration
+ * @namespace
+ */
+var LaunchpadQuadrant = {
+    /**
+     * Bottom-right 4x4 quadrant for group selection
+     */
+    bottomRight: {
+        /**
+         * Pad note numbers (bottom-left to top-right, groups 1-16)
+         */
+        pads: [
+            15, 16, 17, 18,  // Row 0 (bottom): groups 1-4
+            25, 26, 27, 28,  // Row 1: groups 5-8
+            35, 36, 37, 38,  // Row 2: groups 9-12
+            45, 46, 47, 48   // Row 3 (top): groups 13-16
+        ],
+
+        /**
+         * Map pad note number → group number (1-16)
+         * @private
+         */
+        _padToGroup: null,
+
+        /**
+         * Initialize the quadrant
+         */
+        init: function() {
+            // Build pad to group mapping
+            this._padToGroup = {};
+            for (var i = 0; i < this.pads.length; i++) {
+                this._padToGroup[this.pads[i]] = i + 1;
+            }
+        },
+
+        /**
+         * Get group number for a pad
+         * @param {number} padNote - MIDI note number
+         * @returns {number|null} Group number (1-16) or null
+         */
+        getGroup: function(padNote) {
+            return this._padToGroup[padNote] || null;
+        },
+
+        /**
+         * Highlight a group on the Launchpad
+         * @param {number} groupNumber - Group number (1-16)
+         */
+        highlightGroup: function(groupNumber) {
+            // Clear all group selector pads
+            for (var i = 0; i < this.pads.length; i++) {
+                Launchpad.clearPad(this.pads[i]);
+            }
+
+            // Highlight selected group
+            if (groupNumber >= 1 && groupNumber <= 16) {
+                var padNote = this.pads[groupNumber - 1];
+                Launchpad.setPadColor(padNote, 'green');
+            }
+        }
     }
 };
 
@@ -504,13 +617,22 @@ var Twister = {
     },
 
     /**
-     * Clear all encoders
+     * Clear all encoders (visual only)
      */
     clearAll: function() {
         for (var i = 1; i <= 16; i++) {
             this.clearEncoder(i);
         }
         if (debug) println("All Twister encoders cleared");
+    },
+
+    /**
+     * Unlink all encoders from their tracks
+     */
+    unlinkAll: function() {
+        for (var i = 1; i <= 16; i++) {
+            this.unlinkEncoder(i);
+        }
     },
 
     /**
@@ -721,12 +843,90 @@ var Controller = {
     selectedPad: null,
 
     /**
+     * Currently selected group (1-16, where 16 = top-level)
+     * @private
+     */
+    selectedGroup: null,
+
+    /**
      * Initialize controller
      */
     init: function() {
         // Auto-select "volume" mode on startup
         this.selectPad(11);
         if (debug) println("Controller initialized - Volume mode selected");
+
+        // Auto-select group 16 (top-level tracks)
+        this.selectGroup(16);
+    },
+
+    /**
+     * Select a group and link encoders to its children
+     * @param {number} groupNumber - Group number (1-16, where 16 = top-level)
+     */
+    selectGroup: function(groupNumber) {
+        // Validate group number
+        if (groupNumber < 1 || groupNumber > 16) {
+            return;
+        }
+
+        // Clear all encoder links
+        Twister.unlinkAll();
+
+        if (groupNumber === 16) {
+            // Top-level: link encoders to depth-0 tracks directly
+            var topTracks = Bitwig.getTopLevelTracks();
+
+            for (var i = 0; i < topTracks.length; i++) {
+                var trackId = topTracks[i];
+                var track = Bitwig.getTrack(trackId);
+
+                if (track) {
+                    var name = track.name().get();
+
+                    // Parse for (x) notation
+                    var match = name.match(/\((\d+)\)/);
+                    if (match) {
+                        var encoderNum = parseInt(match[1]);
+                        if (encoderNum >= 1 && encoderNum <= 16) {
+                            Twister.linkEncoderToTrack(encoderNum, trackId);
+                        }
+                    }
+                }
+            }
+        } else {
+            // Find depth-1 group
+            var groupTrackId = Bitwig.findGroupByNumber(groupNumber);
+
+            if (groupTrackId !== null) {
+                // Get children of this depth-1 group
+                var children = Bitwig.getGroupChildren(groupTrackId);
+
+                for (var i = 0; i < children.length; i++) {
+                    var trackId = children[i];
+                    var track = Bitwig.getTrack(trackId);
+
+                    if (track) {
+                        var name = track.name().get();
+
+                        // Parse for (x) notation
+                        var match = name.match(/\((\d+)\)/);
+                        if (match) {
+                            var encoderNum = parseInt(match[1]);
+                            if (encoderNum >= 1 && encoderNum <= 16) {
+                                Twister.linkEncoderToTrack(encoderNum, trackId);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update selected group
+        this.selectedGroup = groupNumber;
+
+        // Update Launchpad display
+        LaunchpadQuadrant.bottomRight.highlightGroup(groupNumber);
     },
 
     /**
@@ -752,9 +952,6 @@ var Controller = {
 
         // Update state
         this.selectedPad = note;
-
-        // Sync encoder LEDs to track volumes for new mode
-        this.syncAllEncoders();
     },
 
 
@@ -764,6 +961,30 @@ var Controller = {
      * @param {string} newName - New track name
      */
     handleTrackNameChange: function(trackId, newName) {
+        // Only handle tracks within the currently selected group
+        if (!this.selectedGroup) {
+            return;
+        }
+
+        // Check if this track is in the selected group
+        var isInGroup = false;
+
+        if (this.selectedGroup === 16) {
+            // Check if track is top-level
+            isInGroup = Bitwig._trackDepths[trackId] === 0;
+        } else {
+            // Check if track is a child of the selected group
+            var groupTrackId = Bitwig.findGroupByNumber(this.selectedGroup);
+            if (groupTrackId !== null) {
+                var children = Bitwig.getGroupChildren(groupTrackId);
+                isInGroup = children.indexOf(trackId) !== -1;
+            }
+        }
+
+        if (!isInGroup) {
+            return; // Track not in selected group
+        }
+
         // Parse the new name for encoder numbers
         var encoderMatch = newName.match(/\((\d+)\)/);
 
@@ -841,7 +1062,14 @@ var Controller = {
     onLaunchpadMidi: function(status, data1, data2) {
         // Handle pad press (note on with velocity > 0)
         if (status === 0x90 && data2 > 0) {
-            this.selectPad(data1);
+            // Check if it's a group selector pad
+            var groupNum = LaunchpadQuadrant.bottomRight.getGroup(data1);
+            if (groupNum) {
+                this.selectGroup(groupNum);
+            } else {
+                // Handle mode selector pads
+                this.selectPad(data1);
+            }
         }
     },
 
@@ -1055,6 +1283,9 @@ function init() {
 
     // Enter Programmer Mode on Launchpad MK2
     Launchpad.enterProgrammerMode();
+
+    // Initialize LaunchpadQuadrant
+    LaunchpadQuadrant.bottomRight.init();
 
     // Initialize controller logic
     Controller.init();
