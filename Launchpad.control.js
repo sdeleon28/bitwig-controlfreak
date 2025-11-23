@@ -3,6 +3,9 @@ loadAPI(17);
 host.defineController("Generic", "Launchpad + Twister", "1.0", "3ffac818-54ac-45e0-928a-d01628afceac", "xan_t");
 host.defineMidiPorts(2, 2);
 
+// Debug flag - set to true to enable verbose logging
+var debug = false;
+
 // ============================================================================
 // Namespace Structure
 // ============================================================================
@@ -244,7 +247,7 @@ var Launchpad = {
      */
     init: function(midiOutput) {
         this._output = midiOutput;
-        println("Launchpad initialized: " + (midiOutput ? "Connected" : "NULL"));
+        if (debug) println("Launchpad initialized: " + (midiOutput ? "Connected" : "NULL"));
     },
 
     /**
@@ -254,7 +257,7 @@ var Launchpad = {
      */
     setPadColor: function(padNumber, color) {
         if (!this._output) {
-            println("Warning: Launchpad not initialized");
+            if (debug) println("Warning: Launchpad not initialized");
             return;
         }
 
@@ -264,7 +267,7 @@ var Launchpad = {
         if (typeof color === 'string') {
             colorValue = this.colors[color];
             if (colorValue === undefined) {
-                println("Warning: Unknown color '" + color + "'");
+                if (debug) println("Warning: Unknown color '" + color + "'");
                 return;
             }
         }
@@ -299,7 +302,7 @@ var Launchpad = {
         if (!this._output) return;
 
         this._output.sendSysex("F0 00 20 29 02 18 21 01 F7");
-        println("Launchpad entered programmer mode");
+        if (debug) println("Launchpad entered programmer mode");
     },
 
     /**
@@ -310,7 +313,7 @@ var Launchpad = {
         if (!this._output) return;
 
         this._output.sendSysex("F0 00 20 29 02 18 21 00 F7");
-        println("Launchpad exited programmer mode");
+        if (debug) println("Launchpad exited programmer mode");
     },
 
     /**
@@ -393,7 +396,7 @@ var Twister = {
      */
     init: function(midiOutput) {
         this._output = midiOutput;
-        println("Twister initialized: " + (midiOutput ? "Connected" : "NULL"));
+        if (debug) println("Twister initialized: " + (midiOutput ? "Connected" : "NULL"));
     },
 
     /**
@@ -403,7 +406,7 @@ var Twister = {
      */
     encoderToCC: function(encoderNumber) {
         if (encoderNumber < 1 || encoderNumber > 16) {
-            println("Warning: Invalid encoder number " + encoderNumber + " (must be 1-16)");
+            if (debug) println("Warning: Invalid encoder number " + encoderNumber + " (must be 1-16)");
             return 0;
         }
         return encoderNumber - 1;
@@ -416,7 +419,7 @@ var Twister = {
      */
     setEncoderLED: function(encoderNumber, value) {
         if (!this._output) {
-            println("Warning: Twister not initialized");
+            if (debug) println("Warning: Twister not initialized");
             return;
         }
 
@@ -434,7 +437,7 @@ var Twister = {
      */
     setEncoderColor: function(encoderNumber, red, green, blue) {
         if (!this._output) {
-            println("Warning: Twister not initialized");
+            if (debug) println("Warning: Twister not initialized");
             return;
         }
 
@@ -461,7 +464,7 @@ var Twister = {
         for (var i = 1; i <= 16; i++) {
             this.clearEncoder(i);
         }
-        println("All Twister encoders cleared");
+        if (debug) println("All Twister encoders cleared");
     },
 
     /**
@@ -479,23 +482,25 @@ var Twister = {
         var saturation = (max === 0) ? 0 : (max - min) / max;
 
         // Log color info for debugging
-        println("Color: RGB(" + r + ", " + g + ", " + b +
-                ") Hue: " + hue.toFixed(1) +
-                "° Sat: " + saturation.toFixed(2) +
-                " Bright: " + max);
+        if (debug) {
+            println("Color: RGB(" + r + ", " + g + ", " + b +
+                    ") Hue: " + hue.toFixed(1) +
+                    "° Sat: " + saturation.toFixed(2) +
+                    " Bright: " + max);
+        }
 
         // Special case: Grayscale colors (low saturation)
         if (saturation < 0.15) {
-            println("  -> Grayscale detected");
+            if (debug) println("  -> Grayscale detected");
             return 0;
         }
 
         // Special case: Purple colors (hue 270-330°)
         if (hue >= 270 && hue <= 330) {
-            println("  -> Purple detected, hue: " + hue.toFixed(1));
+            if (debug) println("  -> Purple detected, hue: " + hue.toFixed(1));
             var purpleRange = hue - 270;  // 0-60
             var colorIndex = Math.round(105 + (purpleRange * 15 / 60));
-            println("  -> Purple mapped to index: " + colorIndex);
+            if (debug) println("  -> Purple mapped to index: " + colorIndex);
             return colorIndex;
         }
 
@@ -505,7 +510,7 @@ var Twister = {
         var adjustedHue = (invertedHue + 240) % 360;
         var colorIndex = Math.round(adjustedHue * 127 / 360);
 
-        println("  -> Index: " + colorIndex);
+        if (debug) println("  -> Index: " + colorIndex);
         return colorIndex;
     },
 
@@ -576,7 +581,7 @@ var Controller = {
     init: function() {
         // Auto-select "volume" mode on startup
         this.selectPad(11);
-        println("Controller initialized - Volume mode selected");
+        if (debug) println("Controller initialized - Volume mode selected");
     },
 
     /**
@@ -659,7 +664,7 @@ var Controller = {
      * Sync all encoders to their mapped tracks
      */
     syncAllEncoders: function() {
-        println("Syncing all encoder LEDs...");
+        if (debug) println("Syncing all encoder LEDs...");
         for (var i = 1; i <= 16; i++) {
             this.syncEncoderToTrack(i);
         }
@@ -692,7 +697,7 @@ var Controller = {
 
         // Handle encoder turn (CC on channel 0, status 0xB0)
         if (status === 0xB0) {
-            println("Twister Encoder: " + data1 + " value: " + data2);
+            if (debug) println("Twister Encoder: " + data1 + " value: " + data2);
 
             // Find track with "(CC#)" in the name
             var track = this.findTrackByCC(data1);
@@ -700,15 +705,15 @@ var Controller = {
             if (track) {
                 var normalizedValue = data2 / 127.0;
                 track.volume().set(normalizedValue);
-                println("Volume set to: " + normalizedValue.toFixed(2));
+                if (debug) println("Volume set to: " + normalizedValue.toFixed(2));
             } else {
-                println("No track found with (" + data1 + ") in name");
+                if (debug) println("No track found with (" + data1 + ") in name");
             }
         }
 
         // Handle button press (CC on channel 1, status 0xB1)
         if (status === 0xB1) {
-            println("Twister Button: " + data1 + " value: " + data2);
+            if (debug) println("Twister Button: " + data1 + " value: " + data2);
             var track = this.findTrackByCC(data1);
             if (track) {
                 if (data2 > 0) {
@@ -767,28 +772,28 @@ function calculateTrackDepths() {
             depths[i] = 0;
             currentTopGroup = i;
             currentChildGroup = -1;  // Reset child group
-            println("[" + i + "] '" + trackName + "' -> depth 0 (top group)");
+            if (debug) println("[" + i + "] '" + trackName + "' -> depth 0 (top group)");
         }
         // Check if this is a child group (depth 1 group)
         else if (isGroup && currentTopGroup >= 0) {
             depths[i] = 1;
             currentChildGroup = i;
-            println("[" + i + "] '" + trackName + "' -> depth 1 (child group)");
+            if (debug) println("[" + i + "] '" + trackName + "' -> depth 1 (child group)");
         }
         // Regular track - determine depth based on parent groups
         else {
             if (currentChildGroup >= 0) {
                 // We're inside a child group
                 depths[i] = 2;
-                println("[" + i + "] '" + trackName + "' -> depth 2 (inside child group)");
+                if (debug) println("[" + i + "] '" + trackName + "' -> depth 2 (inside child group)");
             } else if (currentTopGroup >= 0) {
                 // We're inside a top group but not a child group
                 depths[i] = 1;
-                println("[" + i + "] '" + trackName + "' -> depth 1 (inside top group)");
+                if (debug) println("[" + i + "] '" + trackName + "' -> depth 1 (inside top group)");
             } else {
                 // No parent group
                 depths[i] = 0;
-                println("[" + i + "] '" + trackName + "' -> depth 0 (no parent)");
+                if (debug) println("[" + i + "] '" + trackName + "' -> depth 0 (no parent)");
             }
         }
     }
@@ -811,7 +816,7 @@ function printTrack(track, indent) {
     }
     line += " - depth = " + track.depth;
 
-    println(line);
+    if (debug) println(line);
 
     // Recursively print children
     for (var j = 0; j < track.children.length; j++) {
@@ -820,13 +825,15 @@ function printTrack(track, indent) {
 }
 
 function printTrackTree(tree) {
-    println("=== TRACK TREE ===");
+    if (debug) {
+        println("=== TRACK TREE ===");
 
-    for (var i = 0; i < tree.length; i++) {
-        printTrack(tree[i], 0);
+        for (var i = 0; i < tree.length; i++) {
+            printTrack(tree[i], 0);
+        }
+
+        println("=== END TREE ===");
     }
-
-    println("=== END TREE ===");
 }
 
 function init() {
@@ -910,9 +917,9 @@ function init() {
 
     // Build and print track tree for debugging (delayed to allow track bank to populate)
     host.scheduleTask(function() {
-        println("=== Calculating track depths ===");
+        if (debug) println("=== Calculating track depths ===");
         calculateTrackDepths();
-        println("=== Building track tree ===");
+        if (debug) println("=== Building track tree ===");
         var tree = Bitwig.getTrackTree();
         printTrackTree(tree);
     }, null, 100);  // Wait 100ms for track bank to populate
