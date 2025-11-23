@@ -583,6 +583,38 @@ var LaunchpadQuadrant = {
                 Launchpad.setPadColor(padNote, 'green');
             }
         }
+    },
+
+    /**
+     * Top-left 4x4 quadrant for track grid
+     */
+    topLeft: {
+        /**
+         * Pad note numbers (bottom-left to top-right, tracks 1-16)
+         */
+        pads: [
+            51, 52, 53, 54,  // Row 0 (bottom): tracks 1-4
+            61, 62, 63, 64,  // Row 1: tracks 5-8
+            71, 72, 73, 74,  // Row 2: tracks 9-12
+            81, 82, 83, 84   // Row 3 (top): tracks 13-16
+        ],
+
+        /**
+         * Initialize the quadrant
+         */
+        init: function() {
+            // No special initialization needed
+        },
+
+        /**
+         * Get track number for a pad
+         * @param {number} padNote - MIDI note number
+         * @returns {number|null} Track number (1-16) or null
+         */
+        getTrackNumber: function(padNote) {
+            var index = this.pads.indexOf(padNote);
+            return index !== -1 ? index + 1 : null;
+        }
     }
 };
 
@@ -1057,6 +1089,9 @@ var Controller = {
 
         // Refresh group display
         this.refreshGroupDisplay();
+
+        // Refresh track grid
+        this.refreshTrackGrid();
     },
 
     /**
@@ -1100,6 +1135,25 @@ var Controller = {
                     var brightColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.bright);
                     Launchpad.setPadColor(selectedPad, brightColor);
                 }
+            }
+        }
+    },
+
+    /**
+     * Refresh the track grid display on Launchpad
+     */
+    refreshTrackGrid: function() {
+        // Unlink all track grid pads
+        for (var i = 0; i < LaunchpadQuadrant.topLeft.pads.length; i++) {
+            Launchpad.unlinkPad(LaunchpadQuadrant.topLeft.pads[i]);
+        }
+
+        // Link pads based on encoder links
+        for (var encoderNum = 1; encoderNum <= 16; encoderNum++) {
+            var link = Twister._encoderLinks[encoderNum];
+            if (link) {
+                var padNote = LaunchpadQuadrant.topLeft.pads[encoderNum - 1];
+                Launchpad.linkPadToTrack(padNote, link.trackId);
             }
         }
     },
@@ -1241,10 +1295,19 @@ var Controller = {
             var groupNum = LaunchpadQuadrant.bottomRight.getGroup(data1);
             if (groupNum) {
                 this.selectGroup(groupNum);
-            } else {
-                // Handle mode selector pads
-                this.selectPad(data1);
+                return;
             }
+
+            // Check if it's a track grid pad
+            var trackNum = LaunchpadQuadrant.topLeft.getTrackNumber(data1);
+            if (trackNum) {
+                // Placeholder for future functionality
+                if (debug) println("Track grid pad " + trackNum + " pressed");
+                return;
+            }
+
+            // Handle mode selector pads
+            this.selectPad(data1);
         }
     },
 
@@ -1479,6 +1542,7 @@ function init() {
 
     // Initialize LaunchpadQuadrant
     LaunchpadQuadrant.bottomRight.init();
+    LaunchpadQuadrant.topLeft.init();
 
     // Initialize controller logic
     Controller.init();
