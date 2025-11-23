@@ -391,6 +391,18 @@ var Twister = {
     _output: null,
 
     /**
+     * Encoder-to-track links
+     * @private
+     */
+    _encoderLinks: {},
+
+    /**
+     * Track-to-encoder reverse mapping
+     * @private
+     */
+    _trackToEncoder: {},
+
+    /**
      * Initialize Twister hardware
      * @param {Object} midiOutput - MIDI output port
      */
@@ -409,7 +421,41 @@ var Twister = {
             if (debug) println("Warning: Invalid encoder number " + encoderNumber + " (must be 1-16)");
             return 0;
         }
-        return encoderNumber - 1;
+
+        // Convert 1-based encoder to 0-based
+        var encoder0 = encoderNumber - 1;
+
+        // Calculate row and column (bottom-left = encoder 1)
+        var row = Math.floor(encoder0 / 4);  // 0-3, where 0 is bottom
+        var col = encoder0 % 4;               // 0-3, left to right
+
+        // Flip vertically (CC numbering starts at top)
+        var flippedRow = 3 - row;
+
+        // Calculate CC number
+        var cc = flippedRow * 4 + col;
+
+        return cc;
+    },
+
+    /**
+     * Convert CC number (0-15) to encoder number (1-16)
+     * @param {number} cc - CC number (0-15)
+     * @returns {number} Encoder number (1-16, bottom-left origin)
+     */
+    ccToEncoder: function(cc) {
+        // CC numbering starts at top-left, goes left-to-right, top-to-bottom
+        var row = Math.floor(cc / 4);      // 0-3, where 0 is top
+        var col = cc % 4;                   // 0-3, left to right
+
+        // Flip vertically (encoder numbering starts at bottom)
+        var originalRow = 3 - row;
+
+        // Calculate encoder number (1-16, bottom-left origin)
+        var encoder0 = originalRow * 4 + col;
+        var encoderNumber = encoder0 + 1;
+
+        return encoderNumber;
     },
 
     /**
@@ -465,6 +511,105 @@ var Twister = {
             this.clearEncoder(i);
         }
         if (debug) println("All Twister encoders cleared");
+    },
+
+    /**
+     * Link an encoder to a track for bi-directional control
+     * @param {number} encoderNumber - Encoder number (1-16)
+     * @param {number} trackId - Track ID in bank (0-63)
+     */
+    linkEncoderToTrack: function(encoderNumber, trackId) {
+        var self = this;
+
+        // Validate encoder number
+        if (encoderNumber < 1 || encoderNumber > 16) {
+            if (debug) println("Warning: Invalid encoder number " + encoderNumber + " (must be 1-16)");
+            return;
+        }
+
+        // Get the track
+        var track = Bitwig.getTrack(trackId);
+        if (!track) {
+            if (debug) println("Warning: Track " + trackId + " not found");
+            return;
+        }
+
+        // Clean up any existing link for this encoder
+        this.unlinkEncoder(encoderNumber);
+
+        // Store the link
+        this._encoderLinks[encoderNumber] = {
+            trackId: trackId,
+            track: track,
+            trackName: track.name().get()
+        };
+
+        // Store reverse mapping
+        this._trackToEncoder[trackId] = encoderNumber;
+
+        // Initial sync (observers are set up globally in init())
+        var volumeValue = track.volume().get();
+        var midiValue = Math.round(volumeValue * 127);
+        this.setEncoderLED(encoderNumber, midiValue);
+
+        var color = track.color();
+        var red = Math.round(color.red() * 255);
+        var green = Math.round(color.green() * 255);
+        var blue = Math.round(color.blue() * 255);
+        this.setEncoderColor(encoderNumber, red, green, blue);
+
+    },
+
+    /**
+     * Unlink an encoder from its track
+     * @param {number} encoderNumber - Encoder number (1-16)
+     */
+    unlinkEncoder: function(encoderNumber) {
+        if (this._encoderLinks[encoderNumber]) {
+            var trackId = this._encoderLinks[encoderNumber].trackId;
+
+            // Clean up mappings
+            delete this._trackToEncoder[trackId];
+            delete this._encoderLinks[encoderNumber];
+
+            // Clear encoder display
+            this.clearEncoder(encoderNumber);
+        }
+    },
+
+    /**
+     * Get the track linked to an encoder
+     * @param {number} encoderNumber - Encoder number (1-16)
+     * @returns {Object|null} Track object or null
+     */
+    getLinkedTrack: function(encoderNumber) {
+        var link = this._encoderLinks[encoderNumber];
+        return link ? link.track : null;
+    },
+
+    /**
+     * Handle encoder rotation (called by Controller)
+     * @param {number} encoderNumber - Encoder number (1-16)
+     * @param {number} value - MIDI value (0-127)
+     */
+    handleEncoderTurn: function(encoderNumber, value) {
+        var track = this.getLinkedTrack(encoderNumber);
+        if (track) {
+            var normalizedValue = value / 127.0;
+            track.volume().set(normalizedValue);
+        }
+    },
+
+    /**
+     * Handle encoder button press (called by Controller)
+     * @param {number} encoderNumber - Encoder number (1-16)
+     * @param {boolean} pressed - True if pressed, false if released
+     */
+    handleEncoderPress: function(encoderNumber, pressed) {
+        var track = this.getLinkedTrack(encoderNumber);
+        if (track) {
+            track.solo().set(pressed);
+        }
     },
 
     /**
@@ -612,52 +757,69 @@ var Controller = {
         this.syncAllEncoders();
     },
 
+
     /**
-     * Find track by CC marker in name
-     * @param {number} ccNumber - CC number (0-15)
-     * @returns {Object|null} Track object or null
+     * Handle track name changes for automatic re-linking
+     * @param {number} trackId - Track ID (0-63)
+     * @param {string} newName - New track name
      */
-    findTrackByCC: function(ccNumber) {
-        // Search for track with "(CC#)" in the name
-        var searchString = "(" + ccNumber + ")";
-        return Bitwig.findTrackByName(function(name) {
-            return name.indexOf(searchString) !== -1;
-        });
+    handleTrackNameChange: function(trackId, newName) {
+        // Parse the new name for encoder numbers
+        var encoderMatch = newName.match(/\((\d+)\)/);
+
+        // Find if this track was previously linked to any encoder
+        var previousEncoder = Twister._trackToEncoder[trackId];
+
+        if (encoderMatch) {
+            var newEncoder = parseInt(encoderMatch[1]);
+
+            if (newEncoder >= 1 && newEncoder <= 16) {
+                // Check if another track is using this encoder
+                var existingLink = Twister._encoderLinks[newEncoder];
+                if (existingLink && existingLink.trackId !== trackId) {
+                    // Another track has this encoder - unlink it
+                    Twister.unlinkEncoder(newEncoder);
+                }
+
+                // Unlink from previous encoder if different
+                if (previousEncoder && previousEncoder !== newEncoder) {
+                    Twister.unlinkEncoder(previousEncoder);
+                }
+
+                // Link to new encoder
+                Twister.linkEncoderToTrack(newEncoder, trackId);
+            } else if (previousEncoder) {
+                // Invalid encoder number - unlink if previously linked
+                Twister.unlinkEncoder(previousEncoder);
+            }
+        } else {
+            // No encoder number in name - unlink if previously linked
+            if (previousEncoder) {
+                Twister.unlinkEncoder(previousEncoder);
+            }
+        }
     },
 
     /**
-     * Find track by encoder number marker in name
-     * @param {number} encoderNumber - Encoder number (1-16)
-     * @returns {Object|null} Track object or null
-     */
-    findTrackByEncoder: function(encoderNumber) {
-        // Convert 1-based encoder to 0-based CC
-        return this.findTrackByCC(encoderNumber - 1);
-    },
-
-    /**
-     * Sync encoder to its mapped track
+     * Sync encoder to its mapped track (using naming convention)
      * @param {number} encoderNumber - Encoder number (1-16)
      */
     syncEncoderToTrack: function(encoderNumber) {
-        var track = this.findTrackByEncoder(encoderNumber);
+        // Find track with "(n)" in name where n = encoderNumber
+        var searchString = "(" + encoderNumber + ")";
 
-        if (track) {
-            // Sync volume value
-            var volumeValue = track.volume().get();
-            var midiValue = Math.round(volumeValue * 127);
-            Twister.setEncoderLED(encoderNumber, midiValue);
-
-            // Sync track color
-            var color = track.color();
-            var red = Math.round(color.red() * 255);
-            var green = Math.round(color.green() * 255);
-            var blue = Math.round(color.blue() * 255);
-            Twister.setEncoderColor(encoderNumber, red, green, blue);
-        } else {
-            // No track mapped - turn off encoder
-            Twister.clearEncoder(encoderNumber);
+        // Search through all tracks
+        for (var i = 0; i < 64; i++) {
+            var track = Bitwig.getTrack(i);
+            if (track && track.name().get().indexOf(searchString) !== -1) {
+                // Link this encoder to the track
+                Twister.linkEncoderToTrack(encoderNumber, i);
+                return;
+            }
         }
+
+        // No track found - unlink the encoder
+        Twister.unlinkEncoder(encoderNumber);
     },
 
     /**
@@ -695,33 +857,18 @@ var Controller = {
             return;
         }
 
+        // Convert CC number to encoder number (1-16)
+        var encoderNumber = Twister.ccToEncoder(data1);
+
         // Handle encoder turn (CC on channel 0, status 0xB0)
         if (status === 0xB0) {
-            if (debug) println("Twister Encoder: " + data1 + " value: " + data2);
-
-            // Find track with "(CC#)" in the name
-            var track = this.findTrackByCC(data1);
-
-            if (track) {
-                var normalizedValue = data2 / 127.0;
-                track.volume().set(normalizedValue);
-                if (debug) println("Volume set to: " + normalizedValue.toFixed(2));
-            } else {
-                if (debug) println("No track found with (" + data1 + ") in name");
-            }
+            Twister.handleEncoderTurn(encoderNumber, data2);
         }
 
         // Handle button press (CC on channel 1, status 0xB1)
         if (status === 0xB1) {
-            if (debug) println("Twister Button: " + data1 + " value: " + data2);
-            var track = this.findTrackByCC(data1);
-            if (track) {
-                if (data2 > 0) {
-                    track.solo().set(true);
-                } else {
-                    track.solo().set(false);
-                }
-            }
+            var pressed = data2 > 0;
+            Twister.handleEncoderPress(encoderNumber, pressed);
         }
     },
 
@@ -866,7 +1013,7 @@ function init() {
     // Initialize Bitwig namespace with track bank
     Bitwig.init(trackBank);
 
-    // Subscribe to all track properties
+    // Subscribe to track properties for tree building
     for (var i = 0; i < 64; i++) {
         var track = trackBank.getItemAt(i);
         track.exists().markInterested();
@@ -874,39 +1021,36 @@ function init() {
         track.isGroup().markInterested();
         track.solo().markInterested();
         track.color().markInterested();
+        track.volume().markInterested();
 
-        // Add volume observer to update encoder LEDs in real-time
-        (function(trackIndex) {
-            trackBank.getItemAt(trackIndex).volume().addValueObserver(128, function(value) {
-                // When volume changes, find which encoder(s) map to this track and update them
-                var trackName = trackBank.getItemAt(trackIndex).name().get();
-
-                // Check each encoder 1-16 to see if this track is mapped to it
-                for (var encoder = 1; encoder <= 16; encoder++) {
-                    var searchString = "(" + (encoder - 1) + ")";
-                    if (trackName.indexOf(searchString) !== -1) {
-                        Twister.setEncoderLED(encoder, value);
-                    }
+        // Add name change observer with closure to capture track ID
+        (function(trackId, trackObj) {
+            trackObj.name().addValueObserver(function(name) {
+                // Only handle name changes after initial load
+                if (name && name !== "") {
+                    Controller.handleTrackNameChange(trackId, name);
                 }
             });
 
-            // Add color observer to update encoder colors in real-time
-            trackBank.getItemAt(trackIndex).color().addValueObserver(function(red, green, blue) {
-                // When color changes, find which encoder(s) map to this track and update them
-                var trackName = trackBank.getItemAt(trackIndex).name().get();
-                var redMidi = Math.round(red * 255);
-                var greenMidi = Math.round(green * 255);
-                var blueMidi = Math.round(blue * 255);
-
-                // Check each encoder 1-16 to see if this track is mapped to it
-                for (var encoder = 1; encoder <= 16; encoder++) {
-                    var searchString = "(" + (encoder - 1) + ")";
-                    if (trackName.indexOf(searchString) !== -1) {
-                        Twister.setEncoderColor(encoder, redMidi, greenMidi, blueMidi);
-                    }
+            // Add volume observer that checks for encoder links
+            trackObj.volume().addValueObserver(128, function(value) {
+                var encoderNumber = Twister._trackToEncoder[trackId];
+                if (encoderNumber) {
+                    Twister.setEncoderLED(encoderNumber, value);
                 }
             });
-        })(i);
+
+            // Add color observer that checks for encoder links
+            trackObj.color().addValueObserver(function(red, green, blue) {
+                var encoderNumber = Twister._trackToEncoder[trackId];
+                if (encoderNumber) {
+                    var redMidi = Math.round(red * 255);
+                    var greenMidi = Math.round(green * 255);
+                    var blueMidi = Math.round(blue * 255);
+                    Twister.setEncoderColor(encoderNumber, redMidi, greenMidi, blueMidi);
+                }
+            });
+        })(i, track);
     }
 
     // Enter Programmer Mode on Launchpad MK2
