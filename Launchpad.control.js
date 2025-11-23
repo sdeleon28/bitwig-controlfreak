@@ -284,6 +284,25 @@ var Launchpad = {
         white: 3
     },
 
+    // Brightness levels enum
+    brightness: {
+        dim: 'dim',
+        bright: 'bright'
+    },
+
+    // Color brightness variants (dim and bright for each base color)
+    colorVariants: {
+        21: { dim: 19, bright: 23 },  // green
+        5: { dim: 4, bright: 6 },      // red
+        17: { dim: 16, bright: 18 },   // amber
+        13: { dim: 12, bright: 14 },   // yellow
+        45: { dim: 44, bright: 46 },   // blue
+        41: { dim: 40, bright: 42 },   // cyan
+        49: { dim: 48, bright: 50 },   // purple
+        53: { dim: 4, bright: 95 },    // pink (dim is the nice pink we found!)
+        3: { dim: 1, bright: 2 }       // white (trying inverted pattern)
+    },
+
     /**
      * Internal reference to MIDI output
      * @private
@@ -409,25 +428,44 @@ var Launchpad = {
     },
 
     /**
-     * Map Bitwig RGB color to Launchpad color name
+     * Map Bitwig RGB color to Launchpad color value
      * @param {number} red - Red component (0-1)
      * @param {number} green - Green component (0-1)
      * @param {number} blue - Blue component (0-1)
-     * @returns {string} Launchpad color name
+     * @returns {number} Launchpad color value (0-127)
      */
     bitwigColorToLaunchpad: function(red, green, blue) {
         var r = red > 0.5;
         var g = green > 0.5;
         var b = blue > 0.5;
 
-        if (r && g && !b) return 'yellow';
-        if (r && !g && !b) return 'red';
-        if (!r && g && !b) return 'green';
-        if (!r && !g && b) return 'blue';
-        if (r && g && b) return 'white';
-        if (!r && g && b) return 'cyan';
-        if (r && !g && b) return 'purple';
-        return 'amber';
+        if (r && g && !b) return this.colors.yellow;
+        if (r && !g && !b) return this.colors.red;
+        if (!r && g && !b) return this.colors.green;
+        if (!r && !g && b) return this.colors.blue;
+        if (r && g && b) return this.colors.white;
+        if (!r && g && b) return this.colors.cyan;
+        if (r && !g && b) return this.colors.purple;
+        return this.colors.amber;
+    },
+
+    /**
+     * Get a brightness variant of a color
+     * @param {number} baseColorValue - Base color value (0-127)
+     * @param {string} brightnessLevel - Brightness level: 'dim' or 'bright' (use Launchpad.brightness.dim or .bright)
+     * @returns {number} Adjusted color value (0-127)
+     */
+    getBrightnessVariant: function(baseColorValue, brightnessLevel) {
+        // Look up variant in colorVariants table
+        var variants = this.colorVariants[baseColorValue];
+
+        if (variants && brightnessLevel) {
+            // Return the requested brightness variant
+            return variants[brightnessLevel] || baseColorValue;
+        }
+
+        // Fallback: return base color if no variant found
+        return baseColorValue;
     },
 
     /**
@@ -446,14 +484,15 @@ var Launchpad = {
         };
         this._padToTrack[trackId] = padNumber;
 
-        // Initial color sync
+        // Initial color sync - use dim version for unselected pads
         var color = track.color();
         var launchpadColor = this.bitwigColorToLaunchpad(
             color.red(),
             color.green(),
             color.blue()
         );
-        this.setPadColor(padNumber, launchpadColor);
+        var dimColor = this.getBrightnessVariant(launchpadColor, this.brightness.dim);
+        this.setPadColor(padNumber, dimColor);
     },
 
     /**
@@ -1022,7 +1061,7 @@ var Controller = {
         // Unlink all pads first
         Launchpad.unlinkAllPads();
 
-        // Link all available groups to their pads
+        // Link all available groups to their pads (groups 1-15)
         for (var i = 1; i <= 15; i++) {
             var groupTrackId = Bitwig.findGroupByNumber(i);
             if (groupTrackId !== null) {
@@ -1031,10 +1070,32 @@ var Controller = {
             }
         }
 
-        // Highlight selected group in white
-        if (this.selectedGroup) {
+        // Handle pad 16 (top-level group) - use white color
+        var pad16 = LaunchpadQuadrant.bottomRight.pads[15];  // Index 15 = pad 16
+        if (this.selectedGroup === 16) {
+            Launchpad.setPadColor(pad16, Launchpad.getBrightnessVariant(Launchpad.colors.white, Launchpad.brightness.bright));
+        } else {
+            Launchpad.setPadColor(pad16, Launchpad.getBrightnessVariant(Launchpad.colors.white, Launchpad.brightness.dim));
+        }
+
+        // Highlight selected group with bright color variant (groups 1-15)
+        if (this.selectedGroup && this.selectedGroup <= 15) {
             var selectedPad = LaunchpadQuadrant.bottomRight.pads[this.selectedGroup - 1];
-            Launchpad.setPadColor(selectedPad, 'white');
+            var groupTrackId = Bitwig.findGroupByNumber(this.selectedGroup);
+
+            if (groupTrackId !== null) {
+                var track = Bitwig.getTrack(groupTrackId);
+                if (track) {
+                    var color = track.color();
+                    var launchpadColor = Launchpad.bitwigColorToLaunchpad(
+                        color.red(),
+                        color.green(),
+                        color.blue()
+                    );
+                    var brightColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.bright);
+                    Launchpad.setPadColor(selectedPad, brightColor);
+                }
+            }
         }
     },
 
@@ -1388,17 +1449,20 @@ function init() {
                     Twister.setEncoderColor(encoderNumber, redMidi, greenMidi, blueMidi);
                 }
 
-                // Update pad colors
+                // Update pad colors with brightness variants
                 var padNumber = Launchpad._padToTrack[trackId];
                 if (padNumber) {
                     var launchpadColor = Launchpad.bitwigColorToLaunchpad(red, green, blue);
 
-                    // If this is the selected group, use white instead
+                    // If this is the selected group, use bright variant
+                    // Otherwise use dim variant
                     if (Controller.selectedGroup &&
                         LaunchpadQuadrant.bottomRight.getGroup(padNumber) === Controller.selectedGroup) {
-                        Launchpad.setPadColor(padNumber, 'white');
+                        var brightColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.bright);
+                        Launchpad.setPadColor(padNumber, brightColor);
                     } else {
-                        Launchpad.setPadColor(padNumber, launchpadColor);
+                        var dimColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.dim);
+                        Launchpad.setPadColor(padNumber, dimColor);
                     }
                 }
             });
