@@ -586,17 +586,17 @@ var LaunchpadQuadrant = {
     },
 
     /**
-     * Top-left 4x4 quadrant for track grid
+     * Bottom-left 4x4 quadrant for track grid
      */
-    topLeft: {
+    bottomLeft: {
         /**
          * Pad note numbers (bottom-left to top-right, tracks 1-16)
          */
         pads: [
-            51, 52, 53, 54,  // Row 0 (bottom): tracks 1-4
-            61, 62, 63, 64,  // Row 1: tracks 5-8
-            71, 72, 73, 74,  // Row 2: tracks 9-12
-            81, 82, 83, 84   // Row 3 (top): tracks 13-16
+            11, 12, 13, 14,  // Row 0 (bottom): tracks 1-4
+            21, 22, 23, 24,  // Row 1: tracks 5-8
+            31, 32, 33, 34,  // Row 2: tracks 9-12
+            41, 42, 43, 44   // Row 3 (top): tracks 13-16
         ],
 
         /**
@@ -981,24 +981,6 @@ var Twister = {
  * @namespace
  */
 var Controller = {
-    // Pad configuration: Map note numbers to mode labels (bottom-left 4x4 quadrant)
-    padConfig: {
-        // Row 0 (bottom)
-        11: "volume", 12: "mode2",  13: "mode3",  14: "mode4",
-        // Row 1
-        21: "mode5",  22: "mode6",  23: "mode7",  24: "mode8",
-        // Row 2
-        31: "mode9",  32: "mode10", 33: "mode11", 34: "mode12",
-        // Row 3
-        41: "mode13", 42: "mode14", 43: "mode15", 44: "mode16"
-    },
-
-    /**
-     * Currently selected pad/mode
-     * @private
-     */
-    selectedPad: null,
-
     /**
      * Currently selected group (1-16, where 16 = top-level)
      * @private
@@ -1009,12 +991,9 @@ var Controller = {
      * Initialize controller
      */
     init: function() {
-        // Auto-select "volume" mode on startup
-        this.selectPad(11);
-        if (debug) println("Controller initialized - Volume mode selected");
-
         // Auto-select group 16 (top-level tracks)
         this.selectGroup(16);
+        if (debug) println("Controller initialized");
     },
 
     /**
@@ -1144,45 +1123,19 @@ var Controller = {
      */
     refreshTrackGrid: function() {
         // Unlink all track grid pads
-        for (var i = 0; i < LaunchpadQuadrant.topLeft.pads.length; i++) {
-            Launchpad.unlinkPad(LaunchpadQuadrant.topLeft.pads[i]);
+        for (var i = 0; i < LaunchpadQuadrant.bottomLeft.pads.length; i++) {
+            Launchpad.unlinkPad(LaunchpadQuadrant.bottomLeft.pads[i]);
         }
 
         // Link pads based on encoder links
         for (var encoderNum = 1; encoderNum <= 16; encoderNum++) {
             var link = Twister._encoderLinks[encoderNum];
             if (link) {
-                var padNote = LaunchpadQuadrant.topLeft.pads[encoderNum - 1];
+                var padNote = LaunchpadQuadrant.bottomLeft.pads[encoderNum - 1];
                 Launchpad.linkPadToTrack(padNote, link.trackId);
             }
         }
     },
-
-    /**
-     * Select a mode pad
-     * @param {number} note - MIDI note number for the pad
-     */
-    selectPad: function(note) {
-        // Check if this pad is in our config
-        if (!this.padConfig[note]) {
-            return;
-        }
-
-        // Clear encoder LEDs when switching modes
-        Twister.clearAll();
-
-        // Turn off previously selected pad
-        if (this.selectedPad !== null) {
-            Launchpad.clearPad(this.selectedPad);
-        }
-
-        // Light up new pad
-        Launchpad.setPadColor(note, 'green');
-
-        // Update state
-        this.selectedPad = note;
-    },
-
 
     /**
      * Handle track name changes for automatic re-linking
@@ -1299,15 +1252,12 @@ var Controller = {
             }
 
             // Check if it's a track grid pad
-            var trackNum = LaunchpadQuadrant.topLeft.getTrackNumber(data1);
+            var trackNum = LaunchpadQuadrant.bottomLeft.getTrackNumber(data1);
             if (trackNum) {
                 // Placeholder for future functionality
                 if (debug) println("Track grid pad " + trackNum + " pressed");
                 return;
             }
-
-            // Handle mode selector pads
-            this.selectPad(data1);
         }
     },
 
@@ -1318,11 +1268,6 @@ var Controller = {
      * @param {number} data2 - MIDI data2 byte (value)
      */
     onTwisterMidi: function(status, data1, data2) {
-        // Only respond when volume mode is selected
-        if (this.selectedPad !== 11) {
-            return;
-        }
-
         // Convert CC number to encoder number (1-16)
         var encoderNumber = Twister.ccToEncoder(data1);
 
@@ -1542,7 +1487,7 @@ function init() {
 
     // Initialize LaunchpadQuadrant
     LaunchpadQuadrant.bottomRight.init();
-    LaunchpadQuadrant.topLeft.init();
+    LaunchpadQuadrant.bottomLeft.init();
 
     // Initialize controller logic
     Controller.init();
