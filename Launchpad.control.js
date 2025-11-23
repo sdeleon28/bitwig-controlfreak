@@ -291,6 +291,18 @@ var Launchpad = {
     _output: null,
 
     /**
+     * Pad-to-track links
+     * @private
+     */
+    _padLinks: {},
+
+    /**
+     * Track-to-pad reverse mapping
+     * @private
+     */
+    _padToTrack: {},
+
+    /**
      * Initialize Launchpad hardware
      * @param {Object} midiOutput - MIDI output port
      */
@@ -394,6 +406,80 @@ var Launchpad = {
         host.scheduleTask(function() {
             self.clearPad(padNumber);
         }, null, duration || 100);
+    },
+
+    /**
+     * Map Bitwig RGB color to Launchpad color name
+     * @param {number} red - Red component (0-1)
+     * @param {number} green - Green component (0-1)
+     * @param {number} blue - Blue component (0-1)
+     * @returns {string} Launchpad color name
+     */
+    bitwigColorToLaunchpad: function(red, green, blue) {
+        var r = red > 0.5;
+        var g = green > 0.5;
+        var b = blue > 0.5;
+
+        if (r && g && !b) return 'yellow';
+        if (r && !g && !b) return 'red';
+        if (!r && g && !b) return 'green';
+        if (!r && !g && b) return 'blue';
+        if (r && g && b) return 'white';
+        if (!r && g && b) return 'cyan';
+        if (r && !g && b) return 'purple';
+        return 'amber';
+    },
+
+    /**
+     * Link a pad to a track for color feedback
+     * @param {number} padNumber - MIDI note number for pad
+     * @param {number} trackId - Track ID (0-63)
+     */
+    linkPadToTrack: function(padNumber, trackId) {
+        var track = Bitwig.getTrack(trackId);
+        if (!track) return;
+
+        // Store link
+        this._padLinks[padNumber] = {
+            trackId: trackId,
+            track: track
+        };
+        this._padToTrack[trackId] = padNumber;
+
+        // Initial color sync
+        var color = track.color();
+        var launchpadColor = this.bitwigColorToLaunchpad(
+            color.red(),
+            color.green(),
+            color.blue()
+        );
+        this.setPadColor(padNumber, launchpadColor);
+    },
+
+    /**
+     * Unlink a pad from its track
+     * @param {number} padNumber - MIDI note number for pad
+     */
+    unlinkPad: function(padNumber) {
+        if (this._padLinks[padNumber]) {
+            var trackId = this._padLinks[padNumber].trackId;
+            delete this._padToTrack[trackId];
+            delete this._padLinks[padNumber];
+            this.clearPad(padNumber);
+        }
+    },
+
+    /**
+     * Unlink all pads from their tracks
+     */
+    unlinkAllPads: function() {
+        for (var pad in this._padLinks) {
+            if (this._padLinks.hasOwnProperty(pad)) {
+                this.clearPad(parseInt(pad));
+            }
+        }
+        this._padLinks = {};
+        this._padToTrack = {};
     }
 };
 
@@ -925,8 +1011,31 @@ var Controller = {
         // Update selected group
         this.selectedGroup = groupNumber;
 
-        // Update Launchpad display
-        LaunchpadQuadrant.bottomRight.highlightGroup(groupNumber);
+        // Refresh group display
+        this.refreshGroupDisplay();
+    },
+
+    /**
+     * Refresh the group selector display on Launchpad
+     */
+    refreshGroupDisplay: function() {
+        // Unlink all pads first
+        Launchpad.unlinkAllPads();
+
+        // Link all available groups to their pads
+        for (var i = 1; i <= 15; i++) {
+            var groupTrackId = Bitwig.findGroupByNumber(i);
+            if (groupTrackId !== null) {
+                var padNote = LaunchpadQuadrant.bottomRight.pads[i - 1];
+                Launchpad.linkPadToTrack(padNote, groupTrackId);
+            }
+        }
+
+        // Highlight selected group in white
+        if (this.selectedGroup) {
+            var selectedPad = LaunchpadQuadrant.bottomRight.pads[this.selectedGroup - 1];
+            Launchpad.setPadColor(selectedPad, 'white');
+        }
     },
 
     /**
@@ -1268,14 +1377,29 @@ function init() {
                 }
             });
 
-            // Add color observer that checks for encoder links
+            // Add color observer that checks for encoder and pad links
             trackObj.color().addValueObserver(function(red, green, blue) {
+                // Update encoder colors
                 var encoderNumber = Twister._trackToEncoder[trackId];
                 if (encoderNumber) {
                     var redMidi = Math.round(red * 255);
                     var greenMidi = Math.round(green * 255);
                     var blueMidi = Math.round(blue * 255);
                     Twister.setEncoderColor(encoderNumber, redMidi, greenMidi, blueMidi);
+                }
+
+                // Update pad colors
+                var padNumber = Launchpad._padToTrack[trackId];
+                if (padNumber) {
+                    var launchpadColor = Launchpad.bitwigColorToLaunchpad(red, green, blue);
+
+                    // If this is the selected group, use white instead
+                    if (Controller.selectedGroup &&
+                        LaunchpadQuadrant.bottomRight.getGroup(padNumber) === Controller.selectedGroup) {
+                        Launchpad.setPadColor(padNumber, 'white');
+                    } else {
+                        Launchpad.setPadColor(padNumber, launchpadColor);
+                    }
                 }
             });
         })(i, track);
@@ -1297,6 +1421,9 @@ function init() {
         if (debug) println("=== Building track tree ===");
         var tree = Bitwig.getTrackTree();
         printTrackTree(tree);
+
+        // Refresh group display now that track depths are calculated
+        Controller.refreshGroupDisplay();
     }, null, 100);  // Wait 100ms for track bank to populate
 }
 
