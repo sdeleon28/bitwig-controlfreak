@@ -484,15 +484,40 @@ var Launchpad = {
         };
         this._padToTrack[trackId] = padNumber;
 
-        // Initial color sync - use dim version for unselected pads
+        // Set color using centralized function
+        var color = this.getTrackGridPadColor(trackId);
+        this.setPadColor(padNumber, color);
+    },
+
+    /**
+     * Get appropriate color for a track grid pad based on current mode and track state
+     * @param {number} trackId - Track ID
+     * @returns {number} Color value for the pad
+     */
+    getTrackGridPadColor: function(trackId) {
+        var track = Bitwig.getTrack(trackId);
+        if (!track) return this.colors.off;
+
+        var currentMode = LaunchpadModeSwitcher.currentMode;
+        var modeEnum = LaunchpadModeSwitcher.modeEnum;
+
+        // Check mode-specific state
+        if (currentMode === modeEnum.MUTE) {
+            if (track.mute().get()) {
+                // Muted: bright amber
+                return this.getBrightnessVariant(this.colors.amber, this.brightness.bright);
+            }
+        } else if (currentMode === modeEnum.SOLO) {
+            if (track.solo().get()) {
+                // Soloed: bright yellow
+                return this.getBrightnessVariant(this.colors.yellow, this.brightness.bright);
+            }
+        }
+
+        // Default: show track color (dim variant)
         var color = track.color();
-        var launchpadColor = this.bitwigColorToLaunchpad(
-            color.red(),
-            color.green(),
-            color.blue()
-        );
-        var dimColor = this.getBrightnessVariant(launchpadColor, this.brightness.dim);
-        this.setPadColor(padNumber, dimColor);
+        var launchpadColor = this.bitwigColorToLaunchpad(color.red(), color.green(), color.blue());
+        return this.getBrightnessVariant(launchpadColor, this.brightness.dim);
     },
 
     /**
@@ -1631,18 +1656,9 @@ function init() {
             trackObj.mute().markInterested();
             trackObj.mute().addValueObserver(function(isMuted) {
                 var padNumber = Launchpad._padToTrack[trackId];
-                if (padNumber && LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.MUTE) {
-                    if (isMuted) {
-                        Launchpad.setPadColor(padNumber, Launchpad.getBrightnessVariant(Launchpad.colors.amber, Launchpad.brightness.bright));
-                    } else {
-                        var track = Bitwig.getTrack(trackId);
-                        if (track) {
-                            var color = track.color();
-                            var launchpadColor = Launchpad.bitwigColorToLaunchpad(color.red(), color.green(), color.blue());
-                            var dimColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.dim);
-                            Launchpad.setPadColor(padNumber, dimColor);
-                        }
-                    }
+                if (padNumber) {
+                    var color = Launchpad.getTrackGridPadColor(trackId);
+                    Launchpad.setPadColor(padNumber, color);
                 }
             });
 
@@ -1650,18 +1666,9 @@ function init() {
             trackObj.solo().markInterested();
             trackObj.solo().addValueObserver(function(isSoloed) {
                 var padNumber = Launchpad._padToTrack[trackId];
-                if (padNumber && LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.SOLO) {
-                    if (isSoloed) {
-                        Launchpad.setPadColor(padNumber, Launchpad.getBrightnessVariant(Launchpad.colors.yellow, Launchpad.brightness.bright));
-                    } else {
-                        var track = Bitwig.getTrack(trackId);
-                        if (track) {
-                            var color = track.color();
-                            var launchpadColor = Launchpad.bitwigColorToLaunchpad(color.red(), color.green(), color.blue());
-                            var dimColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.dim);
-                            Launchpad.setPadColor(padNumber, dimColor);
-                        }
-                    }
+                if (padNumber) {
+                    var color = Launchpad.getTrackGridPadColor(trackId);
+                    Launchpad.setPadColor(padNumber, color);
                 }
             });
 
@@ -1676,20 +1683,33 @@ function init() {
                     Twister.setEncoderColor(encoderNumber, redMidi, greenMidi, blueMidi);
                 }
 
-                // Update pad colors with brightness variants
+                // Update pad colors - check if this is a track grid pad or group selector pad
                 var padNumber = Launchpad._padToTrack[trackId];
                 if (padNumber) {
-                    var launchpadColor = Launchpad.bitwigColorToLaunchpad(red, green, blue);
+                    var currentMode = LaunchpadModeSwitcher.currentMode;
+                    var modeEnum = LaunchpadModeSwitcher.modeEnum;
 
-                    // If this is the selected group, use bright variant
-                    // Otherwise use dim variant
-                    if (Controller.selectedGroup &&
-                        LaunchpadQuadrant.bottomRight.getGroup(padNumber) === Controller.selectedGroup) {
-                        var brightColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.bright);
-                        Launchpad.setPadColor(padNumber, brightColor);
+                    // Check if this is a group selector pad
+                    var isGroupSelector = LaunchpadQuadrant.bottomRight.getGroup(padNumber) !== null;
+
+                    if (isGroupSelector) {
+                        // Group selector pad - use bright/dim based on selection
+                        var launchpadColor = Launchpad.bitwigColorToLaunchpad(red, green, blue);
+
+                        if (Controller.selectedGroup &&
+                            LaunchpadQuadrant.bottomRight.getGroup(padNumber) === Controller.selectedGroup) {
+                            var brightColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.bright);
+                            Launchpad.setPadColor(padNumber, brightColor);
+                        } else {
+                            var dimColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.dim);
+                            Launchpad.setPadColor(padNumber, dimColor);
+                        }
                     } else {
-                        var dimColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.dim);
-                        Launchpad.setPadColor(padNumber, dimColor);
+                        // Track grid pad - only update if NOT in mute/solo mode
+                        if (currentMode !== modeEnum.MUTE && currentMode !== modeEnum.SOLO) {
+                            var color = Launchpad.getTrackGridPadColor(trackId);
+                            Launchpad.setPadColor(padNumber, color);
+                        }
                     }
                 }
             });
