@@ -294,7 +294,7 @@ var Launchpad = {
     colorVariants: {
         21: { dim: 19, bright: 23 },  // green
         5: { dim: 4, bright: 6 },      // red
-        17: { dim: 16, bright: 18 },   // amber
+        17: { dim: 11, bright: 9 },    // amber
         13: { dim: 12, bright: 14 },   // yellow
         45: { dim: 44, bright: 46 },   // blue
         41: { dim: 40, bright: 42 },   // cyan
@@ -615,6 +615,93 @@ var LaunchpadQuadrant = {
             var index = this.pads.indexOf(padNote);
             return index !== -1 ? index + 1 : null;
         }
+    }
+};
+
+/**
+ * Launchpad mode switcher (right-side buttons)
+ * @namespace
+ */
+var LaunchpadModeSwitcher = {
+    /**
+     * Mode definitions with button note numbers and colors
+     */
+    modes: {
+        volume: { note: 89, color: Launchpad.colors.green },      // Top
+        pan: { note: 79, color: Launchpad.colors.pink },
+        sendA: { note: 69, color: Launchpad.colors.purple },
+        sendB: { note: 59, color: Launchpad.colors.purple },
+        stop: { note: 49, color: Launchpad.colors.blue },
+        mute: { note: 39, color: Launchpad.colors.amber },
+        solo: { note: 29, color: Launchpad.colors.yellow },
+        recordArm: { note: 19, color: Launchpad.colors.red }      // Bottom
+    },
+
+    /**
+     * Currently selected mode
+     * @private
+     */
+    currentMode: null,
+
+    /**
+     * Initialize mode switcher
+     */
+    init: function() {
+        // Set default mode to volume
+        this.selectMode('volume');
+    },
+
+    /**
+     * Select a mode (XOR - only one active at a time)
+     * @param {string} modeName - Name of the mode to select
+     */
+    selectMode: function(modeName) {
+        if (!this.modes[modeName]) {
+            if (debug) println("Warning: Unknown mode '" + modeName + "'");
+            return;
+        }
+
+        this.currentMode = modeName;
+        this.refresh();
+    },
+
+    /**
+     * Refresh all mode button colors
+     */
+    refresh: function() {
+        // Update all button colors
+        for (var mode in this.modes) {
+            if (this.modes.hasOwnProperty(mode)) {
+                var modeConfig = this.modes[mode];
+                var baseColor = modeConfig.color;
+
+                if (mode === this.currentMode) {
+                    // Bright when active
+                    var brightColor = Launchpad.getBrightnessVariant(baseColor, Launchpad.brightness.bright);
+                    Launchpad.setPadColor(modeConfig.note, brightColor);
+                } else {
+                    // Dim when inactive
+                    var dimColor = Launchpad.getBrightnessVariant(baseColor, Launchpad.brightness.dim);
+                    Launchpad.setPadColor(modeConfig.note, dimColor);
+                }
+            }
+        }
+    },
+
+    /**
+     * Get mode name for a button note number
+     * @param {number} note - MIDI note number
+     * @returns {string|null} Mode name or null
+     */
+    getModeForNote: function(note) {
+        for (var mode in this.modes) {
+            if (this.modes.hasOwnProperty(mode)) {
+                if (this.modes[mode].note === note) {
+                    return mode;
+                }
+            }
+        }
+        return null;
     }
 };
 
@@ -1244,6 +1331,13 @@ var Controller = {
     onLaunchpadMidi: function(status, data1, data2) {
         // Handle pad press (note on with velocity > 0)
         if (status === 0x90 && data2 > 0) {
+            // Check if it's a mode switcher button
+            var mode = LaunchpadModeSwitcher.getModeForNote(data1);
+            if (mode) {
+                LaunchpadModeSwitcher.selectMode(mode);
+                return;
+            }
+
             // Check if it's a group selector pad
             var groupNum = LaunchpadQuadrant.bottomRight.getGroup(data1);
             if (groupNum) {
@@ -1488,6 +1582,9 @@ function init() {
     // Initialize LaunchpadQuadrant
     LaunchpadQuadrant.bottomRight.init();
     LaunchpadQuadrant.bottomLeft.init();
+
+    // Initialize mode switcher
+    LaunchpadModeSwitcher.init();
 
     // Initialize controller logic
     Controller.init();
