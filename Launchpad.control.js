@@ -624,6 +624,20 @@ var LaunchpadQuadrant = {
  */
 var LaunchpadModeSwitcher = {
     /**
+     * Mode enum for type-safe mode references
+     */
+    modeEnum: {
+        VOLUME: 'volume',
+        PAN: 'pan',
+        SEND_A: 'sendA',
+        SEND_B: 'sendB',
+        STOP: 'stop',
+        MUTE: 'mute',
+        SOLO: 'solo',
+        RECORD_ARM: 'recordArm'
+    },
+
+    /**
      * Mode definitions with button note numbers and colors
      */
     modes: {
@@ -648,7 +662,7 @@ var LaunchpadModeSwitcher = {
      */
     init: function() {
         // Set default mode to volume
-        this.selectMode('volume');
+        this.selectMode(this.modeEnum.VOLUME);
     },
 
     /**
@@ -663,6 +677,16 @@ var LaunchpadModeSwitcher = {
 
         this.currentMode = modeName;
         this.refresh();
+
+        // Refresh encoder LEDs based on new mode
+        if (modeName === this.modeEnum.PAN) {
+            Twister.refreshEncoderLEDsForPan();
+        } else if (modeName === this.modeEnum.VOLUME) {
+            Twister.refreshEncoderLEDsForVolume();
+        }
+
+        // Refresh track grid colors for modes that affect pad display
+        Controller.refreshTrackGrid();
     },
 
     /**
@@ -880,6 +904,34 @@ var Twister = {
     },
 
     /**
+     * Refresh encoder LEDs for volume mode
+     */
+    refreshEncoderLEDsForVolume: function() {
+        for (var encoderNum = 1; encoderNum <= 16; encoderNum++) {
+            var link = this._encoderLinks[encoderNum];
+            if (link) {
+                var volumeValue = link.track.volume().get();
+                var midiValue = Math.round(volumeValue * 127);
+                this.setEncoderLED(encoderNum, midiValue);
+            }
+        }
+    },
+
+    /**
+     * Refresh encoder LEDs for pan mode
+     */
+    refreshEncoderLEDsForPan: function() {
+        for (var encoderNum = 1; encoderNum <= 16; encoderNum++) {
+            var link = this._encoderLinks[encoderNum];
+            if (link) {
+                var panValue = link.track.pan().get();
+                var midiValue = Math.round(panValue * 127);
+                this.setEncoderLED(encoderNum, midiValue);
+            }
+        }
+    },
+
+    /**
      * Link an encoder to a track for bi-directional control
      * @param {number} encoderNumber - Encoder number (1-16)
      * @param {number} trackId - Track ID in bank (0-63)
@@ -962,7 +1014,14 @@ var Twister = {
         var track = this.getLinkedTrack(encoderNumber);
         if (track) {
             var normalizedValue = value / 127.0;
-            track.volume().set(normalizedValue);
+
+            // Check current mode
+            if (LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.PAN) {
+                track.pan().set(normalizedValue);
+            } else {
+                // Default: volume mode
+                track.volume().set(normalizedValue);
+            }
         }
     },
 
@@ -1348,8 +1407,22 @@ var Controller = {
             // Check if it's a track grid pad
             var trackNum = LaunchpadQuadrant.bottomLeft.getTrackNumber(data1);
             if (trackNum) {
-                // Placeholder for future functionality
-                if (debug) println("Track grid pad " + trackNum + " pressed");
+                var currentMode = LaunchpadModeSwitcher.currentMode;
+                var modeEnum = LaunchpadModeSwitcher.modeEnum;
+
+                if (currentMode === modeEnum.MUTE) {
+                    // Toggle mute for linked track
+                    var link = Twister._encoderLinks[trackNum];
+                    if (link) {
+                        link.track.mute().toggle();
+                    }
+                } else if (currentMode === modeEnum.SOLO) {
+                    // Toggle solo for linked track
+                    var link = Twister._encoderLinks[trackNum];
+                    if (link) {
+                        link.track.solo().toggle();
+                    }
+                }
                 return;
             }
         }
@@ -1540,8 +1613,55 @@ function init() {
             // Add volume observer that checks for encoder links
             trackObj.volume().addValueObserver(128, function(value) {
                 var encoderNumber = Twister._trackToEncoder[trackId];
-                if (encoderNumber) {
+                if (encoderNumber && LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.VOLUME) {
                     Twister.setEncoderLED(encoderNumber, value);
+                }
+            });
+
+            // Add pan observer that checks for encoder links
+            trackObj.pan().markInterested();
+            trackObj.pan().addValueObserver(128, function(value) {
+                var encoderNumber = Twister._trackToEncoder[trackId];
+                if (encoderNumber && LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.PAN) {
+                    Twister.setEncoderLED(encoderNumber, value);
+                }
+            });
+
+            // Add mute observer for track grid
+            trackObj.mute().markInterested();
+            trackObj.mute().addValueObserver(function(isMuted) {
+                var padNumber = Launchpad._padToTrack[trackId];
+                if (padNumber && LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.MUTE) {
+                    if (isMuted) {
+                        Launchpad.setPadColor(padNumber, Launchpad.getBrightnessVariant(Launchpad.colors.amber, Launchpad.brightness.bright));
+                    } else {
+                        var track = Bitwig.getTrack(trackId);
+                        if (track) {
+                            var color = track.color();
+                            var launchpadColor = Launchpad.bitwigColorToLaunchpad(color.red(), color.green(), color.blue());
+                            var dimColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.dim);
+                            Launchpad.setPadColor(padNumber, dimColor);
+                        }
+                    }
+                }
+            });
+
+            // Add solo observer for track grid
+            trackObj.solo().markInterested();
+            trackObj.solo().addValueObserver(function(isSoloed) {
+                var padNumber = Launchpad._padToTrack[trackId];
+                if (padNumber && LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.SOLO) {
+                    if (isSoloed) {
+                        Launchpad.setPadColor(padNumber, Launchpad.getBrightnessVariant(Launchpad.colors.yellow, Launchpad.brightness.bright));
+                    } else {
+                        var track = Bitwig.getTrack(trackId);
+                        if (track) {
+                            var color = track.color();
+                            var launchpadColor = Launchpad.bitwigColorToLaunchpad(color.red(), color.green(), color.blue());
+                            var dimColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.dim);
+                            Launchpad.setPadColor(padNumber, dimColor);
+                        }
+                    }
                 }
             });
 
