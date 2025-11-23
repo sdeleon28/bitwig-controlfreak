@@ -999,7 +999,8 @@ var Controller = {
         Twister.unlinkAll();
 
         if (groupNumber === 16) {
-            // Top-level: link encoders to depth-0 tracks directly
+            // Top-level: link encoders 1-15 to depth-0 tracks
+            // Encoder 16 remains unlinked
             var topTracks = Bitwig.getTopLevelTracks();
 
             for (var i = 0; i < topTracks.length; i++) {
@@ -1009,24 +1010,25 @@ var Controller = {
                 if (track) {
                     var name = track.name().get();
 
-                    // Parse for (x) notation
+                    // Parse for (x) notation (only 1-15)
                     var match = name.match(/\((\d+)\)/);
                     if (match) {
                         var encoderNum = parseInt(match[1]);
-                        if (encoderNum >= 1 && encoderNum <= 16) {
+                        if (encoderNum >= 1 && encoderNum <= 15) {
                             Twister.linkEncoderToTrack(encoderNum, trackId);
                         }
                     }
                 }
             }
         } else {
-            // Find depth-1 group
+            // Find group by number (any depth)
             var groupTrackId = Bitwig.findGroupByNumber(groupNumber);
 
             if (groupTrackId !== null) {
-                // Get children of this depth-1 group
+                // Get children of this group
                 var children = Bitwig.getGroupChildren(groupTrackId);
 
+                // Link encoders 1-15 to children with (1)-(15) notation
                 for (var i = 0; i < children.length; i++) {
                     var trackId = children[i];
                     var track = Bitwig.getTrack(trackId);
@@ -1034,16 +1036,19 @@ var Controller = {
                     if (track) {
                         var name = track.name().get();
 
-                        // Parse for (x) notation
+                        // Parse for (x) notation (only 1-15)
                         var match = name.match(/\((\d+)\)/);
                         if (match) {
                             var encoderNum = parseInt(match[1]);
-                            if (encoderNum >= 1 && encoderNum <= 16) {
+                            if (encoderNum >= 1 && encoderNum <= 15) {
                                 Twister.linkEncoderToTrack(encoderNum, trackId);
                             }
                         }
                     }
                 }
+
+                // Link encoder 16 to the group track itself
+                Twister.linkEncoderToTrack(16, groupTrackId);
             }
         }
 
