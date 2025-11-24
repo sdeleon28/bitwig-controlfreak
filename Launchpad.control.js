@@ -89,6 +89,11 @@ var Bitwig = {
             println("WARNING: createCueMarkerBank not available on arranger object");
             this._markerBank = null;
         }
+
+        // Mark interested in play position for bar navigation
+        if (this._transport && this._transport.playPosition) {
+            this._transport.playPosition().markInterested();
+        }
     },
 
     /**
@@ -143,6 +148,38 @@ var Bitwig = {
 
         if (debug) {
             println("Playhead set to: " + beats + " beats");
+        }
+    },
+
+    /**
+     * Move playhead by a number of bars
+     * @param {number} bars - Number of bars to move (positive = forward, negative = backward)
+     */
+    movePlayheadByBars: function(bars) {
+        if (!this._transport) return;
+
+        // Get current playhead position
+        var playPosition = this._transport.playPosition();
+        if (!playPosition) return;
+
+        var currentBeats = playPosition.get();
+
+        // Get time signature (assuming 4/4 for now, could be made dynamic)
+        var beatsPerBar = 4;
+
+        // Calculate new position
+        var newBeats = currentBeats + (bars * beatsPerBar);
+
+        // Don't go below 0
+        if (newBeats < 0) {
+            newBeats = 0;
+        }
+
+        // Set new position
+        this._transport.setPosition(newBeats);
+
+        if (debug) {
+            println("Moved playhead by " + bars + " bars: " + currentBeats + " -> " + newBeats + " beats");
         }
     },
 
@@ -468,6 +505,32 @@ var Launchpad = {
         }
 
         this._output.sendMidi(0x90, padNumber, colorValue);
+    },
+
+    /**
+     * Set top button color (uses CC message instead of note)
+     * @param {number} ccNumber - CC number for button
+     * @param {number|string} color - Color value or color name
+     */
+    setTopButtonColor: function(ccNumber, color) {
+        if (!this._output) {
+            if (debug) println("Warning: Launchpad not initialized");
+            return;
+        }
+
+        var colorValue = color;
+
+        // If color is a string, look it up in colors object
+        if (typeof color === 'string') {
+            colorValue = this.colors[color];
+            if (colorValue === undefined) {
+                if (debug) println("Warning: Unknown color '" + color + "'");
+                return;
+            }
+        }
+
+        // Top buttons use CC messages (0xB0) not note messages
+        this._output.sendMidi(0xB0, ccNumber, colorValue);
     },
 
     /**
@@ -1047,6 +1110,72 @@ var LaunchpadLane = {
         }
 
         if (debug) println("LaunchpadLane refreshed");
+    }
+};
+
+/**
+ * Launchpad top control buttons (circular buttons above grid)
+ * @namespace
+ */
+var LaunchpadTopButtons = {
+    /**
+     * Control button notes (top row circular buttons, 1-indexed)
+     */
+    buttons: {
+        barBack: 106,     // Button 3: Move playhead one bar back
+        barForward: 107   // Button 4: Move playhead one bar forward
+    },
+
+    /**
+     * Initialize control buttons
+     */
+    init: function() {
+        // Set button colors (pink) - use CC message for top buttons
+        Launchpad.setTopButtonColor(this.buttons.barBack, Launchpad.colors.pink);
+        Launchpad.setTopButtonColor(this.buttons.barForward, Launchpad.colors.pink);
+
+        // Register button handlers
+        this.registerBarNavigation();
+
+        if (debug) println("LaunchpadTopButtons initialized");
+    },
+
+    /**
+     * Register bar navigation button handlers
+     */
+    registerBarNavigation: function() {
+        // Note: These buttons send CC messages (0xB0), not note messages
+        // They will be handled in Controller.onLaunchpadMidi via handleTopButtonCC
+        if (debug) {
+            println("Bar navigation buttons use CC:");
+            println("  Bar back: CC " + this.buttons.barBack);
+            println("  Bar forward: CC " + this.buttons.barForward);
+        }
+    },
+
+    /**
+     * Handle top button CC message
+     * @param {number} cc - CC number
+     * @param {number} value - CC value (127 = pressed, 0 = released)
+     * @returns {boolean} True if handled
+     */
+    handleTopButtonCC: function(cc, value) {
+        // Only handle button press (value > 0)
+        if (value === 0) return false;
+
+        if (cc === this.buttons.barBack) {
+            println("Bar back button pressed!");
+            Bitwig.movePlayheadByBars(-1);
+            return true;
+        }
+
+        if (cc === this.buttons.barForward) {
+            println("Bar forward button pressed!");
+            Bitwig.movePlayheadByBars(1);
+            return true;
+        }
+
+        return false;
     }
 };
 
@@ -1905,6 +2034,13 @@ var Controller = {
      * @param {number} data2 - MIDI data2 byte
      */
     onLaunchpadMidi: function(status, data1, data2) {
+        // Handle CC messages (top buttons)
+        if (status === 0xB0) {
+            if (LaunchpadTopButtons.handleTopButtonCC(data1, data2)) {
+                return;
+            }
+        }
+
         // Handle pad press (note on with velocity > 0)
         if (status === 0x90 && data2 > 0) {
             // Try pad behavior system first (handles mode buttons, track grid, and markers)
@@ -2236,6 +2372,9 @@ function init() {
 
     // Initialize marker lane
     LaunchpadLane.init();
+
+    // Initialize control buttons
+    LaunchpadTopButtons.init();
 
     // Initialize mode switcher
     LaunchpadModeSwitcher.init();
