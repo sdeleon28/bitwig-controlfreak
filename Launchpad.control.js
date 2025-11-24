@@ -928,9 +928,14 @@ var LaunchpadLane = {
         for (var i = 0; i < this.topLane.pads.length; i++) {
             var marker = markerBank.getItemAt(i);
             if (marker && marker.exists().get()) {
-                // Use default bright green for all markers (color API not working yet)
-                var brightGreen = Launchpad.getBrightnessVariant(Launchpad.colors.green, Launchpad.brightness.bright);
-                Launchpad.setPadColor(this.topLane.pads[i], brightGreen);
+                // Get marker color using getColor() method
+                var color = marker.getColor();
+                var launchpadColor = Launchpad.bitwigColorToLaunchpad(
+                    color.red(),
+                    color.green(),
+                    color.blue()
+                );
+                Launchpad.setPadColor(this.topLane.pads[i], launchpadColor);
             }
         }
 
@@ -2072,11 +2077,18 @@ function init() {
 
             // Mark properties as interested
             marker.exists().markInterested();
+            marker.getColor().markInterested();
 
             // Observe exists changes to refresh lane
             (function(markerIndex) {
                 marker.exists().addValueObserver(function(exists) {
                     if (debug) println("Marker " + markerIndex + " exists: " + exists);
+                    LaunchpadLane.refresh();
+                });
+
+                // Observe color changes to refresh lane
+                marker.getColor().addValueObserver(function(red, green, blue) {
+                    if (debug) println("Marker " + markerIndex + " color changed");
                     LaunchpadLane.refresh();
                 });
             })(i);
@@ -2111,7 +2123,6 @@ function init() {
         LaunchpadLane.refresh();
     }, null, 100);  // Wait 100ms for track bank to populate
 }
-
 
 function onSysex(data) {
     printSysex(data);
