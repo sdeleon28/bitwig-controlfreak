@@ -1,4 +1,4 @@
-loadAPI(17);
+loadAPI(24);
 
 host.defineController("Generic", "Launchpad + Twister", "1.0", "3ffac818-54ac-45e0-928a-d01628afceac", "xan_t");
 host.defineMidiPorts(2, 2);
@@ -50,6 +50,18 @@ var Bitwig = {
     _trackDepths: [],
 
     /**
+     * Arranger for accessing markers
+     * @private
+     */
+    _arranger: null,
+
+    /**
+     * Marker bank for cue markers
+     * @private
+     */
+    _markerBank: null,
+
+    /**
      * Initialize Bitwig API
      * @param {Object} trackBank - Bitwig track bank object
      */
@@ -57,6 +69,26 @@ var Bitwig = {
         this._trackBank = trackBank;
         this._trackDepths = [];
         this._trackTree = null;
+
+        // Create arranger and marker bank
+        this._arranger = host.createArranger();
+        if (debug) println("Arranger created: " + this._arranger);
+
+        if (this._arranger && this._arranger.createCueMarkerBank) {
+            this._markerBank = this._arranger.createCueMarkerBank(16);
+            if (debug) println("Marker bank created with 16 markers");
+        } else {
+            println("WARNING: createCueMarkerBank not available on arranger object");
+            this._markerBank = null;
+        }
+    },
+
+    /**
+     * Get marker bank
+     * @returns {Object|null} Marker bank or null
+     */
+    getMarkerBank: function() {
+        return this._markerBank;
     },
 
     /**
@@ -825,6 +857,84 @@ var LaunchpadModeSwitcher = {
             }
         }
         return null;
+    }
+};
+
+/**
+ * Launchpad top lane for marker navigation
+ * @namespace
+ */
+var LaunchpadLane = {
+    /**
+     * Top lane pad configuration (top two rows, 8x2 = 16 pads)
+     */
+    topLane: {
+        /**
+         * Pad note numbers for top two rows
+         */
+        pads: [
+            81, 82, 83, 84, 85, 86, 87, 88,  // Row 7 (top): markers 0-7
+            71, 72, 73, 74, 75, 76, 77, 78   // Row 6: markers 8-15
+        ],
+
+        /**
+         * Map pad note number → marker index (0-15)
+         * @private
+         */
+        _padToMarkerIndex: null,
+
+        /**
+         * Initialize the top lane
+         */
+        init: function() {
+            // Build pad to marker index mapping
+            this._padToMarkerIndex = {};
+            for (var i = 0; i < this.pads.length; i++) {
+                this._padToMarkerIndex[this.pads[i]] = i;
+            }
+        },
+
+        /**
+         * Get marker index for a pad
+         * @param {number} padNote - MIDI note number
+         * @returns {number|null} Marker index (0-15) or null
+         */
+        getMarkerIndex: function(padNote) {
+            return this._padToMarkerIndex[padNote] !== undefined ? this._padToMarkerIndex[padNote] : null;
+        }
+    },
+
+    /**
+     * Initialize the lane
+     */
+    init: function() {
+        this.topLane.init();
+        if (debug) println("LaunchpadLane initialized");
+    },
+
+    /**
+     * Refresh all marker pads based on current marker bank state
+     */
+    refresh: function() {
+        // Clear all top lane pads
+        for (var i = 0; i < this.topLane.pads.length; i++) {
+            Launchpad.setPadColor(this.topLane.pads[i], Launchpad.colors.off);
+        }
+
+        // Update pads for each marker
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return;
+
+        for (var i = 0; i < this.topLane.pads.length; i++) {
+            var marker = markerBank.getItemAt(i);
+            if (marker && marker.exists().get()) {
+                // Use default bright green for all markers (color API not working yet)
+                var brightGreen = Launchpad.getBrightnessVariant(Launchpad.colors.green, Launchpad.brightness.bright);
+                Launchpad.setPadColor(this.topLane.pads[i], brightGreen);
+            }
+        }
+
+        if (debug) println("LaunchpadLane refreshed");
     }
 };
 
@@ -1643,7 +1753,22 @@ var Controller = {
     onLaunchpadMidi: function(status, data1, data2) {
         // Handle pad press (note on with velocity > 0)
         if (status === 0x90 && data2 > 0) {
-            // Try pad behavior system first (handles mode buttons and track grid)
+            // Check if it's a marker lane pad
+            var markerIndex = LaunchpadLane.topLane.getMarkerIndex(data1);
+            if (markerIndex !== null) {
+                // Jump to marker
+                var markerBank = Bitwig.getMarkerBank();
+                if (markerBank) {
+                    var marker = markerBank.getItemAt(markerIndex);
+                    if (marker && marker.exists().get()) {
+                        marker.launch(false);  // Jump immediately without quantization
+                        if (debug) println("Jumped to marker " + markerIndex);
+                    }
+                }
+                return;
+            }
+
+            // Try pad behavior system (handles mode buttons and track grid)
             if (Launchpad.handlePadPress(data1)) {
                 return;
             }
@@ -1939,9 +2064,31 @@ function init() {
     // Enter Programmer Mode on Launchpad MK2
     Launchpad.enterProgrammerMode();
 
+    // Set up marker observers
+    var markerBank = Bitwig.getMarkerBank();
+    if (markerBank) {
+        for (var i = 0; i < 16; i++) {
+            var marker = markerBank.getItemAt(i);
+
+            // Mark properties as interested
+            marker.exists().markInterested();
+
+            // Observe exists changes to refresh lane
+            (function(markerIndex) {
+                marker.exists().addValueObserver(function(exists) {
+                    if (debug) println("Marker " + markerIndex + " exists: " + exists);
+                    LaunchpadLane.refresh();
+                });
+            })(i);
+        }
+    }
+
     // Initialize LaunchpadQuadrant
     LaunchpadQuadrant.bottomRight.init();
     LaunchpadQuadrant.bottomLeft.init();
+
+    // Initialize marker lane
+    LaunchpadLane.init();
 
     // Initialize mode switcher
     LaunchpadModeSwitcher.init();
@@ -1959,6 +2106,9 @@ function init() {
 
         // Refresh group display now that track depths are calculated
         Controller.refreshGroupDisplay();
+
+        // Refresh marker lane
+        LaunchpadLane.refresh();
     }, null, 100);  // Wait 100ms for track bank to populate
 }
 
