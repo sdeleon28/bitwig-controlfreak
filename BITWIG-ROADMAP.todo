@@ -1,4 +1,6 @@
 [X] snap function
-[ ] marquee zoom
+[X] loop recording, record one body at a time
+
+nice to have:
+
 [ ] track height with cmd+shift+2fingers
-[ ] loop recording, record one body at a time

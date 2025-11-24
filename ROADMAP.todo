@@ -8,15 +8,42 @@
     [X] power lights down
         [X] on teardown
         [X] on mode selection
-[ ] colors
-    [ ] track colors should dictate encoder color
-        [ ] update on startup
-        [ ] update on color change
-[ ] track grid -> top left
-[ ] encoders
-    [ ] number the UI mapping left to right, bottom to top
-    [ ] special encoder
-        [ ] special group encoder for group vol / panning / solo
+[X] colors
+    [X] track colors should dictate encoder color
+        [X] update on startup
+        [X] update on color change
+[X] track grid
+    [X] solo
+    [X] mute
+    [X] record arm
+[X] encoders
+    [X] number the UI mapping left to right, bottom to top
+    [X] special encoder
+        [X] special group encoder for group vol / panning / solo
+[ ] modes
+    [X] volume - affects encoders
+    [X] pan - affects encoders
+    [X] mute - affects track grid
+    [X] solo - affects track grid
+    [ ] select - affects track grid
+    [ ] multi-select - affects track grid
+[ ] group grid (second quadrant)
+    [X] group colors should dictate launchpad color
+        [X] update on startup
+        [X] update on color change
+    [ ] should "go into group"
+    [ ] should set encoder colors to track colors
+[ ] main group
+    [X] top level tracks
+    [ ] piano pitch shift
+    [ ] tempo
+[ ] extra group features
+    [ ] group mute button
+    [ ] group solo button
+[ ] page system
+    [ ] mixer
+    [ ] plugin / device shortcuts
+[-] go to marker functionality (top lane)
 [ ] group actions -> top right
     [ ] mute
     [ ] solo
@@ -25,29 +52,3 @@
     [ ] go out of
     [ ] group
     [ ] ungroup
-[ ] modes
-    [ ] volume - affects encoders
-    [ ] pan - affects encoders
-    [ ] mute - affects track grid
-    [ ] solo - affects track grid
-    [ ] select - affects track grid
-    [ ] multi-select - affects track grid
-[ ] reactive architecture
-[ ] group grid (second quadrant)
-    [ ] group colors should dictate launchpad color
-        [ ] update on startup
-        [ ] update on color change
-    [ ] should "go into group"
-    [ ] should set encoder colors to track colors
-[ ] main group
-    [ ] master volume
-    [ ] tempo
-[ ] extra group features
-    [ ] group mute button
-    [ ] group solo button
-[ ] mute grid
-[ ] solo grid
-[ ] page system
-    [ ] mixer
-    [ ] plugin / device shortcuts
-[ ] st pauls mode
