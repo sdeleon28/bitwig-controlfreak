@@ -62,11 +62,19 @@ var Bitwig = {
     _markerBank: null,
 
     /**
+     * Transport for playback control
+     * @private
+     */
+    _transport: null,
+
+    /**
      * Initialize Bitwig API
      * @param {Object} trackBank - Bitwig track bank object
+     * @param {Object} transport - Bitwig transport object
      */
-    init: function(trackBank) {
+    init: function(trackBank, transport) {
         this._trackBank = trackBank;
+        this._transport = transport;
         this._trackDepths = [];
         this._trackTree = null;
 
@@ -89,6 +97,70 @@ var Bitwig = {
      */
     getMarkerBank: function() {
         return this._markerBank;
+    },
+
+    /**
+     * Get transport
+     * @returns {Object|null} Transport or null
+     */
+    getTransport: function() {
+        return this._transport;
+    },
+
+    /**
+     * Set time selection (loop range) in arrangement
+     * @param {number} startBeats - Start position in beats
+     * @param {number} endBeats - End position in beats
+     */
+    setTimeSelection: function(startBeats, endBeats) {
+        if (!this._transport) return;
+
+        // Set loop start position
+        var loopStart = this._transport.arrangerLoopStart();
+        if (loopStart && loopStart.set) {
+            loopStart.set(startBeats);
+        }
+
+        // Set loop duration (end - start)
+        var loopDuration = this._transport.arrangerLoopDuration();
+        if (loopDuration && loopDuration.set) {
+            loopDuration.set(endBeats - startBeats);
+        }
+
+        if (debug) {
+            println("Time selection set: " + startBeats + " to " + endBeats + " beats");
+        }
+    },
+
+    /**
+     * Move playhead to position
+     * @param {number} beats - Position in beats
+     */
+    setPlayheadPosition: function(beats) {
+        if (!this._transport) return;
+
+        this._transport.setPosition(beats);
+
+        if (debug) {
+            println("Playhead set to: " + beats + " beats");
+        }
+    },
+
+    /**
+     * Enable arrangement recording
+     * @param {boolean} enabled - True to enable
+     */
+    setArrangementRecord: function(enabled) {
+        if (!this._transport) return;
+
+        var recordEnabled = this._transport.isArrangerRecordEnabled();
+        if (recordEnabled && recordEnabled.set) {
+            recordEnabled.set(enabled);
+        }
+
+        if (debug) {
+            println("Arrangement record: " + enabled);
+        }
     },
 
     /**
@@ -909,7 +981,42 @@ var LaunchpadLane = {
      */
     init: function() {
         this.topLane.init();
+        this.registerMarkerPadBehaviors();
         if (debug) println("LaunchpadLane initialized");
+    },
+
+    /**
+     * Register click and hold behaviors for marker pads
+     */
+    registerMarkerPadBehaviors: function() {
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return;
+
+        for (var i = 0; i < this.topLane.pads.length; i++) {
+            var padNote = this.topLane.pads[i];
+
+            // Use closure to capture marker index
+            (function(markerIndex) {
+                // Click: jump to marker
+                var clickCallback = function() {
+                    var marker = markerBank.getItemAt(markerIndex);
+                    if (marker && marker.exists().get()) {
+                        marker.launch(false);  // Jump immediately without quantization
+                        if (debug) println("Jumped to marker " + markerIndex);
+                    }
+                };
+
+                // Hold: prepare recording at marker
+                var holdCallback = function() {
+                    Controller.prepareRecordingAtMarker(markerIndex);
+                };
+
+                // Register both behaviors
+                Launchpad.registerPadBehavior(padNote, clickCallback, holdCallback);
+            })(i);
+        }
+
+        if (debug) println("Marker pad behaviors registered");
     },
 
     /**
@@ -1727,6 +1834,48 @@ var Controller = {
     },
 
     /**
+     * Prepare for recording at a marker position
+     * @param {number} markerIndex - Marker index (0-15)
+     */
+    prepareRecordingAtMarker: function(markerIndex) {
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return;
+
+        var marker = markerBank.getItemAt(markerIndex);
+        if (!marker || !marker.exists().get()) return;
+
+        // Get current marker position
+        var startPos = marker.position().get();
+
+        // Find next marker position
+        var endPos = startPos + 4.0;  // Default to 4 bars if no next marker
+        for (var i = markerIndex + 1; i < 16; i++) {
+            var nextMarker = markerBank.getItemAt(i);
+            if (nextMarker && nextMarker.exists().get()) {
+                endPos = nextMarker.position().get();
+                break;
+            }
+        }
+
+        if (debug) {
+            println("Preparing recording: marker " + markerIndex);
+            println("  Start: " + startPos + " beats");
+            println("  End: " + endPos + " beats");
+        }
+
+        // Set time selection (loop range)
+        Bitwig.setTimeSelection(startPos, endPos);
+
+        // Move playhead to start
+        Bitwig.setPlayheadPosition(startPos);
+
+        // Enable arrangement record
+        Bitwig.setArrangementRecord(true);
+
+        if (debug) println("Recording prepared at marker " + markerIndex);
+    },
+
+    /**
      * Clear all armed tracks with flash animation
      */
     clearAllArm: function() {
@@ -1758,22 +1907,7 @@ var Controller = {
     onLaunchpadMidi: function(status, data1, data2) {
         // Handle pad press (note on with velocity > 0)
         if (status === 0x90 && data2 > 0) {
-            // Check if it's a marker lane pad
-            var markerIndex = LaunchpadLane.topLane.getMarkerIndex(data1);
-            if (markerIndex !== null) {
-                // Jump to marker
-                var markerBank = Bitwig.getMarkerBank();
-                if (markerBank) {
-                    var marker = markerBank.getItemAt(markerIndex);
-                    if (marker && marker.exists().get()) {
-                        marker.launch(false);  // Jump immediately without quantization
-                        if (debug) println("Jumped to marker " + markerIndex);
-                    }
-                }
-                return;
-            }
-
-            // Try pad behavior system (handles mode buttons and track grid)
+            // Try pad behavior system first (handles mode buttons, track grid, and markers)
             if (Launchpad.handlePadPress(data1)) {
                 return;
             }
@@ -1953,8 +2087,8 @@ function init() {
     // Create main track bank to access all tracks (flat list including nested tracks)
     trackBank = host.createMainTrackBank(64, 0, 0);
 
-    // Initialize Bitwig namespace with track bank
-    Bitwig.init(trackBank);
+    // Initialize Bitwig namespace with track bank and transport
+    Bitwig.init(trackBank, transport);
 
     // Subscribe to track properties for tree building
     for (var i = 0; i < 64; i++) {
@@ -2078,6 +2212,7 @@ function init() {
             // Mark properties as interested
             marker.exists().markInterested();
             marker.getColor().markInterested();
+            marker.position().markInterested();  // Needed for prepareRecordingAtMarker
 
             // Observe exists changes to refresh lane
             (function(markerIndex) {
@@ -2122,6 +2257,125 @@ function init() {
         // Refresh marker lane
         LaunchpadLane.refresh();
     }, null, 100);  // Wait 100ms for track bank to populate
+}
+
+function testTransportTimeSelectionAPIs() {
+    println("========================================");
+    println("=== TRANSPORT TIME SELECTION API TEST ===");
+    println("========================================");
+
+    var transport = Bitwig._transport;
+    if (!transport) {
+        println("ERROR: No transport!");
+        return;
+    }
+
+    println("Transport object: " + transport);
+    println("Transport type: " + typeof transport);
+
+    var startPos = 8.0;  // 8 beats
+    var endPos = 16.0;   // 16 beats
+
+    // Test 1: setLoopStart/setLoopEnd
+    try {
+        println("\n[TEST 1] Trying setLoopStart/setLoopEnd...");
+        transport.setLoopStart(startPos);
+        transport.setLoopEnd(endPos);
+        println("SUCCESS! setLoopStart/setLoopEnd works");
+    } catch (e) {
+        println("FAILED: " + e);
+    }
+
+    // Test 2: getInPosition/getOutPosition
+    try {
+        println("\n[TEST 2] Trying getInPosition/getOutPosition...");
+        var inPos = transport.getInPosition();
+        var outPos = transport.getOutPosition();
+        println("SUCCESS! getInPosition: " + inPos);
+        println("  getOutPosition: " + outPos);
+    } catch (e) {
+        println("FAILED: " + e);
+    }
+
+    // Test 3: setInPosition/setOutPosition
+    try {
+        println("\n[TEST 3] Trying setInPosition/setOutPosition...");
+        transport.setInPosition(startPos);
+        transport.setOutPosition(endPos);
+        println("SUCCESS! setInPosition/setOutPosition works");
+    } catch (e) {
+        println("FAILED: " + e);
+    }
+
+    // Test 4: incPosition/decPosition properties
+    try {
+        println("\n[TEST 4] Checking incPosition/decPosition...");
+        if (transport.incPosition) {
+            println("SUCCESS! incPosition exists: " + transport.incPosition);
+        }
+        if (transport.decPosition) {
+            println("SUCCESS! decPosition exists: " + transport.decPosition);
+        }
+    } catch (e) {
+        println("FAILED: " + e);
+    }
+
+    // Test 5: Check for arranger methods
+    try {
+        println("\n[TEST 5] Trying arranger-specific methods...");
+        if (Bitwig._arranger) {
+            println("Arranger exists: " + Bitwig._arranger);
+            // Try arranger time selection methods
+            try {
+                Bitwig._arranger.setLoopStart(startPos);
+                println("SUCCESS! arranger.setLoopStart works");
+            } catch (e2) {
+                println("arranger.setLoopStart FAILED: " + e2);
+            }
+        }
+    } catch (e) {
+        println("FAILED: " + e);
+    }
+
+    // Test 6: List all transport methods
+    try {
+        println("\n[TEST 6] Listing all transport methods...");
+        var count = 0;
+        for (var prop in transport) {
+            if (typeof transport[prop] === 'function') {
+                println("  transport." + prop + "()");
+                count++;
+            }
+        }
+        println("Total methods: " + count);
+    } catch (e) {
+        println("FAILED to enumerate: " + e);
+    }
+
+    // Test 7: Search for time/selection/loop related
+    try {
+        println("\n[TEST 7] Searching for time/loop/selection methods...");
+        var found = [];
+        for (var prop in transport) {
+            var lowerProp = prop.toLowerCase();
+            if (lowerProp.indexOf('time') !== -1 ||
+                lowerProp.indexOf('loop') !== -1 ||
+                lowerProp.indexOf('selection') !== -1 ||
+                lowerProp.indexOf('in') === 0 ||
+                lowerProp.indexOf('out') === 0 ||
+                lowerProp.indexOf('position') !== -1) {
+                found.push(prop);
+                println("  transport." + prop + " (type: " + typeof transport[prop] + ")");
+            }
+        }
+        println("Found " + found.length + " related methods/properties");
+    } catch (e) {
+        println("FAILED: " + e);
+    }
+
+    println("\n========================================");
+    println("=== END OF TESTS ===");
+    println("========================================");
 }
 
 function onSysex(data) {
