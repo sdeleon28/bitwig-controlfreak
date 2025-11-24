@@ -268,6 +268,11 @@ var Bitwig = {
  * @namespace
  */
 var Launchpad = {
+    // Hold timing configuration (milliseconds)
+    holdTiming: {
+        hold: 400  // Time to hold button before triggering hold action
+    },
+
     // Launchpad color constants
     colors: {
         off: 0,
@@ -320,6 +325,12 @@ var Launchpad = {
      * @private
      */
     _padToTrack: {},
+
+    /**
+     * Pad interaction tracking for click/hold behaviors
+     * @private
+     */
+    _padTimers: {},
 
     /**
      * Initialize Launchpad hardware
@@ -512,6 +523,11 @@ var Launchpad = {
                 // Soloed: bright yellow
                 return this.getBrightnessVariant(this.colors.yellow, this.brightness.bright);
             }
+        } else if (currentMode === modeEnum.RECORD_ARM) {
+            if (track.arm().get()) {
+                // Armed: bright red
+                return this.getBrightnessVariant(this.colors.red, this.brightness.bright);
+            }
         }
 
         // Default: show track color (dim variant)
@@ -544,6 +560,64 @@ var Launchpad = {
         }
         this._padLinks = {};
         this._padToTrack = {};
+    },
+
+    /**
+     * Register click/hold behavior for a pad
+     * @param {number} padNote - MIDI note number
+     * @param {Function} clickCallback - Function to call on click
+     * @param {Function} holdCallback - Function to call on hold (optional)
+     */
+    registerPadBehavior: function(padNote, clickCallback, holdCallback) {
+        if (!this._padTimers[padNote]) {
+            this._padTimers[padNote] = {};
+        }
+
+        this._padTimers[padNote].clickCallback = clickCallback;
+        this._padTimers[padNote].holdCallback = holdCallback || null;
+        this._padTimers[padNote].pressTime = null;
+    },
+
+    /**
+     * Handle pad press (called by Controller)
+     * @param {number} padNote - MIDI note number
+     * @returns {boolean} True if handled
+     */
+    handlePadPress: function(padNote) {
+        var padTimer = this._padTimers[padNote];
+        if (!padTimer) return false;  // Not registered
+
+        // Record when button was pressed
+        padTimer.pressTime = Date.now();
+
+        return true;  // Handled
+    },
+
+    /**
+     * Handle pad release (called by Controller)
+     * @param {number} padNote - MIDI note number
+     * @returns {boolean} True if handled
+     */
+    handlePadRelease: function(padNote) {
+        var padTimer = this._padTimers[padNote];
+        if (!padTimer) return false;  // Not registered
+
+        // Calculate how long button was held
+        var holdDuration = Date.now() - (padTimer.pressTime || 0);
+
+        // Execute hold or click callback based on duration
+        if (holdDuration >= this.holdTiming.hold && padTimer.holdCallback) {
+            // Was held long enough - trigger hold action
+            padTimer.holdCallback();
+        } else if (padTimer.clickCallback) {
+            // Quick press - trigger click action
+            padTimer.clickCallback();
+        }
+
+        // Clean up
+        padTimer.pressTime = null;
+
+        return true;  // Handled
     }
 };
 
@@ -1162,9 +1236,63 @@ var Controller = {
      * Initialize controller
      */
     init: function() {
+        // Register mode button behaviors
+        this.registerModeButtonBehaviors();
+
         // Auto-select group 16 (top-level tracks)
         this.selectGroup(16);
         if (debug) println("Controller initialized");
+    },
+
+    /**
+     * Register click and hold behaviors for mode buttons
+     */
+    registerModeButtonBehaviors: function() {
+        var self = this;
+        var modeEnum = LaunchpadModeSwitcher.modeEnum;
+        var modes = LaunchpadModeSwitcher.modes;
+
+        // Mute mode button
+        Launchpad.registerPadBehavior(modes.mute.note, function() {
+            LaunchpadModeSwitcher.selectMode(modeEnum.MUTE);
+        }, function() {
+            self.clearAllMute();
+        });
+
+        // Solo mode button
+        Launchpad.registerPadBehavior(modes.solo.note, function() {
+            LaunchpadModeSwitcher.selectMode(modeEnum.SOLO);
+        }, function() {
+            self.clearAllSolo();
+        });
+
+        // Record arm mode button
+        Launchpad.registerPadBehavior(modes.recordArm.note, function() {
+            LaunchpadModeSwitcher.selectMode(modeEnum.RECORD_ARM);
+        }, function() {
+            self.clearAllArm();
+        });
+
+        // Other mode buttons (no hold behavior)
+        Launchpad.registerPadBehavior(modes.volume.note, function() {
+            LaunchpadModeSwitcher.selectMode(modeEnum.VOLUME);
+        }, null);
+
+        Launchpad.registerPadBehavior(modes.pan.note, function() {
+            LaunchpadModeSwitcher.selectMode(modeEnum.PAN);
+        }, null);
+
+        Launchpad.registerPadBehavior(modes.sendA.note, function() {
+            LaunchpadModeSwitcher.selectMode(modeEnum.SEND_A);
+        }, null);
+
+        Launchpad.registerPadBehavior(modes.sendB.note, function() {
+            LaunchpadModeSwitcher.selectMode(modeEnum.SEND_B);
+        }, null);
+
+        Launchpad.registerPadBehavior(modes.stop.note, function() {
+            LaunchpadModeSwitcher.selectMode(modeEnum.STOP);
+        }, null);
     },
 
     /**
@@ -1293,17 +1421,48 @@ var Controller = {
      * Refresh the track grid display on Launchpad
      */
     refreshTrackGrid: function() {
+        var self = this;
+
         // Unlink all track grid pads
         for (var i = 0; i < LaunchpadQuadrant.bottomLeft.pads.length; i++) {
             Launchpad.unlinkPad(LaunchpadQuadrant.bottomLeft.pads[i]);
         }
 
         // Link pads based on encoder links
+        var currentMode = LaunchpadModeSwitcher.currentMode;
+        var modeEnum = LaunchpadModeSwitcher.modeEnum;
+
         for (var encoderNum = 1; encoderNum <= 16; encoderNum++) {
             var link = Twister._encoderLinks[encoderNum];
             if (link) {
                 var padNote = LaunchpadQuadrant.bottomLeft.pads[encoderNum - 1];
-                Launchpad.linkPadToTrack(padNote, link.trackId);
+                var trackId = link.trackId;
+
+                Launchpad.linkPadToTrack(padNote, trackId);
+
+                // Register click behaviors based on current mode (no hold behaviors on track pads)
+                if (currentMode === modeEnum.MUTE) {
+                    (function(tid) {
+                        Launchpad.registerPadBehavior(padNote, function() {
+                            var track = Bitwig.getTrack(tid);
+                            if (track) track.mute().toggle();
+                        }, null);
+                    })(trackId);
+                } else if (currentMode === modeEnum.SOLO) {
+                    (function(tid) {
+                        Launchpad.registerPadBehavior(padNote, function() {
+                            var track = Bitwig.getTrack(tid);
+                            if (track) track.solo().toggle();
+                        }, null);
+                    })(trackId);
+                } else if (currentMode === modeEnum.RECORD_ARM) {
+                    (function(tid) {
+                        Launchpad.registerPadBehavior(padNote, function() {
+                            var track = Bitwig.getTrack(tid);
+                            if (track) track.arm().toggle();
+                        }, null);
+                    })(trackId);
+                }
             }
         }
     },
@@ -1407,6 +1566,75 @@ var Controller = {
     },
 
     /**
+     * Clear all muted tracks with flash animation
+     */
+    clearAllMute: function() {
+        var modeConfig = LaunchpadModeSwitcher.modes.mute;
+
+        // Flash mode button white
+        Launchpad.setPadColor(modeConfig.note, Launchpad.colors.white);
+
+        // Clear mute on all tracks
+        for (var i = 0; i < 64; i++) {
+            var track = Bitwig.getTrack(i);
+            if (track && track.mute().get()) {
+                track.mute().set(false);
+            }
+        }
+
+        // Restore mode button color after delay
+        host.scheduleTask(function() {
+            LaunchpadModeSwitcher.refresh();
+        }, null, 100);
+    },
+
+    /**
+     * Clear all soloed tracks with flash animation
+     */
+    clearAllSolo: function() {
+        var modeConfig = LaunchpadModeSwitcher.modes.solo;
+
+        // Flash mode button white
+        Launchpad.setPadColor(modeConfig.note, Launchpad.colors.white);
+
+        // Clear solo on all tracks
+        for (var i = 0; i < 64; i++) {
+            var track = Bitwig.getTrack(i);
+            if (track && track.solo().get()) {
+                track.solo().set(false);
+            }
+        }
+
+        // Restore mode button color after delay
+        host.scheduleTask(function() {
+            LaunchpadModeSwitcher.refresh();
+        }, null, 100);
+    },
+
+    /**
+     * Clear all armed tracks with flash animation
+     */
+    clearAllArm: function() {
+        var modeConfig = LaunchpadModeSwitcher.modes.recordArm;
+
+        // Flash mode button white
+        Launchpad.setPadColor(modeConfig.note, Launchpad.colors.white);
+
+        // Clear record arm on all tracks
+        for (var i = 0; i < 64; i++) {
+            var track = Bitwig.getTrack(i);
+            if (track && track.arm().get()) {
+                track.arm().set(false);
+            }
+        }
+
+        // Restore mode button color after delay
+        host.scheduleTask(function() {
+            LaunchpadModeSwitcher.refresh();
+        }, null, 100);
+    },
+
+    /**
      * Handle Launchpad MIDI input
      * @param {number} status - MIDI status byte
      * @param {number} data1 - MIDI data1 byte
@@ -1415,10 +1643,8 @@ var Controller = {
     onLaunchpadMidi: function(status, data1, data2) {
         // Handle pad press (note on with velocity > 0)
         if (status === 0x90 && data2 > 0) {
-            // Check if it's a mode switcher button
-            var mode = LaunchpadModeSwitcher.getModeForNote(data1);
-            if (mode) {
-                LaunchpadModeSwitcher.selectMode(mode);
+            // Try pad behavior system first (handles mode buttons and track grid)
+            if (Launchpad.handlePadPress(data1)) {
                 return;
             }
 
@@ -1428,28 +1654,12 @@ var Controller = {
                 this.selectGroup(groupNum);
                 return;
             }
+        }
 
-            // Check if it's a track grid pad
-            var trackNum = LaunchpadQuadrant.bottomLeft.getTrackNumber(data1);
-            if (trackNum) {
-                var currentMode = LaunchpadModeSwitcher.currentMode;
-                var modeEnum = LaunchpadModeSwitcher.modeEnum;
-
-                if (currentMode === modeEnum.MUTE) {
-                    // Toggle mute for linked track
-                    var link = Twister._encoderLinks[trackNum];
-                    if (link) {
-                        link.track.mute().toggle();
-                    }
-                } else if (currentMode === modeEnum.SOLO) {
-                    // Toggle solo for linked track
-                    var link = Twister._encoderLinks[trackNum];
-                    if (link) {
-                        link.track.solo().toggle();
-                    }
-                }
-                return;
-            }
+        // Handle pad release (note on with velocity 0 or note off)
+        if ((status === 0x90 && data2 === 0) || status === 0x80) {
+            // Try pad behavior system
+            Launchpad.handlePadRelease(data1);
         }
     },
 
@@ -1672,6 +1882,16 @@ function init() {
                 }
             });
 
+            // Add record arm observer for track grid
+            trackObj.arm().markInterested();
+            trackObj.arm().addValueObserver(function(isArmed) {
+                var padNumber = Launchpad._padToTrack[trackId];
+                if (padNumber) {
+                    var color = Launchpad.getTrackGridPadColor(trackId);
+                    Launchpad.setPadColor(padNumber, color);
+                }
+            });
+
             // Add color observer that checks for encoder and pad links
             trackObj.color().addValueObserver(function(red, green, blue) {
                 // Update encoder colors
@@ -1705,8 +1925,8 @@ function init() {
                             Launchpad.setPadColor(padNumber, dimColor);
                         }
                     } else {
-                        // Track grid pad - only update if NOT in mute/solo mode
-                        if (currentMode !== modeEnum.MUTE && currentMode !== modeEnum.SOLO) {
+                        // Track grid pad - only update if NOT in mute/solo/record arm mode
+                        if (currentMode !== modeEnum.MUTE && currentMode !== modeEnum.SOLO && currentMode !== modeEnum.RECORD_ARM) {
                             var color = Launchpad.getTrackGridPadColor(trackId);
                             Launchpad.setPadColor(padNumber, color);
                         }
