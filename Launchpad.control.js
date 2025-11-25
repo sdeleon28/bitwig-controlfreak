@@ -1,7 +1,7 @@
 loadAPI(24);
 
 host.defineController("Generic", "Launchpad + Twister", "1.0", "3ffac818-54ac-45e0-928a-d01628afceac", "xan_t");
-host.defineMidiPorts(3, 2);  // 3 inputs (Launchpad, Twister, Roland Piano), 2 outputs
+host.defineMidiPorts(4, 2);  // 4 inputs (Launchpad, Twister, Roland Piano, nanoKEY2), 2 outputs
 
 // Debug flag - set to true to enable verbose logging
 var debug = false;
@@ -455,20 +455,90 @@ var RolandPiano = {
         this._noteInput.setKeyTranslationTable(table);
 
         println("Roland Piano transpose: " + semitones + " semitones");
+    }
+};
+
+/**
+ * nanoKEY2 hardware abstraction for key selection
+ * @namespace
+ */
+var NanoKey2 = {
+    /**
+     * Key mapping: MIDI note -> key name and transpose semitones
+     * MIDI notes 48-59 correspond to C-B (one octave)
+     */
+    keyMap: {
+        48: { name: "C", semitones: -1 },
+        49: { name: "Db", semitones: 0 },
+        50: { name: "D", semitones: 1 },
+        51: { name: "Eb", semitones: 2 },
+        52: { name: "E", semitones: 3 },
+        53: { name: "F", semitones: 4 },
+        54: { name: "F#", semitones: 5 },
+        55: { name: "G", semitones: 6 },
+        56: { name: "G#", semitones: -6 },
+        57: { name: "A", semitones: -4 },
+        58: { name: "Bb", semitones: -3 },
+        59: { name: "B", semitones: -2 }
     },
 
     /**
-     * Transpose up by one octave (+12 semitones)
+     * Internal reference to note input
+     * @private
      */
-    transposeUp: function() {
-        this.setTranspose(this._transposeOffset + 12);
+    _noteInput: null,
+
+    /**
+     * Currently selected key name
+     * @private
+     */
+    _currentKey: "Db",
+
+    /**
+     * Initialize nanoKEY2 hardware
+     */
+    init: function() {
+        // Create note input for nanoKEY2 on port 3
+        // Port 3 should be configured to "nanoKEY2" in controller settings
+        // This input allows MIDI callback to see events for key selection
+        this._noteInput = host.getMidiInPort(3).createNoteInput("nanoKEY2 - Key Selector", "??????");
+        this._noteInput.setShouldConsumeEvents(false);  // Allow MIDI callback to see events
+
+        if (debug) println("Created 'nanoKEY2 - Key Selector' note input on port 3");
     },
 
     /**
-     * Transpose down by one octave (-12 semitones)
+     * Handle key selection from nanoKEY2
+     * @param {number} midiNote - MIDI note number (48-59 for C-B)
      */
-    transposeDown: function() {
-        this.setTranspose(this._transposeOffset - 12);
+    handleKeySelection: function(midiNote) {
+        var keyInfo = this.keyMap[midiNote];
+
+        if (!keyInfo) {
+            // Not a key selection note (outside C-B range)
+            return;
+        }
+
+        // Update current key
+        this._currentKey = keyInfo.name;
+
+        // Set transpose on Roland Piano
+        RolandPiano.setTranspose(keyInfo.semitones);
+
+        // Show notification in Bitwig
+        host.showPopupNotification("Key: " + keyInfo.name + " Major");
+
+        if (debug) {
+            println("Key selected: " + keyInfo.name + " Major (" + keyInfo.semitones + " semitones)");
+        }
+    },
+
+    /**
+     * Get currently selected key name
+     * @returns {string} Current key name
+     */
+    getCurrentKey: function() {
+        return this._currentKey;
     }
 };
 
@@ -1195,8 +1265,6 @@ var LaunchpadTopButtons = {
      * Control button notes (top row circular buttons, 1-indexed)
      */
     buttons: {
-        transposeUp: 104,    // Button 1 (up arrow): Transpose +12 semitones
-        transposeDown: 105,  // Button 2 (down arrow): Transpose -12 semitones
         barBack: 106,        // Button 3: Move playhead one bar back
         barForward: 107      // Button 4: Move playhead one bar forward
     },
@@ -1205,9 +1273,11 @@ var LaunchpadTopButtons = {
      * Initialize control buttons
      */
     init: function() {
+        // Turn off buttons 1 and 2 (transpose buttons removed)
+        Launchpad.setTopButtonColor(104, 0);
+        Launchpad.setTopButtonColor(105, 0);
+
         // Set button colors - use CC message for top buttons
-        Launchpad.setTopButtonColor(this.buttons.transposeUp, Launchpad.colors.green);
-        Launchpad.setTopButtonColor(this.buttons.transposeDown, Launchpad.colors.red);
         Launchpad.setTopButtonColor(this.buttons.barBack, Launchpad.colors.pink);
         Launchpad.setTopButtonColor(this.buttons.barForward, Launchpad.colors.pink);
 
@@ -1239,18 +1309,6 @@ var LaunchpadTopButtons = {
     handleTopButtonCC: function(cc, value) {
         // Only handle button press (value > 0)
         if (value === 0) return false;
-
-        if (cc === this.buttons.transposeUp) {
-            println("Transpose up button pressed!");
-            RolandPiano.transposeUp();
-            return true;
-        }
-
-        if (cc === this.buttons.transposeDown) {
-            println("Transpose down button pressed!");
-            RolandPiano.transposeDown();
-            return true;
-        }
 
         if (cc === this.buttons.barBack) {
             println("Bar back button pressed!");
@@ -2467,6 +2525,23 @@ function init() {
 
     // Initialize Roland Piano transpose
     RolandPiano.init();
+
+    // Initialize nanoKEY2 on port 3
+    NanoKey2.init();
+    println("nanoKEY2 initialized on port 3 - expecting nanoKEY2 to be configured as input port 3");
+
+    // Set up MIDI callback for nanoKEY2
+    host.getMidiInPort(3).setMidiCallback(function(status, data1, data2) {
+        // Log ALL MIDI from port 3 to diagnose issues
+        println("nanoKEY2 MIDI: " + status + ", " + data1 + ", " + data2 + " [" +
+                status.toString(16) + " " + data1.toString(16) + " " + data2.toString(16) + "]");
+
+        // Handle note on messages (status 0x90) with velocity > 0
+        if (status === 0x90 && data2 > 0) {
+            println("  -> Note ON detected, calling handleKeySelection(" + data1 + ")");
+            NanoKey2.handleKeySelection(data1);
+        }
+    });
 
     // Initialize mode switcher
     LaunchpadModeSwitcher.init();

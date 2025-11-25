@@ -365,17 +365,19 @@ transport.play()
 transport.stop()
 ```
 
-## Roland Piano Transpose Feature
+## Roland Piano Transpose Feature with nanoKEY2 Key Selection
 
 ### Problem
 
-Need to transpose MIDI from Roland Digital Piano by ±x semitones without adding pitch plugins to every track.
+Need to transpose MIDI from Roland Digital Piano by ±x semitones without adding pitch plugins to every track. User plays in Db major but wants to easily transpose to any key.
 
 ### Solution
 
-Use `setKeyTranslationTable()` on a dedicated NoteInput to globally transpose MIDI from a specific port.
+Use `setKeyTranslationTable()` on a dedicated NoteInput to globally transpose MIDI from a specific port. Use nanoKEY2 as a key selector to control the transpose amount.
 
 ### Implementation
+
+#### RolandPiano Namespace (Transpose Engine)
 
 ```javascript
 var RolandPiano = {
@@ -391,6 +393,8 @@ var RolandPiano = {
     },
 
     setTranspose: function(semitones) {
+        this._transposeOffset = semitones;
+
         // Build key translation table (128 MIDI notes)
         var table = [];
         for (var i = 0; i < 128; i++) {
@@ -407,20 +411,115 @@ var RolandPiano = {
 };
 ```
 
+#### NanoKey2 Namespace (Key Selector)
+
+```javascript
+var NanoKey2 = {
+    keyMap: {
+        48: { name: "C", semitones: -1 },    // C -> transpose -1
+        49: { name: "Db", semitones: 0 },    // Db -> no transpose (native key)
+        50: { name: "D", semitones: 1 },     // D -> transpose +1
+        51: { name: "Eb", semitones: 2 },    // Eb -> transpose +2
+        52: { name: "E", semitones: 3 },     // E -> transpose +3
+        53: { name: "F", semitones: 4 },     // F -> transpose +4
+        54: { name: "F#", semitones: 5 },    // F# -> transpose +5
+        55: { name: "G", semitones: 6 },     // G -> transpose +6
+        56: { name: "G#", semitones: -6 },   // G# -> transpose -6 (enharmonic)
+        57: { name: "A", semitones: -4 },    // A -> transpose -4
+        58: { name: "Bb", semitones: -3 },   // Bb -> transpose -3
+        59: { name: "B", semitones: -2 }     // B -> transpose -2
+    },
+
+    _noteInput: null,
+    _currentKey: "Db",
+
+    init: function() {
+        // Create note input for key selection on port 3
+        this._noteInput = host.getMidiInPort(3).createNoteInput("nanoKEY2 - Key Selector", "??????");
+
+        // Consume events so keys don't play notes
+        this._noteInput.setShouldConsumeEvents(true);
+    },
+
+    handleKeySelection: function(midiNote) {
+        var keyInfo = this.keyMap[midiNote];
+        if (!keyInfo) return;  // Outside C-B range
+
+        this._currentKey = keyInfo.name;
+        RolandPiano.setTranspose(keyInfo.semitones);
+
+        // Show notification in Bitwig
+        host.showPopupNotification("Key: " + keyInfo.name + " Major");
+    }
+};
+```
+
+#### MIDI Setup in init()
+
+```javascript
+function init() {
+    // ... other init code ...
+
+    // Initialize Roland Piano transpose (port 2)
+    RolandPiano.init();
+
+    // Initialize nanoKEY2 key selector (port 3)
+    NanoKey2.init();
+
+    // Set up MIDI callback for nanoKEY2
+    host.getMidiInPort(3).setMidiCallback(function(status, data1, data2) {
+        // Handle note on messages for key selection
+        if (status === 0x90 && data2 > 0) {
+            NanoKey2.handleKeySelection(data1);
+        }
+    });
+}
+```
+
 ### Key Concepts
 
-1. **Port Configuration**: Requires 3 MIDI ports (Launchpad, Twister, Roland Piano)
-2. **Note Input Name**: Use unique name "Roland Piano (Transposed)" so both original and transposed inputs are visible
-3. **setShouldConsumeEvents(true)**: Takes full control of the MIDI port, preventing conflicts with generic controller
+1. **Port Configuration**: Requires 4 MIDI ports:
+   - Port 0: Launchpad MK2
+   - Port 1: MIDI Fighter Twister
+   - Port 2: Roland Digital Piano
+   - Port 3: nanoKEY2
+
+2. **Note Input Names**:
+   - "Roland Piano (Transposed)" - the transposed input for recording/playing
+   - "nanoKEY2 - Key Selector" - consumes C-B keys for key selection
+
+3. **setShouldConsumeEvents(true)**: Both Roland Piano and nanoKEY2 inputs use this to take full control
+
 4. **Key Translation Table**: Array of 128 integers mapping input MIDI notes to output MIDI notes
-5. **Global Effect**: Translation applies to all tracks receiving from this note input
+
+5. **Key Selection**: Press C-B keys (MIDI 48-59) on nanoKEY2 to set transpose:
+   - C (48): -1 semitone
+   - Db (49): 0 semitones (native key)
+   - D (50): +1 semitone
+   - ... up to B (59): -2 semitones
+
+6. **Bitwig Notifications**: Use `host.showPopupNotification(message)` to show key selection feedback
+
+7. **Global Effect**: Translation applies to all tracks receiving from "Roland Piano (Transposed)" input
+
+### Workflow
+
+1. Configure ports in Bitwig controller settings:
+   - Port 2: Roland Digital Piano
+   - Port 3: nanoKEY2
+2. On tracks where you want transposed piano, select "Roland Piano (Transposed)" as MIDI input
+3. Press a key on nanoKEY2 (C through B) to select the target key
+4. Bitwig shows notification: "Key: [name] Major"
+5. Play Db major shapes on Roland Piano, outputs in selected key
 
 ### Gotchas
 
-- Must call `setShouldConsumeEvents(true)` or MIDI won't come through
+- Must call `setShouldConsumeEvents(true)` or MIDI won't come through properly
 - Disable generic "Roland Digital Piano" controller in Bitwig to avoid conflicts
-- Both original and transposed note inputs are visible in track input dropdowns
-- Translation is global - affects all tracks using this input
+- nanoKEY2 keys C-B (MIDI 48-59) don't produce notes when pressed (consumed for key selection)
+- Keys outside C-B range on nanoKEY2 are ignored by key selector
+- Translation is global - affects all tracks using "Roland Piano (Transposed)" input
+- Both original "Roland Digital Piano" and "Roland Piano (Transposed)" inputs are visible
 
 ## Resources
 
