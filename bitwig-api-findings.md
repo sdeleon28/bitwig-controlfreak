@@ -365,6 +365,63 @@ transport.play()
 transport.stop()
 ```
 
+## Roland Piano Transpose Feature
+
+### Problem
+
+Need to transpose MIDI from Roland Digital Piano by ±x semitones without adding pitch plugins to every track.
+
+### Solution
+
+Use `setKeyTranslationTable()` on a dedicated NoteInput to globally transpose MIDI from a specific port.
+
+### Implementation
+
+```javascript
+var RolandPiano = {
+    _noteInput: null,
+    _transposeOffset: 0,
+
+    init: function() {
+        // Create dedicated note input on port 2
+        this._noteInput = host.getMidiInPort(2).createNoteInput("Roland Piano (Transposed)", "??????");
+
+        // Take full control of this MIDI port
+        this._noteInput.setShouldConsumeEvents(true);
+    },
+
+    setTranspose: function(semitones) {
+        // Build key translation table (128 MIDI notes)
+        var table = [];
+        for (var i = 0; i < 128; i++) {
+            var transposed = i + semitones;
+            // Clamp to valid MIDI range (0-127)
+            if (transposed < 0) transposed = 0;
+            if (transposed > 127) transposed = 127;
+            table[i] = transposed;
+        }
+
+        // Apply translation
+        this._noteInput.setKeyTranslationTable(table);
+    }
+};
+```
+
+### Key Concepts
+
+1. **Port Configuration**: Requires 3 MIDI ports (Launchpad, Twister, Roland Piano)
+2. **Note Input Name**: Use unique name "Roland Piano (Transposed)" so both original and transposed inputs are visible
+3. **setShouldConsumeEvents(true)**: Takes full control of the MIDI port, preventing conflicts with generic controller
+4. **Key Translation Table**: Array of 128 integers mapping input MIDI notes to output MIDI notes
+5. **Global Effect**: Translation applies to all tracks receiving from this note input
+
+### Gotchas
+
+- Must call `setShouldConsumeEvents(true)` or MIDI won't come through
+- Disable generic "Roland Digital Piano" controller in Bitwig to avoid conflicts
+- Both original and transposed note inputs are visible in track input dropdowns
+- Translation is global - affects all tracks using this input
+
 ## Resources
 
 - **Bitwig Studio Control Surface Scripting Guide**: Limited documentation

@@ -1,7 +1,7 @@
 loadAPI(24);
 
 host.defineController("Generic", "Launchpad + Twister", "1.0", "3ffac818-54ac-45e0-928a-d01628afceac", "xan_t");
-host.defineMidiPorts(2, 2);
+host.defineMidiPorts(3, 2);  // 3 inputs (Launchpad, Twister, Roland Piano), 2 outputs
 
 // Debug flag - set to true to enable verbose logging
 var debug = false;
@@ -396,6 +396,79 @@ var Bitwig = {
             }
         }
         return topLevel;
+    }
+};
+
+/**
+ * Roland Digital Piano MIDI transpose control
+ * @namespace
+ */
+var RolandPiano = {
+    /**
+     * Internal reference to note input
+     * @private
+     */
+    _noteInput: null,
+
+    /**
+     * Current transpose offset in semitones
+     * @private
+     */
+    _transposeOffset: 0,
+
+    /**
+     * Initialize Roland Piano transpose
+     */
+    init: function() {
+        // Create transposing note input for Roland Digital Piano
+        // Port 2 should be configured to "Roland Digital Piano" in controller settings
+        // This creates a separate input that users can select for transpose functionality
+        this._noteInput = host.getMidiInPort(2).createNoteInput("Roland Piano (Transposed)", "??????");
+        this._noteInput.setShouldConsumeEvents(true);  // Take full control of this MIDI port
+        this._transposeOffset = 0;
+        if (debug) println("Created 'Roland Piano (Transposed)' note input on port 2");
+    },
+
+    /**
+     * Set transpose offset
+     * @param {number} semitones - Transpose offset in semitones (can be negative)
+     */
+    setTranspose: function(semitones) {
+        if (!this._noteInput) {
+            println("ERROR: Piano note input not initialized");
+            return;
+        }
+
+        this._transposeOffset = semitones;
+
+        // Build key translation table (128 MIDI notes)
+        var table = [];
+        for (var i = 0; i < 128; i++) {
+            var transposed = i + semitones;
+            // Clamp to valid MIDI range (0-127)
+            if (transposed < 0) transposed = 0;
+            if (transposed > 127) transposed = 127;
+            table[i] = transposed;
+        }
+
+        // Apply translation to note input
+        this._noteInput.setKeyTranslationTable(table);
+
+        println("Roland Piano transpose: " + semitones + " semitones");
+    },
+
+    /**
+     * Transpose up by one octave (+12 semitones)
+     */
+    transposeUp: function() {
+        this.setTranspose(this._transposeOffset + 12);
+    },
+
+    /**
+     * Transpose down by one octave (-12 semitones)
+     */
+    transposeDown: function() {
+        this.setTranspose(this._transposeOffset - 12);
     }
 };
 
@@ -1122,15 +1195,19 @@ var LaunchpadTopButtons = {
      * Control button notes (top row circular buttons, 1-indexed)
      */
     buttons: {
-        barBack: 106,     // Button 3: Move playhead one bar back
-        barForward: 107   // Button 4: Move playhead one bar forward
+        transposeUp: 104,    // Button 1 (up arrow): Transpose +12 semitones
+        transposeDown: 105,  // Button 2 (down arrow): Transpose -12 semitones
+        barBack: 106,        // Button 3: Move playhead one bar back
+        barForward: 107      // Button 4: Move playhead one bar forward
     },
 
     /**
      * Initialize control buttons
      */
     init: function() {
-        // Set button colors (pink) - use CC message for top buttons
+        // Set button colors - use CC message for top buttons
+        Launchpad.setTopButtonColor(this.buttons.transposeUp, Launchpad.colors.green);
+        Launchpad.setTopButtonColor(this.buttons.transposeDown, Launchpad.colors.red);
         Launchpad.setTopButtonColor(this.buttons.barBack, Launchpad.colors.pink);
         Launchpad.setTopButtonColor(this.buttons.barForward, Launchpad.colors.pink);
 
@@ -1162,6 +1239,18 @@ var LaunchpadTopButtons = {
     handleTopButtonCC: function(cc, value) {
         // Only handle button press (value > 0)
         if (value === 0) return false;
+
+        if (cc === this.buttons.transposeUp) {
+            println("Transpose up button pressed!");
+            RolandPiano.transposeUp();
+            return true;
+        }
+
+        if (cc === this.buttons.transposeDown) {
+            println("Transpose down button pressed!");
+            RolandPiano.transposeDown();
+            return true;
+        }
 
         if (cc === this.buttons.barBack) {
             println("Bar back button pressed!");
@@ -2375,6 +2464,9 @@ function init() {
 
     // Initialize control buttons
     LaunchpadTopButtons.init();
+
+    // Initialize Roland Piano transpose
+    RolandPiano.init();
 
     // Initialize mode switcher
     LaunchpadModeSwitcher.init();
