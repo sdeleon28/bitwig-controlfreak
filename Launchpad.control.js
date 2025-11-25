@@ -2528,17 +2528,19 @@ function init() {
 
     // Initialize nanoKEY2 on port 3
     NanoKey2.init();
-    println("nanoKEY2 initialized on port 3 - expecting nanoKEY2 to be configured as input port 3");
+    if (debug) println("nanoKEY2 initialized on port 3 - expecting nanoKEY2 to be configured as input port 3");
 
     // Set up MIDI callback for nanoKEY2
     host.getMidiInPort(3).setMidiCallback(function(status, data1, data2) {
-        // Log ALL MIDI from port 3 to diagnose issues
-        println("nanoKEY2 MIDI: " + status + ", " + data1 + ", " + data2 + " [" +
-                status.toString(16) + " " + data1.toString(16) + " " + data2.toString(16) + "]");
+        // Log MIDI from port 3 when debug is enabled
+        if (debug) {
+            println("nanoKEY2 MIDI: " + status + ", " + data1 + ", " + data2 + " [" +
+                    status.toString(16) + " " + data1.toString(16) + " " + data2.toString(16) + "]");
+        }
 
         // Handle note on messages (status 0x90) with velocity > 0
         if (status === 0x90 && data2 > 0) {
-            println("  -> Note ON detected, calling handleKeySelection(" + data1 + ")");
+            if (debug) println("  -> Note ON detected, calling handleKeySelection(" + data1 + ")");
             NanoKey2.handleKeySelection(data1);
         }
     });
