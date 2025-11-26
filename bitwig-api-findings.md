@@ -492,11 +492,22 @@ function init() {
 
 4. **Key Translation Table**: Array of 128 integers mapping input MIDI notes to output MIDI notes
 
-5. **Key Selection**: Press C-B keys (MIDI 48-59) on nanoKEY2 to set transpose:
-   - C (48): -1 semitone
-   - Db (49): 0 semitones (native key)
-   - D (50): +1 semitone
-   - ... up to B (59): -2 semitones
+5. **Key Selection**: Press keys on nanoKEY2 to select major or minor keys:
+
+   **Major Keys (First octave: C3-B3, MIDI 48-59)**:
+   - C (48): -1 semitone → C Major
+   - Db (49): 0 semitones (native key) → Db Major
+   - D (50): +1 semitone → D Major
+   - ... up to B (59): -2 semitones → B Major
+
+   **Minor Keys (Second octave: C4-B4, MIDI 60-71)**:
+   - C (60): +2 semitones → C Minor (uses Eb Major transpose)
+   - Db (61): +3 semitones → Db Minor (uses E Major transpose)
+   - D (62): +4 semitones → D Minor (uses F Major transpose)
+   - ... up to A (69): -1 semitone → A Minor (uses C Major transpose)
+   - ... up to B (71): +1 semitone → B Minor (uses D Major transpose)
+
+   Each minor key uses the transpose of its relative major (3 semitones higher)
 
 6. **Bitwig Notifications**: Use `host.showPopupNotification(message)` to show key selection feedback
 
@@ -508,18 +519,21 @@ function init() {
    - Port 2: Roland Digital Piano
    - Port 3: nanoKEY2
 2. On tracks where you want transposed piano, select "Roland Piano (Transposed)" as MIDI input
-3. Press a key on nanoKEY2 (C through B) to select the target key
-4. Bitwig shows notification: "Key: [name] Major"
-5. Play Db major shapes on Roland Piano, outputs in selected key
+3. Press a key on nanoKEY2 to select the target key:
+   - **First octave (C3-B3)**: Select major keys
+   - **Second octave (C4-B4)**: Select minor keys
+4. Bitwig shows notification: "Key: [name] Major" or "Key: [name] Minor"
+5. Play Db major shapes on Roland Piano, outputs in selected key/mode
 
 ### Gotchas
 
 - Must call `setShouldConsumeEvents(true)` or MIDI won't come through properly
 - Disable generic "Roland Digital Piano" controller in Bitwig to avoid conflicts
-- nanoKEY2 keys C-B (MIDI 48-59) don't produce notes when pressed (consumed for key selection)
-- Keys outside C-B range on nanoKEY2 are ignored by key selector
+- nanoKEY2 keys in first two octaves (MIDI 48-71) don't produce notes when pressed (consumed for key selection)
+- Keys outside the two key selection octaves on nanoKEY2 will pass through normally
 - Translation is global - affects all tracks using "Roland Piano (Transposed)" input
 - Both original "Roland Digital Piano" and "Roland Piano (Transposed)" inputs are visible
+- Minor keys use the same transpose as their relative major (e.g., A Minor = C Major transpose)
 
 ## Resources
 
