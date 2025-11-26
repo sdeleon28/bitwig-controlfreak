@@ -33,22 +33,26 @@
         [X] update on color change
     [ ] should "go into group"
     [ ] should set encoder colors to track colors
+[X] piano pitch shift
 [ ] main group
     [X] top level tracks
-    [ ] piano pitch shift
     [ ] tempo
-[ ] extra group features
-    [ ] group mute button
-    [ ] group solo button
+[X] extra group features
+    [X] group mute button
+    [X] group solo button
 [ ] page system
-    [ ] mixer
+    [X] mixer
+    [ ] clip launcher
     [ ] plugin / device shortcuts
-[-] go to marker functionality (top lane)
+[X] go to marker functionality (top lane)
 [ ] group actions -> top right
-    [ ] mute
-    [ ] solo
     [ ] select
     [ ] go into
     [ ] go out of
     [ ] group
     [ ] ungroup
+[ ] rewrite record arm
+    [ ] should default to XOR
+    [ ] toggle clears
+    [ ] double click goes into OR mode
+        [ ] refactor double click functionality into Bitwig
