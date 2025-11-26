@@ -764,7 +764,7 @@ var Animations = {
 
         // Define number patterns (using pad grid)
         var numberPatterns = {
-            1: [31, 41, 51, 61, 71],  // Vertical line for "1"
+            1: [24, 34, 44, 54, 64, 74],  // Centered vertical line (aligned with 2 and 3)
             2: [
                 // Improved "2" pattern
                 72, 73, 74, 75,     // Top horizontal
@@ -772,6 +772,15 @@ var Animations = {
                 54, 55,             // Middle
                 43,                 // Middle left
                 32,                 // Bottom left
+                22, 23, 24, 25      // Bottom horizontal
+            ],
+            3: [
+                // "3" pattern
+                72, 73, 74, 75,     // Top horizontal
+                65,                 // Top right side
+                53, 54, 55,         // Middle horizontal
+                45,                 // Middle right side
+                35,                 // Bottom right side
                 22, 23, 24, 25      // Bottom horizontal
             ]
         };
@@ -1660,12 +1669,77 @@ var Page_MainControl = {
  * TO MOVE THIS PAGE: Just change pageNumber property
  * @namespace
  */
-var Page_HelloWorld = {
-    id: "hello-world",
+var Page_ClipLauncher = {
+    id: "clip-launcher",
     pageNumber: 2,  // ← Change this to move to different page number
 
     init: function() {
-        if (debug) println("Page_HelloWorld initialized on page " + this.pageNumber);
+        if (debug) println("Page_ClipLauncher initialized on page " + this.pageNumber);
+    },
+
+    show: function() {
+        // Clear all pads first
+        for (var i = 0; i < 128; i++) {
+            Launchpad.clearPad(i);
+        }
+
+        // Clear mode buttons (not used on this page)
+        for (var mode in LaunchpadModeSwitcher.modes) {
+            if (LaunchpadModeSwitcher.modes.hasOwnProperty(mode)) {
+                Launchpad.setPadColor(LaunchpadModeSwitcher.modes[mode].note, 0);
+            }
+        }
+
+        // Refresh all clip states
+        ClipLauncher.refresh();
+    },
+
+    hide: function() {
+        if (debug) println("Hiding clip launcher page");
+    },
+
+    handlePadPress: function(padNote) {
+        // Convert pad note to row/column
+        var row = Math.floor(padNote / 10);
+        var col = padNote % 10;
+
+        // Validate: columns 1-8, rows 1-8
+        if (col < 1 || col > 8 || row < 1 || row > 8) {
+            return false;
+        }
+
+        var trackIndex = col - 1;  // 0-7
+
+        // Row 1 = stop buttons
+        if (row === 1) {
+            ClipLauncher.stopTrack(trackIndex);
+            if (debug) println("Stop track " + trackIndex);
+            return true;
+        }
+
+        // Rows 2-8 = clip slots (scenes 0-6)
+        var sceneIndex = row - 2;  // 0-6
+        ClipLauncher.launchClip(trackIndex, sceneIndex);
+        if (debug) println("Launch clip: track " + trackIndex + ", scene " + sceneIndex);
+        return true;
+    },
+
+    handlePadRelease: function(padNote) {
+        return false;  // No special release handling
+    }
+};
+
+/**
+ * Third demo page with diagonal pattern
+ * TO MOVE THIS PAGE: Just change pageNumber property
+ * @namespace
+ */
+var Page_ThirdDummy = {
+    id: "third-dummy",
+    pageNumber: 3,  // ← Change this to move to different page number
+
+    init: function() {
+        if (debug) println("Page_ThirdDummy initialized on page " + this.pageNumber);
     },
 
     show: function() {
@@ -1674,11 +1748,15 @@ var Page_HelloWorld = {
             Launchpad.clearPad(i);
         }
 
-        // Show "HELLO WORLD" pattern - 4 colored corners
-        Launchpad.setPadColor(11, Launchpad.colors.red);      // Bottom-left
-        Launchpad.setPadColor(18, Launchpad.colors.green);    // Bottom-right
-        Launchpad.setPadColor(81, Launchpad.colors.blue);     // Top-left
-        Launchpad.setPadColor(88, Launchpad.colors.yellow);   // Top-right
+        // Show different pattern - diagonal line from bottom-left to top-right
+        Launchpad.setPadColor(11, Launchpad.colors.purple);   // Bottom-left
+        Launchpad.setPadColor(22, Launchpad.colors.purple);
+        Launchpad.setPadColor(33, Launchpad.colors.purple);
+        Launchpad.setPadColor(44, Launchpad.colors.purple);
+        Launchpad.setPadColor(55, Launchpad.colors.purple);
+        Launchpad.setPadColor(66, Launchpad.colors.purple);
+        Launchpad.setPadColor(77, Launchpad.colors.purple);
+        Launchpad.setPadColor(88, Launchpad.colors.purple);   // Top-right
 
         // Clear mode buttons (not used on this page)
         for (var mode in LaunchpadModeSwitcher.modes) {
@@ -1689,16 +1767,235 @@ var Page_HelloWorld = {
     },
 
     hide: function() {
-        if (debug) println("Hiding hello world page");
+        if (debug) println("Hiding third dummy page");
     },
 
     handlePadPress: function(padNote) {
-        if (debug) println("Page 2 pad pressed: " + padNote);
+        if (debug) println("Page 3 pad pressed: " + padNote);
         return false;  // Don't handle pads on this demo page
     },
 
     handlePadRelease: function(padNote) {
         return false;
+    }
+};
+
+/**
+ * Clip launcher control for Bitwig session view
+ * @namespace
+ */
+var ClipLauncher = {
+    _trackBank: null,
+    _numTracks: 8,
+    _numScenes: 7,
+    _trackColors: [],  // Store track colors [{r, g, b}] per track
+
+    init: function() {
+        // Create track bank: 8 tracks, 0 sends, 7 scenes
+        this._trackBank = host.createMainTrackBank(this._numTracks, 0, this._numScenes);
+
+        // Initialize track colors array
+        for (var t = 0; t < this._numTracks; t++) {
+            this._trackColors[t] = { r: 0.5, g: 0.5, b: 0.5 };  // Default gray
+        }
+
+        // Set up observers for all clip slots
+        this.setupClipObservers();
+
+        if (debug) println("ClipLauncher initialized: " + this._numTracks + "×" + this._numScenes);
+    },
+
+    setupClipObservers: function() {
+        for (var t = 0; t < this._numTracks; t++) {
+            for (var s = 0; s < this._numScenes; s++) {
+                this.setupSlotObserver(t, s);
+            }
+
+            // Set up track color observer
+            this.setupTrackColorObserver(t);
+        }
+    },
+
+    setupSlotObserver: function(trackIndex, sceneIndex) {
+        var self = this;
+        (function(t, s) {
+            var track = self._trackBank.getItemAt(t);
+            var slot = track.clipLauncherSlotBank().getItemAt(s);
+
+            // Mark all states as interested
+            slot.hasContent().markInterested();
+            slot.isPlaying().markInterested();
+            slot.isRecording().markInterested();
+            slot.isPlaybackQueued().markInterested();
+            slot.isRecordingQueued().markInterested();
+            slot.color().markInterested();
+
+            // Add observers
+            slot.hasContent().addValueObserver(function(has) {
+                self.updateClipPad(t, s);
+            });
+
+            slot.isPlaying().addValueObserver(function(playing) {
+                self.updateClipPad(t, s);
+            });
+
+            slot.isRecording().addValueObserver(function(recording) {
+                self.updateClipPad(t, s);
+            });
+
+            slot.isPlaybackQueued().addValueObserver(function(queued) {
+                self.updateClipPad(t, s);
+            });
+
+            slot.isRecordingQueued().addValueObserver(function(queued) {
+                self.updateClipPad(t, s);
+            });
+
+        })(trackIndex, sceneIndex);
+    },
+
+    setupTrackColorObserver: function(trackIndex) {
+        var self = this;
+        (function(t) {
+            var track = self._trackBank.getItemAt(t);
+            track.color().markInterested();
+            track.color().addValueObserver(function(r, g, b) {
+                self._trackColors[t] = { r: r, g: g, b: b };
+                // Update all clips in this track
+                for (var s = 0; s < self._numScenes; s++) {
+                    self.updateClipPad(t, s);
+                }
+                self.updateStopButton(t);
+            });
+        })(trackIndex);
+    },
+
+    updateClipPad: function(trackIndex, sceneIndex) {
+        var track = this._trackBank.getItemAt(trackIndex);
+        var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
+
+        // Map scene to row (scene 0 = row 7, scene 6 = row 1)
+        var row = 7 - sceneIndex;
+        var col = trackIndex;
+        var padNote = row * 10 + col + 1;
+
+        var color = this.getClipColor(slot, this._trackColors[trackIndex]);
+        var launchpadColor = this.rgbToLaunchpadColor(color.r, color.g, color.b);
+
+        Launchpad.setPadColor(padNote, launchpadColor);
+    },
+
+    updateStopButton: function(trackIndex) {
+        var track = this._trackBank.getItemAt(trackIndex);
+        var padNote = 11 + trackIndex;  // Row 0, column trackIndex
+
+        // Check if any clip is playing on this track
+        var anyPlaying = false;
+        for (var s = 0; s < this._numScenes; s++) {
+            var slot = track.clipLauncherSlotBank().getItemAt(s);
+            if (slot.isPlaying().get()) {
+                anyPlaying = true;
+                break;
+            }
+        }
+
+        // Bright red if playing, dim red if not
+        var color = anyPlaying ? Launchpad.colors.red : 1;  // Dim red
+        Launchpad.setPadColor(padNote, color);
+    },
+
+    getClipColor: function(slot, trackColor) {
+        // Priority: recording > recording queued > playing > playback queued > has content > empty
+
+        if (slot.isRecordingQueued().get()) {
+            return { r: 0.5, g: 0, b: 0 };  // Dark red (pulsing in future)
+        }
+
+        if (slot.isRecording().get()) {
+            return { r: 1, g: 0, b: 0 };  // Bright red
+        }
+
+        if (slot.isPlaybackQueued().get()) {
+            // Bright track color (queued)
+            return this.mixColor(trackColor, { r: 1, g: 1, b: 1 }, 0.7);
+        }
+
+        if (slot.isPlaying().get()) {
+            // Bright track color (playing)
+            return this.mixColor(trackColor, { r: 1, g: 1, b: 1 }, 0.5);
+        }
+
+        if (slot.hasContent().get()) {
+            // Track color (stopped clip)
+            return trackColor;
+        }
+
+        // Empty slot
+        return { r: 0, g: 0, b: 0 };
+    },
+
+    mixColor: function(c1, c2, ratio) {
+        return {
+            r: c1.r * (1 - ratio) + c2.r * ratio,
+            g: c1.g * (1 - ratio) + c2.g * ratio,
+            b: c1.b * (1 - ratio) + c2.b * ratio
+        };
+    },
+
+    rgbToLaunchpadColor: function(r, g, b) {
+        // Convert RGB (0-1) to closest Launchpad color
+        // This is a simplified version - could be more sophisticated
+
+        if (r < 0.1 && g < 0.1 && b < 0.1) return 0;  // Black/off
+
+        // Determine dominant color
+        var max = Math.max(r, g, b);
+        var brightness = max > 0.7 ? 1 : 0.5;  // Bright or dim
+
+        if (r > g && r > b) {
+            // Red dominant
+            return brightness > 0.7 ? Launchpad.colors.red : 1;
+        } else if (g > r && g > b) {
+            // Green dominant
+            return brightness > 0.7 ? Launchpad.colors.green : 21;
+        } else if (b > r && b > g) {
+            // Blue dominant
+            return brightness > 0.7 ? Launchpad.colors.blue : 41;
+        } else if (r > 0.5 && g > 0.5 && b < 0.3) {
+            // Yellow
+            return brightness > 0.7 ? Launchpad.colors.yellow : 13;
+        } else if (r > 0.5 && g < 0.3 && b > 0.5) {
+            // Purple/Magenta
+            return brightness > 0.7 ? Launchpad.colors.purple : 53;
+        } else {
+            // White/Gray
+            return brightness > 0.7 ? 3 : 1;
+        }
+    },
+
+    launchClip: function(trackIndex, sceneIndex) {
+        var track = this._trackBank.getItemAt(trackIndex);
+        var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
+        slot.launch();
+
+        if (debug) println("Launch clip: track " + trackIndex + ", scene " + sceneIndex);
+    },
+
+    stopTrack: function(trackIndex) {
+        var track = this._trackBank.getItemAt(trackIndex);
+        track.stop();
+
+        if (debug) println("Stop track: " + trackIndex);
+    },
+
+    refresh: function() {
+        // Refresh all pads
+        for (var t = 0; t < this._numTracks; t++) {
+            for (var s = 0; s < this._numScenes; s++) {
+                this.updateClipPad(t, s);
+            }
+            this.updateStopButton(t);
+        }
     }
 };
 
@@ -2890,6 +3187,9 @@ function init() {
     // Initialize control buttons
     LaunchpadTopButtons.init();
 
+    // Initialize clip launcher
+    ClipLauncher.init();
+
     // Initialize Roland Piano transpose
     RolandPiano.init();
 
@@ -2914,7 +3214,8 @@ function init() {
 
     // Register pages
     Pages.registerPage(Page_MainControl);
-    Pages.registerPage(Page_HelloWorld);
+    Pages.registerPage(Page_ClipLauncher);
+    Pages.registerPage(Page_ThirdDummy);
 
     // Initialize pagination system (after pages registered)
     Pages.init();
