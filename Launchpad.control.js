@@ -561,6 +561,256 @@ var NanoKey2 = {
 };
 
 /**
+ * Page management system
+ * @namespace
+ */
+var Pages = {
+    /**
+     * Registered pages (array of page objects)
+     * @private
+     */
+    _pages: [],
+
+    /**
+     * Current page number
+     * @private
+     */
+    _currentPageNumber: 1,
+
+    /**
+     * Total pages available
+     * @private
+     */
+    _totalPages: 2,
+
+    /**
+     * Initialize pagination system
+     */
+    init: function() {
+        this._currentPageNumber = 1;
+
+        // Initialize all registered pages
+        for (var i = 0; i < this._pages.length; i++) {
+            if (this._pages[i].init) {
+                this._pages[i].init();
+            }
+        }
+
+        this.refreshPageButtons();
+        this.showCurrentPage();
+
+        if (debug) println("Pages initialized - " + this._pages.length + " pages registered");
+    },
+
+    /**
+     * Register a page
+     * @param {Object} pageObj - Page object implementing page interface
+     */
+    registerPage: function(pageObj) {
+        this._pages.push(pageObj);
+
+        // Update total pages based on highest page number
+        if (pageObj.pageNumber > this._totalPages) {
+            this._totalPages = pageObj.pageNumber;
+        }
+
+        if (debug) println("Registered page: " + pageObj.id + " (page " + pageObj.pageNumber + ")");
+    },
+
+    /**
+     * Get page object by page number
+     * @param {number} pageNum - Page number
+     * @returns {Object|null} Page object or null
+     */
+    getPageByNumber: function(pageNum) {
+        for (var i = 0; i < this._pages.length; i++) {
+            if (this._pages[i].pageNumber === pageNum) {
+                return this._pages[i];
+            }
+        }
+        return null;
+    },
+
+    /**
+     * Get current page object
+     * @returns {Object|null} Current page object
+     */
+    getCurrentPage: function() {
+        return this.getPageByNumber(this._currentPageNumber);
+    },
+
+    /**
+     * Switch to page by number
+     * @param {number} pageNum - Target page number
+     */
+    switchToPage: function(pageNum) {
+        if (pageNum < 1 || pageNum > this._totalPages) return;
+        if (pageNum === this._currentPageNumber) return;
+
+        var oldPage = this.getCurrentPage();
+        var newPage = this.getPageByNumber(pageNum);
+
+        if (!newPage) {
+            if (debug) println("Warning: No page registered for page " + pageNum);
+            return;
+        }
+
+        // Hide old page
+        if (oldPage && oldPage.hide) {
+            oldPage.hide();
+        }
+
+        // Flash page number animation
+        var self = this;
+        Animations.flashPageNumber(pageNum, function() {
+            // Show new page after animation
+            self._currentPageNumber = pageNum;
+            self.showCurrentPage();
+            self.refreshPageButtons();
+        });
+
+        if (debug) println("Switching from page " + this._currentPageNumber + " to page " + pageNum);
+    },
+
+    /**
+     * Show current page
+     */
+    showCurrentPage: function() {
+        var currentPage = this.getCurrentPage();
+        if (currentPage && currentPage.show) {
+            currentPage.show();
+        }
+    },
+
+    /**
+     * Navigate to next page
+     */
+    nextPage: function() {
+        if (this._currentPageNumber < this._totalPages) {
+            this.switchToPage(this._currentPageNumber + 1);
+        }
+    },
+
+    /**
+     * Navigate to previous page
+     */
+    previousPage: function() {
+        if (this._currentPageNumber > 1) {
+            this.switchToPage(this._currentPageNumber - 1);
+        }
+    },
+
+    /**
+     * Update page navigation button colors
+     */
+    refreshPageButtons: function() {
+        // Previous page button (CC 104)
+        if (this._currentPageNumber > 1) {
+            Launchpad.setTopButtonColor(104, Launchpad.colors.purple);
+        } else {
+            Launchpad.setTopButtonColor(104, 0);
+        }
+
+        // Next page button (CC 105)
+        if (this._currentPageNumber < this._totalPages) {
+            Launchpad.setTopButtonColor(105, Launchpad.colors.purple);
+        } else {
+            Launchpad.setTopButtonColor(105, 0);
+        }
+    },
+
+    /**
+     * Delegate pad press to current page
+     * @param {number} padNote - MIDI note number
+     * @returns {boolean} True if handled
+     */
+    handlePadPress: function(padNote) {
+        var currentPage = this.getCurrentPage();
+        if (currentPage && currentPage.handlePadPress) {
+            return currentPage.handlePadPress(padNote);
+        }
+        return false;
+    },
+
+    /**
+     * Delegate pad release to current page
+     * @param {number} padNote - MIDI note number
+     * @returns {boolean} True if handled
+     */
+    handlePadRelease: function(padNote) {
+        var currentPage = this.getCurrentPage();
+        if (currentPage && currentPage.handlePadRelease) {
+            return currentPage.handlePadRelease(padNote);
+        }
+        return false;
+    }
+};
+
+/**
+ * Animation system for visual effects
+ * @namespace
+ */
+var Animations = {
+    /**
+     * Flash page number on pad grid
+     * @param {number} pageNum - Page number to display
+     * @param {Function} callback - Called when animation completes
+     */
+    flashPageNumber: function(pageNum, callback) {
+        // Clear all pads
+        for (var i = 0; i < 128; i++) {
+            Launchpad.clearPad(i);
+        }
+
+        // Define number patterns (using pad grid)
+        var numberPatterns = {
+            1: [31, 41, 51, 61, 71],  // Vertical line for "1"
+            2: [
+                // Improved "2" pattern
+                72, 73, 74, 75,     // Top horizontal
+                65, 75,             // Top right
+                54, 55,             // Middle
+                43,                 // Middle left
+                32,                 // Bottom left
+                22, 23, 24, 25      // Bottom horizontal
+            ]
+        };
+
+        var pattern = numberPatterns[pageNum];
+        if (!pattern) {
+            if (callback) callback();
+            return;
+        }
+
+        // Flash 2 times (faster)
+        var flashCount = 0;
+        var flashInterval = 80;  // Faster flashing
+
+        function doFlash() {
+            if (flashCount >= 4) {  // 2 on/off cycles
+                // Animation complete
+                if (callback) callback();
+                return;
+            }
+
+            var isOn = flashCount % 2 === 0;
+            for (var i = 0; i < pattern.length; i++) {
+                if (isOn) {
+                    Launchpad.setPadColor(pattern[i], Launchpad.colors.white);
+                } else {
+                    Launchpad.clearPad(pattern[i]);
+                }
+            }
+
+            flashCount++;
+            host.scheduleTask(doFlash, null, flashInterval);
+        }
+
+        doFlash();
+    }
+};
+
+/**
  * @typedef {Object} LaunchpadColor
  * @property {number} value - MIDI color value for Launchpad
  */
@@ -1283,6 +1533,8 @@ var LaunchpadTopButtons = {
      * Control button notes (top row circular buttons, 1-indexed)
      */
     buttons: {
+        previousPage: 104,   // Button 1: Previous page
+        nextPage: 105,       // Button 2: Next page
         barBack: 106,        // Button 3: Move playhead one bar back
         barForward: 107      // Button 4: Move playhead one bar forward
     },
@@ -1291,11 +1543,9 @@ var LaunchpadTopButtons = {
      * Initialize control buttons
      */
     init: function() {
-        // Turn off buttons 1 and 2 (transpose buttons removed)
-        Launchpad.setTopButtonColor(104, 0);
-        Launchpad.setTopButtonColor(105, 0);
+        // Page buttons will be managed by Pages.refreshPageButtons()
 
-        // Set button colors - use CC message for top buttons
+        // Set button colors for bar navigation - use CC message for top buttons
         Launchpad.setTopButtonColor(this.buttons.barBack, Launchpad.colors.pink);
         Launchpad.setTopButtonColor(this.buttons.barForward, Launchpad.colors.pink);
 
@@ -1328,6 +1578,18 @@ var LaunchpadTopButtons = {
         // Only handle button press (value > 0)
         if (value === 0) return false;
 
+        // Page navigation (works on all pages)
+        if (cc === this.buttons.previousPage) {
+            Pages.previousPage();
+            return true;
+        }
+
+        if (cc === this.buttons.nextPage) {
+            Pages.nextPage();
+            return true;
+        }
+
+        // Bar navigation (works on all pages - page-independent)
         if (cc === this.buttons.barBack) {
             println("Bar back button pressed!");
             Bitwig.movePlayheadByBars(-1);
@@ -1340,6 +1602,102 @@ var LaunchpadTopButtons = {
             return true;
         }
 
+        return false;
+    }
+};
+
+/**
+ * Main control page - groups, markers, modes, track grid
+ * TO MOVE THIS PAGE: Just change pageNumber property
+ * @namespace
+ */
+var Page_MainControl = {
+    id: "main-control",
+    pageNumber: 1,  // ← Change this to move to different page number
+
+    init: function() {
+        // Existing init is already done by other namespaces
+        if (debug) println("Page_MainControl initialized on page " + this.pageNumber);
+    },
+
+    show: function() {
+        // Display all main control elements
+        Controller.refreshGroupDisplay();
+        Controller.refreshTrackGrid();
+        LaunchpadLane.refresh();
+        LaunchpadModeSwitcher.refresh();
+    },
+
+    hide: function() {
+        // Clear display (but preserve state in Controller, Twister, etc.)
+        // This allows state to persist when returning to this page
+        if (debug) println("Hiding main control page (state preserved)");
+    },
+
+    handlePadPress: function(padNote) {
+        // Try pad behavior system (mode buttons, track grid, markers)
+        if (Launchpad.handlePadPress(padNote)) {
+            return true;
+        }
+
+        // Check group selector
+        var groupNum = LaunchpadQuadrant.bottomRight.getGroup(padNote);
+        if (groupNum) {
+            Controller.selectGroup(groupNum);
+            return true;
+        }
+
+        return false;
+    },
+
+    handlePadRelease: function(padNote) {
+        return Launchpad.handlePadRelease(padNote);
+    }
+};
+
+/**
+ * Demo page showing page switching works
+ * TO MOVE THIS PAGE: Just change pageNumber property
+ * @namespace
+ */
+var Page_HelloWorld = {
+    id: "hello-world",
+    pageNumber: 2,  // ← Change this to move to different page number
+
+    init: function() {
+        if (debug) println("Page_HelloWorld initialized on page " + this.pageNumber);
+    },
+
+    show: function() {
+        // Clear all pads
+        for (var i = 0; i < 128; i++) {
+            Launchpad.clearPad(i);
+        }
+
+        // Show "HELLO WORLD" pattern - 4 colored corners
+        Launchpad.setPadColor(11, Launchpad.colors.red);      // Bottom-left
+        Launchpad.setPadColor(18, Launchpad.colors.green);    // Bottom-right
+        Launchpad.setPadColor(81, Launchpad.colors.blue);     // Top-left
+        Launchpad.setPadColor(88, Launchpad.colors.yellow);   // Top-right
+
+        // Clear mode buttons (not used on this page)
+        for (var mode in LaunchpadModeSwitcher.modes) {
+            if (LaunchpadModeSwitcher.modes.hasOwnProperty(mode)) {
+                Launchpad.setPadColor(LaunchpadModeSwitcher.modes[mode].note, 0);
+            }
+        }
+    },
+
+    hide: function() {
+        if (debug) println("Hiding hello world page");
+    },
+
+    handlePadPress: function(padNote) {
+        if (debug) println("Page 2 pad pressed: " + padNote);
+        return false;  // Don't handle pads on this demo page
+    },
+
+    handlePadRelease: function(padNote) {
         return false;
     }
 };
@@ -2199,32 +2557,23 @@ var Controller = {
      * @param {number} data2 - MIDI data2 byte
      */
     onLaunchpadMidi: function(status, data1, data2) {
-        // Handle CC messages (top buttons)
+        // Handle CC messages (top buttons) - work on all pages
         if (status === 0xB0) {
             if (LaunchpadTopButtons.handleTopButtonCC(data1, data2)) {
                 return;
             }
         }
 
-        // Handle pad press (note on with velocity > 0)
+        // Delegate pad press to current page
         if (status === 0x90 && data2 > 0) {
-            // Try pad behavior system first (handles mode buttons, track grid, and markers)
-            if (Launchpad.handlePadPress(data1)) {
-                return;
-            }
-
-            // Check if it's a group selector pad
-            var groupNum = LaunchpadQuadrant.bottomRight.getGroup(data1);
-            if (groupNum) {
-                this.selectGroup(groupNum);
+            if (Pages.handlePadPress(data1)) {
                 return;
             }
         }
 
-        // Handle pad release (note on with velocity 0 or note off)
+        // Delegate pad release to current page
         if ((status === 0x90 && data2 === 0) || status === 0x80) {
-            // Try pad behavior system
-            Launchpad.handlePadRelease(data1);
+            Pages.handlePadRelease(data1);
         }
     },
 
@@ -2562,6 +2911,13 @@ function init() {
             NanoKey2.handleKeySelection(data1);
         }
     });
+
+    // Register pages
+    Pages.registerPage(Page_MainControl);
+    Pages.registerPage(Page_HelloWorld);
+
+    // Initialize pagination system (after pages registered)
+    Pages.init();
 
     // Initialize mode switcher
     LaunchpadModeSwitcher.init();
