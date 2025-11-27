@@ -655,7 +655,9 @@ var Pages = {
             return;
         }
 
-        // Hide old page
+        if (debug) println("Switching from page " + this._currentPageNumber + " to page " + pageNum);
+
+        // Notify old page it's hiding (but don't clear - Pager handles that)
         if (oldPage && oldPage.hide) {
             oldPage.hide();
         }
@@ -663,13 +665,15 @@ var Pages = {
         // Flash page number animation
         var self = this;
         Animations.flashPageNumber(pageNum, function() {
-            // Show new page after animation
             self._currentPageNumber = pageNum;
+
+            // Let Pager handle hardware clear + repaint
+            Pager.switchToPage(pageNum);
+
+            // Notify new page to update its state
             self.showCurrentPage();
             self.refreshPageButtons();
         });
-
-        if (debug) println("Switching from page " + this._currentPageNumber + " to page " + pageNum);
     },
 
     /**
@@ -743,6 +747,137 @@ var Pages = {
             return currentPage.handlePadRelease(padNote);
         }
         return false;
+    }
+};
+
+/**
+ * Page state manager and hardware gatekeeper
+ * Implements reactive "UI is a function of state" architecture
+ * - Each page maintains its own state (desired pad colors)
+ * - All paint requests go through Pager.requestPaint()
+ * - Pager only updates hardware if request is from active page
+ * - On page switch, Pager atomically clears and repaints stored state
+ * @namespace
+ */
+var Pager = {
+    /**
+     * Per-page state storage
+     * Structure: { pageNumber: { padNumber: colorValue, ... }, ... }
+     */
+    _pageStates: {},
+
+    /**
+     * Currently active page number
+     */
+    _activePage: 1,
+
+    /**
+     * Initialize Pager with empty states
+     */
+    init: function() {
+        this._pageStates = {};
+        this._activePage = 1;
+        if (debug) println("Pager initialized - reactive page isolation enabled");
+    },
+
+    /**
+     * Request a pad paint operation (gatekeeper)
+     * Updates page state storage and paints to hardware only if page is active
+     * @param {number} pageNumber - Which page is making the request
+     * @param {number} padNumber - MIDI note number (11-88)
+     * @param {number} color - Launchpad color value
+     */
+    requestPaint: function(pageNumber, padNumber, color) {
+        // Initialize page state if needed
+        if (!this._pageStates[pageNumber]) {
+            this._pageStates[pageNumber] = {};
+        }
+
+        // Always update state storage
+        this._pageStates[pageNumber][padNumber] = color;
+
+        // Only paint to hardware if this page is active
+        if (pageNumber === this._activePage) {
+            Launchpad.setPadColor(padNumber, color);
+        }
+    },
+
+    /**
+     * Request clearing a single pad
+     * @param {number} pageNumber - Which page is making the request
+     * @param {number} padNumber - MIDI note number to clear
+     */
+    requestClear: function(pageNumber, padNumber) {
+        this.requestPaint(pageNumber, padNumber, Launchpad.colors.off);
+    },
+
+    /**
+     * Request clearing all pads for a page
+     * @param {number} pageNumber - Which page to clear
+     */
+    requestClearAll: function(pageNumber) {
+        // Clear state storage
+        this._pageStates[pageNumber] = {};
+
+        // If this page is active, clear hardware too
+        if (pageNumber === this._activePage) {
+            for (var i = 0; i < 128; i++) {
+                Launchpad.clearPad(i);
+            }
+        }
+    },
+
+    /**
+     * Switch to a different page
+     * Atomically clears hardware and repaints new page's stored state
+     * @param {number} pageNumber - Page number to switch to
+     */
+    switchToPage: function(pageNumber) {
+        if (pageNumber === this._activePage) return;
+
+        var oldPage = this._activePage;
+        this._activePage = pageNumber;
+
+        if (debug) println("Pager: switching from page " + oldPage + " to page " + pageNumber);
+
+        // Clear all hardware
+        Launchpad.clearAll();
+
+        // Repaint new page's stored state
+        var pageState = this._pageStates[pageNumber] || {};
+        for (var padNote in pageState) {
+            if (pageState.hasOwnProperty(padNote)) {
+                var pad = parseInt(padNote);
+                var color = pageState[padNote];
+                Launchpad.setPadColor(pad, color);
+            }
+        }
+    },
+
+    /**
+     * Get current active page number
+     * @returns {number} Active page number
+     */
+    getActivePage: function() {
+        return this._activePage;
+    },
+
+    /**
+     * Check if a page is currently active
+     * @param {number} pageNumber - Page number to check
+     * @returns {boolean} True if page is active
+     */
+    isPageActive: function(pageNumber) {
+        return pageNumber === this._activePage;
+    },
+
+    /**
+     * Get stored state for a page (for debugging)
+     * @param {number} pageNumber - Page number
+     * @returns {Object} State object {padNumber: color}
+     */
+    getPageState: function(pageNumber) {
+        return this._pageStates[pageNumber] || {};
     }
 };
 
@@ -1070,8 +1205,9 @@ var Launchpad = {
      * Link a pad to a track for color feedback
      * @param {number} padNumber - MIDI note number for pad
      * @param {number} trackId - Track ID (0-63)
+     * @param {number} pageNumber - Page number for paint request (optional, defaults to active page)
      */
-    linkPadToTrack: function(padNumber, trackId) {
+    linkPadToTrack: function(padNumber, trackId, pageNumber) {
         var track = Bitwig.getTrack(trackId);
         if (!track) return;
 
@@ -1084,7 +1220,8 @@ var Launchpad = {
 
         // Set color using centralized function
         var color = this.getTrackGridPadColor(trackId);
-        this.setPadColor(padNumber, color);
+
+        Pager.requestPaint(pageNumber, padNumber, color);
     },
 
     /**
@@ -1377,8 +1514,11 @@ var LaunchpadModeSwitcher = {
 
     /**
      * Refresh all mode button colors
+     * @param {number} pageNumber - Page number to paint to (default 1)
      */
-    refresh: function() {
+    refresh: function(pageNumber) {
+        if (typeof pageNumber === 'undefined') pageNumber = 1;
+
         // Update all button colors
         for (var mode in this.modes) {
             if (this.modes.hasOwnProperty(mode)) {
@@ -1388,11 +1528,11 @@ var LaunchpadModeSwitcher = {
                 if (mode === this.currentMode) {
                     // Bright when active
                     var brightColor = Launchpad.getBrightnessVariant(baseColor, Launchpad.brightness.bright);
-                    Launchpad.setPadColor(modeConfig.note, brightColor);
+                    Pager.requestPaint(pageNumber, modeConfig.note, brightColor);
                 } else {
                     // Dim when inactive
                     var dimColor = Launchpad.getBrightnessVariant(baseColor, Launchpad.brightness.dim);
-                    Launchpad.setPadColor(modeConfig.note, dimColor);
+                    Pager.requestPaint(pageNumber, modeConfig.note, dimColor);
                 }
             }
         }
@@ -1504,11 +1644,14 @@ var LaunchpadLane = {
 
     /**
      * Refresh all marker pads based on current marker bank state
+     * @param {number} pageNumber - Page number to paint to (default 1)
      */
-    refresh: function() {
+    refresh: function(pageNumber) {
+        if (typeof pageNumber === 'undefined') pageNumber = 1;
+
         // Clear all top lane pads
         for (var i = 0; i < this.topLane.pads.length; i++) {
-            Launchpad.setPadColor(this.topLane.pads[i], Launchpad.colors.off);
+            Pager.requestClear(pageNumber, this.topLane.pads[i]);
         }
 
         // Update pads for each marker
@@ -1525,11 +1668,11 @@ var LaunchpadLane = {
                     color.green(),
                     color.blue()
                 );
-                Launchpad.setPadColor(this.topLane.pads[i], launchpadColor);
+                Pager.requestPaint(pageNumber, this.topLane.pads[i], launchpadColor);
             }
         }
 
-        if (debug) println("LaunchpadLane refreshed");
+        if (debug) println("LaunchpadLane refreshed for page " + pageNumber);
     }
 };
 
@@ -1630,17 +1773,17 @@ var Page_MainControl = {
     },
 
     show: function() {
-        // Display all main control elements
+        // Display all main control elements (pass page number to use Pager)
         Controller.refreshGroupDisplay();
         Controller.refreshTrackGrid();
-        LaunchpadLane.refresh();
-        LaunchpadModeSwitcher.refresh();
+        LaunchpadLane.refresh(1);
+        LaunchpadModeSwitcher.refresh(1);
     },
 
     hide: function() {
-        // Clear display (but preserve state in Controller, Twister, etc.)
-        // This allows state to persist when returning to this page
-        if (debug) println("Hiding main control page (state preserved)");
+        // Pager handles clearing on page switch - no action needed
+        // State is preserved in Controller, Twister, etc.
+        if (debug) println("Hiding main control page");
     },
 
     handlePadPress: function(padNote) {
@@ -1678,23 +1821,22 @@ var Page_ClipLauncher = {
     },
 
     show: function() {
-        // Clear all pads first
-        for (var i = 0; i < 128; i++) {
-            Launchpad.clearPad(i);
-        }
+        // Clear this page's state using Pager
+        Pager.requestClearAll(2);
 
         // Clear mode buttons (not used on this page)
         for (var mode in LaunchpadModeSwitcher.modes) {
             if (LaunchpadModeSwitcher.modes.hasOwnProperty(mode)) {
-                Launchpad.setPadColor(LaunchpadModeSwitcher.modes[mode].note, 0);
+                Pager.requestClear(2, LaunchpadModeSwitcher.modes[mode].note);
             }
         }
 
-        // Refresh all clip states
+        // Refresh all clip states (will use Pager internally)
         ClipLauncher.refresh();
     },
 
     hide: function() {
+        // Pager handles clearing on page switch - no action needed
         if (debug) println("Hiding clip launcher page");
     },
 
@@ -1785,6 +1927,7 @@ var Page_ThirdDummy = {
  * @namespace
  */
 var ClipLauncher = {
+    pageNumber: 2,  // Clip launcher lives on page 2
     _trackBank: null,
     _numTracks: 8,
     _numScenes: 7,
@@ -1882,7 +2025,8 @@ var ClipLauncher = {
         var color = this.getClipColor(slot, this._trackColors[trackIndex]);
         var launchpadColor = this.rgbToLaunchpadColor(color.r, color.g, color.b);
 
-        Launchpad.setPadColor(padNote, launchpadColor);
+        // Use Pager gatekeeper - only paints if page 2 is active
+        Pager.requestPaint(this.pageNumber, padNote, launchpadColor);
     },
 
     updateStopButton: function(trackIndex) {
@@ -1901,7 +2045,9 @@ var ClipLauncher = {
 
         // Bright red if playing, dim red if not
         var color = anyPlaying ? Launchpad.colors.red : 1;  // Dim red
-        Launchpad.setPadColor(padNote, color);
+
+        // Use Pager gatekeeper - only paints if page 2 is active
+        Pager.requestPaint(this.pageNumber, padNote, color);
     },
 
     getClipColor: function(slot, trackColor) {
@@ -2547,6 +2693,8 @@ var Controller = {
      * Refresh the group selector display on Launchpad
      */
     refreshGroupDisplay: function() {
+        var page = Pager.getActivePage();
+
         // Unlink all pads first
         Launchpad.unlinkAllPads();
 
@@ -2555,16 +2703,16 @@ var Controller = {
             var groupTrackId = Bitwig.findGroupByNumber(i);
             if (groupTrackId !== null) {
                 var padNote = LaunchpadQuadrant.bottomRight.pads[i - 1];
-                Launchpad.linkPadToTrack(padNote, groupTrackId);
+                Launchpad.linkPadToTrack(padNote, groupTrackId, page);
             }
         }
 
         // Handle pad 16 (top-level group) - use white color
         var pad16 = LaunchpadQuadrant.bottomRight.pads[15];  // Index 15 = pad 16
         if (this.selectedGroup === 16) {
-            Launchpad.setPadColor(pad16, Launchpad.getBrightnessVariant(Launchpad.colors.white, Launchpad.brightness.bright));
+            Pager.requestPaint(page, pad16, Launchpad.getBrightnessVariant(Launchpad.colors.white, Launchpad.brightness.bright));
         } else {
-            Launchpad.setPadColor(pad16, Launchpad.getBrightnessVariant(Launchpad.colors.white, Launchpad.brightness.dim));
+            Pager.requestPaint(page, pad16, Launchpad.getBrightnessVariant(Launchpad.colors.white, Launchpad.brightness.dim));
         }
 
         // Highlight selected group with bright color variant (groups 1-15)
@@ -2582,7 +2730,7 @@ var Controller = {
                         color.blue()
                     );
                     var brightColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.bright);
-                    Launchpad.setPadColor(selectedPad, brightColor);
+                    Pager.requestPaint(page, selectedPad, brightColor);
                 }
             }
         }
@@ -2593,6 +2741,7 @@ var Controller = {
      */
     refreshTrackGrid: function() {
         var self = this;
+        var page = Pager.getActivePage();
 
         // Unlink all track grid pads
         for (var i = 0; i < LaunchpadQuadrant.bottomLeft.pads.length; i++) {
@@ -2609,7 +2758,7 @@ var Controller = {
                 var padNote = LaunchpadQuadrant.bottomLeft.pads[encoderNum - 1];
                 var trackId = link.trackId;
 
-                Launchpad.linkPadToTrack(padNote, trackId);
+                Launchpad.linkPadToTrack(padNote, trackId, page);
 
                 // Register click behaviors based on current mode (no hold behaviors on track pads)
                 if (currentMode === modeEnum.MUTE) {
@@ -3219,6 +3368,9 @@ function init() {
 
     // Initialize pagination system (after pages registered)
     Pages.init();
+
+    // Initialize Pager (reactive page state manager)
+    Pager.init();
 
     // Initialize mode switcher
     LaunchpadModeSwitcher.init();
