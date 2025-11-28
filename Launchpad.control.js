@@ -1994,6 +1994,11 @@ var ClipLauncher = {
                 self.updateClipPad(t, s);
             });
 
+            // Clip color change observer
+            slot.color().addValueObserver(function(r, g, b) {
+                self.updateClipPad(t, s);
+            });
+
         })(trackIndex, sceneIndex);
     },
 
@@ -2017,10 +2022,11 @@ var ClipLauncher = {
         var track = this._trackBank.getItemAt(trackIndex);
         var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
 
-        // Map scene to row (scene 0 = row 7, scene 6 = row 1)
-        var row = 7 - sceneIndex;
-        var col = trackIndex;
-        var padNote = row * 10 + col + 1;
+        // Map scene to row (scene 0 = row 2, scene 6 = row 8)
+        // Row 1 is reserved for stop buttons
+        var row = sceneIndex + 2;
+        var col = trackIndex + 1;
+        var padNote = row * 10 + col;
 
         var color = this.getClipColor(slot, this._trackColors[trackIndex]);
         var launchpadColor = this.rgbToLaunchpadColor(color.r, color.g, color.b);
@@ -2031,7 +2037,7 @@ var ClipLauncher = {
 
     updateStopButton: function(trackIndex) {
         var track = this._trackBank.getItemAt(trackIndex);
-        var padNote = 11 + trackIndex;  // Row 0, column trackIndex
+        var padNote = 11 + trackIndex;  // Row 1, columns 1-8
 
         // Check if any clip is playing on this track
         var anyPlaying = false;
