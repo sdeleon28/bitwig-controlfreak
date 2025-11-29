@@ -1864,8 +1864,18 @@ var Page_ClipLauncher = {
         // Rows 1-7 = clip slots
         // Track 0 = row 7, Track 6 = row 1
         var trackIndex = 7 - row;  // 0-6
-        ClipLauncher.launchClip(trackIndex, sceneIndex);
-        if (debug) println("Launch clip: track " + trackIndex + ", scene " + sceneIndex);
+
+        // Content-based behavior: empty = record, filled = launch
+        var track = ClipLauncher._trackBank.getItemAt(trackIndex);
+        var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
+
+        if (slot.hasContent().get()) {
+            ClipLauncher.launchClip(trackIndex, sceneIndex);
+            if (debug) println("Launch clip: track " + trackIndex + ", scene " + sceneIndex);
+        } else {
+            ClipLauncher.recordClip(trackIndex, sceneIndex);
+            if (debug) println("Record clip: track " + trackIndex + ", scene " + sceneIndex);
+        }
         return true;
     },
 
@@ -2174,6 +2184,25 @@ var ClipLauncher = {
         slot.launch();
 
         if (debug) println("Launch clip: track " + trackIndex + ", scene " + sceneIndex);
+    },
+
+    recordClip: function(trackIndex, sceneIndex) {
+        var track = this._trackBank.getItemAt(trackIndex);
+        var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
+
+        // XOR arm: disarm all other tracks first (exclusive arm)
+        for (var t = 0; t < this._numTracks; t++) {
+            if (t !== trackIndex) {
+                this._trackBank.getItemAt(t).arm().set(false);
+            }
+        }
+
+        // Arm the target track
+        track.arm().set(true);
+
+        slot.record();
+
+        if (debug) println("Record clip: track " + trackIndex + ", scene " + sceneIndex);
     },
 
     stopTrack: function(trackIndex) {
