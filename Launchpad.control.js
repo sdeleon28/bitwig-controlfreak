@@ -1850,37 +1850,25 @@ var Page_ClipLauncher = {
             return false;
         }
 
-        // Bitwig-style layout: tracks = rows, scenes = columns
-        // Scene index from column
-        var sceneIndex = col - 1;  // 0-7
-
-        // Row 8 = scene launch buttons
+        // Row 8 = scene launch buttons (immediate, no hold)
         if (row === 8) {
+            var sceneIndex = col - 1;
             ClipLauncher.launchScene(sceneIndex);
             if (debug) println("Launch scene " + sceneIndex);
             return true;
         }
 
-        // Rows 1-7 = clip slots
-        // Track 0 = row 7, Track 6 = row 1
-        var trackIndex = 7 - row;  // 0-6
-
-        // Content-based behavior: empty = record, filled = launch
-        var track = ClipLauncher._trackBank.getItemAt(trackIndex);
-        var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
-
-        if (slot.hasContent().get()) {
-            ClipLauncher.launchClip(trackIndex, sceneIndex);
-            if (debug) println("Launch clip: track " + trackIndex + ", scene " + sceneIndex);
-        } else {
-            ClipLauncher.recordClip(trackIndex, sceneIndex);
-            if (debug) println("Record clip: track " + trackIndex + ", scene " + sceneIndex);
-        }
-        return true;
+        // Rows 1-7 = clip pads - delegate to Launchpad behavior system
+        return Launchpad.handlePadPress(padNote);
     },
 
     handlePadRelease: function(padNote) {
-        return false;  // No special release handling
+        var row = Math.floor(padNote / 10);
+        // Rows 1-7 = clip pads - delegate to Launchpad behavior system
+        if (row >= 1 && row <= 7) {
+            return Launchpad.handlePadRelease(padNote);
+        }
+        return false;
     }
 };
 
@@ -1962,6 +1950,9 @@ var ClipLauncher = {
         // Set up observers for all clip slots and scenes
         this.setupClipObservers();
         this.setupSceneObservers();
+
+        // Register click/hold behaviors for clip pads
+        this.registerPadBehaviors();
 
         if (debug) println("ClipLauncher initialized: " + this._numTracks + " tracks × " + this._numScenes + " scenes (Bitwig layout)");
     },
@@ -2203,6 +2194,46 @@ var ClipLauncher = {
         slot.record();
 
         if (debug) println("Record clip: track " + trackIndex + ", scene " + sceneIndex);
+    },
+
+    deleteClip: function(trackIndex, sceneIndex) {
+        var track = this._trackBank.getItemAt(trackIndex);
+        var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
+        slot.deleteObject();
+        if (debug) println("Delete clip: track " + trackIndex + ", scene " + sceneIndex);
+    },
+
+    handleClipClick: function(trackIndex, sceneIndex) {
+        var track = this._trackBank.getItemAt(trackIndex);
+        var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
+
+        if (slot.hasContent().get()) {
+            this.launchClip(trackIndex, sceneIndex);
+        } else {
+            this.recordClip(trackIndex, sceneIndex);
+        }
+    },
+
+    registerPadBehaviors: function() {
+        var self = this;
+        // Rows 1-7 = clip pads (7 tracks × 8 scenes)
+        for (var trackIndex = 0; trackIndex < this._numTracks; trackIndex++) {
+            for (var sceneIndex = 0; sceneIndex < this._numScenes; sceneIndex++) {
+                (function(t, s) {
+                    var row = 7 - t;
+                    var col = s + 1;
+                    var padNote = row * 10 + col;
+
+                    Launchpad.registerPadBehavior(padNote,
+                        // Click callback: launch or record
+                        function() { self.handleClipClick(t, s); },
+                        // Hold callback: delete
+                        function() { self.deleteClip(t, s); }
+                    );
+                })(trackIndex, sceneIndex);
+            }
+        }
+        if (debug) println("ClipLauncher pad behaviors registered");
     },
 
     stopTrack: function(trackIndex) {
