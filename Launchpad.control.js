@@ -1850,17 +1850,20 @@ var Page_ClipLauncher = {
             return false;
         }
 
-        var trackIndex = col - 1;  // 0-7
+        // Bitwig-style layout: tracks = rows, scenes = columns
+        // Scene index from column
+        var sceneIndex = col - 1;  // 0-7
 
-        // Row 1 = stop buttons
-        if (row === 1) {
-            ClipLauncher.stopTrack(trackIndex);
-            if (debug) println("Stop track " + trackIndex);
+        // Row 8 = scene launch buttons
+        if (row === 8) {
+            ClipLauncher.launchScene(sceneIndex);
+            if (debug) println("Launch scene " + sceneIndex);
             return true;
         }
 
-        // Rows 2-8 = clip slots (scenes 0-6)
-        var sceneIndex = row - 2;  // 0-6
+        // Rows 1-7 = clip slots
+        // Track 0 = row 7, Track 6 = row 1
+        var trackIndex = 7 - row;  // 0-6
         ClipLauncher.launchClip(trackIndex, sceneIndex);
         if (debug) println("Launch clip: track " + trackIndex + ", scene " + sceneIndex);
         return true;
@@ -1929,23 +1932,28 @@ var Page_ThirdDummy = {
 var ClipLauncher = {
     pageNumber: 2,  // Clip launcher lives on page 2
     _trackBank: null,
-    _numTracks: 8,
-    _numScenes: 7,
+    _sceneBank: null,
+    _numTracks: 7,   // Rows 1-7 for clips
+    _numScenes: 8,   // Columns 1-8 for scenes
     _trackColors: [],  // Store track colors [{r, g, b}] per track
 
     init: function() {
-        // Create track bank: 8 tracks, 0 sends, 7 scenes
+        // Create track bank: 7 tracks, 0 sends, 8 scenes
         this._trackBank = host.createMainTrackBank(this._numTracks, 0, this._numScenes);
+
+        // Get scene bank for scene launching
+        this._sceneBank = this._trackBank.sceneBank();
 
         // Initialize track colors array
         for (var t = 0; t < this._numTracks; t++) {
             this._trackColors[t] = { r: 0.5, g: 0.5, b: 0.5 };  // Default gray
         }
 
-        // Set up observers for all clip slots
+        // Set up observers for all clip slots and scenes
         this.setupClipObservers();
+        this.setupSceneObservers();
 
-        if (debug) println("ClipLauncher initialized: " + this._numTracks + "×" + this._numScenes);
+        if (debug) println("ClipLauncher initialized: " + this._numTracks + " tracks × " + this._numScenes + " scenes (Bitwig layout)");
     },
 
     setupClipObservers: function() {
@@ -2013,19 +2021,33 @@ var ClipLauncher = {
                 for (var s = 0; s < self._numScenes; s++) {
                     self.updateClipPad(t, s);
                 }
-                self.updateStopButton(t);
             });
         })(trackIndex);
+    },
+
+    setupSceneObservers: function() {
+        var self = this;
+        for (var s = 0; s < this._numScenes; s++) {
+            (function(sceneIndex) {
+                var scene = self._sceneBank.getItemAt(sceneIndex);
+                scene.exists().markInterested();
+                scene.exists().addValueObserver(function(exists) {
+                    self.updateScenePad(sceneIndex);
+                });
+            })(s);
+        }
     },
 
     updateClipPad: function(trackIndex, sceneIndex) {
         var track = this._trackBank.getItemAt(trackIndex);
         var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
 
-        // Map scene to row (scene 0 = row 2, scene 6 = row 8)
-        // Row 1 is reserved for stop buttons
-        var row = sceneIndex + 2;
-        var col = trackIndex + 1;
+        // Bitwig-style layout: tracks = rows, scenes = columns
+        // Track 0 = row 7 (top clip row), Track 6 = row 1 (bottom)
+        // Scene 0 = col 1, Scene 7 = col 8
+        // Row 8 = scene launch buttons
+        var row = 7 - trackIndex;
+        var col = sceneIndex + 1;
         var padNote = row * 10 + col;
 
         var color = this.getClipColor(slot, this._trackColors[trackIndex]);
@@ -2033,27 +2055,48 @@ var ClipLauncher = {
 
         // Use Pager gatekeeper - only paints if page 2 is active
         Pager.requestPaint(this.pageNumber, padNote, launchpadColor);
+
+        // Also update the scene pad since clip state affects scene display
+        this.updateScenePad(sceneIndex);
     },
 
-    updateStopButton: function(trackIndex) {
-        var track = this._trackBank.getItemAt(trackIndex);
-        var padNote = 11 + trackIndex;  // Row 1, columns 1-8
+    updateScenePad: function(sceneIndex) {
+        // Scene launch buttons on row 8, columns 1-8
+        var padNote = 80 + sceneIndex + 1;
 
-        // Check if any clip is playing on this track
+        // Check if any clip is playing in this scene (column)
         var anyPlaying = false;
-        for (var s = 0; s < this._numScenes; s++) {
-            var slot = track.clipLauncherSlotBank().getItemAt(s);
+        var hasContent = false;
+
+        for (var t = 0; t < this._numTracks; t++) {
+            var track = this._trackBank.getItemAt(t);
+            var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
             if (slot.isPlaying().get()) {
                 anyPlaying = true;
-                break;
+            }
+            if (slot.hasContent().get()) {
+                hasContent = true;
             }
         }
 
-        // Bright red if playing, dim red if not
-        var color = anyPlaying ? Launchpad.colors.red : 1;  // Dim red
+        // Green if playing, dim green if has content, off otherwise
+        var color;
+        if (anyPlaying) {
+            color = Launchpad.colors.green;
+        } else if (hasContent) {
+            color = 21;  // Dim green
+        } else {
+            color = 0;  // Off
+        }
 
         // Use Pager gatekeeper - only paints if page 2 is active
         Pager.requestPaint(this.pageNumber, padNote, color);
+    },
+
+    launchScene: function(sceneIndex) {
+        var scene = this._sceneBank.getItemAt(sceneIndex);
+        scene.launch();
+        if (debug) println("Launching scene " + sceneIndex);
     },
 
     getClipColor: function(slot, trackColor) {
@@ -2141,12 +2184,15 @@ var ClipLauncher = {
     },
 
     refresh: function() {
-        // Refresh all pads
+        // Refresh all clip pads
         for (var t = 0; t < this._numTracks; t++) {
             for (var s = 0; s < this._numScenes; s++) {
                 this.updateClipPad(t, s);
             }
-            this.updateStopButton(t);
+        }
+        // Refresh scene launch pads (row 8)
+        for (var s = 0; s < this._numScenes; s++) {
+            this.updateScenePad(s);
         }
     }
 };
