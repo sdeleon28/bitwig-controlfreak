@@ -788,16 +788,56 @@ var Pager = {
      * @param {number} color - Launchpad color value
      */
     requestPaint: function(pageNumber, padNumber, color) {
+        this._requestPaintWithMode(pageNumber, padNumber, color, 'static');
+    },
+
+    /**
+     * Request painting a pad with flashing effect (hardware-accelerated)
+     * @param {number} pageNumber - Which page is making the request
+     * @param {number} padNumber - MIDI note number (11-88)
+     * @param {number} color - Launchpad color value
+     */
+    requestPaintFlashing: function(pageNumber, padNumber, color) {
+        this._requestPaintWithMode(pageNumber, padNumber, color, 'flashing');
+    },
+
+    /**
+     * Request painting a pad with pulsing effect (hardware-accelerated)
+     * @param {number} pageNumber - Which page is making the request
+     * @param {number} padNumber - MIDI note number (11-88)
+     * @param {number} color - Launchpad color value
+     */
+    requestPaintPulsing: function(pageNumber, padNumber, color) {
+        this._requestPaintWithMode(pageNumber, padNumber, color, 'pulsing');
+    },
+
+    /**
+     * Internal: Paint pad with specified LED mode
+     */
+    _requestPaintWithMode: function(pageNumber, padNumber, color, mode) {
         // Initialize page state if needed
         if (!this._pageStates[pageNumber]) {
             this._pageStates[pageNumber] = {};
         }
 
-        // Always update state storage
-        this._pageStates[pageNumber][padNumber] = color;
+        // Always update state storage (store both color and mode)
+        this._pageStates[pageNumber][padNumber] = { color: color, mode: mode };
 
         // Only paint to hardware if this page is active
         if (pageNumber === this._activePage) {
+            this._paintPadWithMode(padNumber, color, mode);
+        }
+    },
+
+    /**
+     * Internal: Paint to hardware with correct LED mode
+     */
+    _paintPadWithMode: function(padNumber, color, mode) {
+        if (mode === 'flashing') {
+            Launchpad.setPadColorFlashing(padNumber, color);
+        } else if (mode === 'pulsing') {
+            Launchpad.setPadColorPulsing(padNumber, color);
+        } else {
             Launchpad.setPadColor(padNumber, color);
         }
     },
@@ -848,8 +888,13 @@ var Pager = {
         for (var padNote in pageState) {
             if (pageState.hasOwnProperty(padNote)) {
                 var pad = parseInt(padNote);
-                var color = pageState[padNote];
-                Launchpad.setPadColor(pad, color);
+                var state = pageState[padNote];
+                // Handle both old format (just color) and new format ({color, mode})
+                if (typeof state === 'object' && state.color !== undefined) {
+                    this._paintPadWithMode(pad, state.color, state.mode || 'static');
+                } else {
+                    Launchpad.setPadColor(pad, state);  // Legacy: just color value
+                }
             }
         }
     },
@@ -1060,6 +1105,30 @@ var Launchpad = {
         }
 
         this._output.sendMidi(0x90, padNumber, colorValue);
+    },
+
+    /**
+     * Set pad color with flashing effect (hardware-accelerated)
+     * Flashing alternates on/off at MIDI clock rate (or 120 BPM if no clock)
+     * @param {number} padNumber - MIDI note number
+     * @param {number|string} color - Color value or color name
+     */
+    setPadColorFlashing: function(padNumber, color) {
+        if (!this._output) return;
+        var colorValue = typeof color === 'string' ? this.colors[color] : color;
+        this._output.sendMidi(0x91, padNumber, colorValue);  // Channel 2 = Flashing
+    },
+
+    /**
+     * Set pad color with pulsing effect (hardware-accelerated)
+     * Pulsing fades in/out over 2 beats at MIDI clock rate
+     * @param {number} padNumber - MIDI note number
+     * @param {number|string} color - Color value or color name
+     */
+    setPadColorPulsing: function(padNumber, color) {
+        if (!this._output) return;
+        var colorValue = typeof color === 'string' ? this.colors[color] : color;
+        this._output.sendMidi(0x92, padNumber, colorValue);  // Channel 3 = Pulsing
     },
 
     /**
@@ -2051,11 +2120,16 @@ var ClipLauncher = {
         var col = sceneIndex + 1;
         var padNote = row * 10 + col;
 
-        var color = this.getClipColor(slot, this._trackColors[trackIndex]);
-        var launchpadColor = this.rgbToLaunchpadColor(color.r, color.g, color.b);
+        var clipState = this.getClipState(slot, this._trackColors[trackIndex]);
 
-        // Use Pager gatekeeper - only paints if page 2 is active
-        Pager.requestPaint(this.pageNumber, padNote, launchpadColor);
+        // Use appropriate LED mode based on state
+        if (clipState.mode === 'flashing') {
+            Pager.requestPaintFlashing(this.pageNumber, padNote, clipState.color);
+        } else if (clipState.mode === 'pulsing') {
+            Pager.requestPaintPulsing(this.pageNumber, padNote, clipState.color);
+        } else {
+            Pager.requestPaint(this.pageNumber, padNote, clipState.color);
+        }
 
         // Also update the scene pad since clip state affects scene display
         this.updateScenePad(sceneIndex);
@@ -2100,34 +2174,37 @@ var ClipLauncher = {
         if (debug) println("Launching scene " + sceneIndex);
     },
 
-    getClipColor: function(slot, trackColor) {
-        // Priority: recording > recording queued > playing > playback queued > has content > empty
+    /**
+     * Get clip state including color and LED mode
+     * @returns {Object} {color: number, mode: 'static'|'flashing'|'pulsing'}
+     */
+    getClipState: function(slot, trackColor) {
+        // Priority: recording queued > recording > playback queued > playing > has content > empty
 
         if (slot.isRecordingQueued().get()) {
-            return { r: 0.5, g: 0, b: 0 };  // Dark red (pulsing in future)
+            return { color: Launchpad.colors.red, mode: 'flashing' };
         }
 
         if (slot.isRecording().get()) {
-            return { r: 1, g: 0, b: 0 };  // Bright red
+            return { color: Launchpad.colors.red, mode: 'static' };
         }
 
         if (slot.isPlaybackQueued().get()) {
-            // Bright track color (queued)
-            return this.mixColor(trackColor, { r: 1, g: 1, b: 1 }, 0.7);
+            var c = this.mixColor(trackColor, { r: 1, g: 1, b: 1 }, 0.7);
+            return { color: this.rgbToLaunchpadColor(c.r, c.g, c.b), mode: 'flashing' };
         }
 
         if (slot.isPlaying().get()) {
-            // Bright track color (playing)
-            return this.mixColor(trackColor, { r: 1, g: 1, b: 1 }, 0.5);
+            var c = this.mixColor(trackColor, { r: 1, g: 1, b: 1 }, 0.5);
+            return { color: this.rgbToLaunchpadColor(c.r, c.g, c.b), mode: 'pulsing' };
         }
 
         if (slot.hasContent().get()) {
-            // Track color (stopped clip)
-            return trackColor;
+            return { color: this.rgbToLaunchpadColor(trackColor.r, trackColor.g, trackColor.b), mode: 'static' };
         }
 
         // Empty slot
-        return { r: 0, g: 0, b: 0 };
+        return { color: 0, mode: 'static' };
     },
 
     mixColor: function(c1, c2, ratio) {
@@ -2206,6 +2283,13 @@ var ClipLauncher = {
     handleClipClick: function(trackIndex, sceneIndex) {
         var track = this._trackBank.getItemAt(trackIndex);
         var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
+
+        // If recording or queued for recording, stop it (cancel)
+        if (slot.isRecording().get() || slot.isRecordingQueued().get()) {
+            track.stop();
+            if (debug) println("Cancel recording: track " + trackIndex + ", scene " + sceneIndex);
+            return;
+        }
 
         if (slot.hasContent().get()) {
             this.launchClip(trackIndex, sceneIndex);
