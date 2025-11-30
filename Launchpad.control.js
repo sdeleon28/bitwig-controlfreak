@@ -1757,7 +1757,8 @@ var LaunchpadTopButtons = {
         previousPage: 104,   // Button 1: Previous page
         nextPage: 105,       // Button 2: Next page
         barBack: 106,        // Button 3: Move playhead one bar back
-        barForward: 107      // Button 4: Move playhead one bar forward
+        barForward: 107,     // Button 4: Move playhead one bar forward
+        duplicate: 109       // Button 6 (User 1): Duplicate clip modifier
     },
 
     /**
@@ -1796,7 +1797,21 @@ var LaunchpadTopButtons = {
      * @returns {boolean} True if handled
      */
     handleTopButtonCC: function(cc, value) {
-        // Only handle button press (value > 0)
+        // Duplicate button - handle both press and release (only on clip launcher page)
+        if (cc === this.buttons.duplicate && Pager.getActivePage() === ClipLauncher.pageNumber) {
+            if (value === 127) {
+                // Pressed - enter duplicate mode
+                ClipLauncher.enterDuplicateMode();
+                Launchpad.setTopButtonColor(cc, Launchpad.colors.green);
+            } else {
+                // Released - exit duplicate mode
+                ClipLauncher.exitDuplicateMode();
+                Launchpad.setTopButtonColor(cc, Launchpad.colors.off);
+            }
+            return true;
+        }
+
+        // Only handle button press (value > 0) for other buttons
         if (value === 0) return false;
 
         // Page navigation (works on all pages)
@@ -2003,6 +2018,8 @@ var ClipLauncher = {
     _numTracks: 7,   // Rows 1-7 for clips
     _numScenes: 8,   // Columns 1-8 for scenes
     _trackColors: [],  // Store track colors [{r, g, b}] per track
+    _duplicateMode: false,  // True when duplicate button is held
+    _duplicateSource: null, // {trackIndex, sceneIndex} of source clip
 
     init: function() {
         // Create track bank: 7 tracks, 0 sends, 8 scenes
@@ -2281,6 +2298,12 @@ var ClipLauncher = {
     },
 
     handleClipClick: function(trackIndex, sceneIndex) {
+        // Check if in duplicate mode first
+        if (this._duplicateMode) {
+            this.handleDuplicateClick(trackIndex, sceneIndex);
+            return;
+        }
+
         var track = this._trackBank.getItemAt(trackIndex);
         var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
 
@@ -2338,6 +2361,48 @@ var ClipLauncher = {
         for (var s = 0; s < this._numScenes; s++) {
             this.updateScenePad(s);
         }
+    },
+
+    // Duplicate mode methods
+    enterDuplicateMode: function() {
+        this._duplicateMode = true;
+        this._duplicateSource = null;
+        if (debug) println("Entered duplicate mode");
+    },
+
+    exitDuplicateMode: function() {
+        this._duplicateMode = false;
+        this._duplicateSource = null;
+        if (debug) println("Exited duplicate mode");
+    },
+
+    handleDuplicateClick: function(trackIndex, sceneIndex) {
+        var track = this._trackBank.getItemAt(trackIndex);
+        var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
+
+        if (!this._duplicateSource) {
+            // First click - select source (must have content)
+            if (slot.hasContent().get()) {
+                this._duplicateSource = { trackIndex: trackIndex, sceneIndex: sceneIndex };
+                if (debug) println("Duplicate source: track " + trackIndex + ", scene " + sceneIndex);
+            }
+        } else {
+            // Second click - select destination and copy
+            this.duplicateClip(
+                this._duplicateSource.trackIndex,
+                this._duplicateSource.sceneIndex,
+                trackIndex,
+                sceneIndex
+            );
+            this._duplicateSource = null;  // Reset for next duplicate
+        }
+    },
+
+    duplicateClip: function(srcTrack, srcScene, dstTrack, dstScene) {
+        var srcSlot = this._trackBank.getItemAt(srcTrack).clipLauncherSlotBank().getItemAt(srcScene);
+        var dstSlot = this._trackBank.getItemAt(dstTrack).clipLauncherSlotBank().getItemAt(dstScene);
+        dstSlot.copyFrom(srcSlot);
+        if (debug) println("Duplicated clip from (" + srcTrack + "," + srcScene + ") to (" + dstTrack + "," + dstScene + ")");
     }
 };
 
