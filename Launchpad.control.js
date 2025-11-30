@@ -1030,6 +1030,12 @@ var Launchpad = {
         white: 3
     },
 
+    // Top row button CC numbers (circular buttons above grid)
+    buttons: {
+        top1: 104, top2: 105, top3: 106, top4: 107,
+        top5: 108, top6: 109, top7: 110, top8: 111
+    },
+
     // Brightness levels enum
     brightness: {
         dim: 'dim',
@@ -1751,14 +1757,14 @@ var LaunchpadLane = {
  */
 var LaunchpadTopButtons = {
     /**
-     * Control button notes (top row circular buttons, 1-indexed)
+     * Button function mappings (uses Launchpad.buttons constants)
      */
     buttons: {
-        previousPage: 104,   // Button 1: Previous page
-        nextPage: 105,       // Button 2: Next page
-        barBack: 106,        // Button 3: Move playhead one bar back
-        barForward: 107,     // Button 4: Move playhead one bar forward
-        duplicate: 109       // Button 6 (User 1): Duplicate clip modifier
+        previousPage: Launchpad.buttons.top1,
+        nextPage: Launchpad.buttons.top2,
+        barBack: Launchpad.buttons.top3,
+        barForward: Launchpad.buttons.top4
+        // Note: Modifier buttons (like duplicate) are configured in ClipGestures
     },
 
     /**
@@ -1797,18 +1803,13 @@ var LaunchpadTopButtons = {
      * @returns {boolean} True if handled
      */
     handleTopButtonCC: function(cc, value) {
-        // Duplicate button - handle both press and release (only on clip launcher page)
-        if (cc === this.buttons.duplicate && Pager.getActivePage() === ClipLauncher.pageNumber) {
+        // Check ClipGestures modifiers (only on clip launcher page)
+        if (Pager.getActivePage() === ClipLauncher.pageNumber) {
             if (value === 127) {
-                // Pressed - enter duplicate mode
-                ClipLauncher.enterDuplicateMode();
-                Launchpad.setTopButtonColor(cc, Launchpad.colors.green);
+                if (ClipGestures.handleModifierPress(cc)) return true;
             } else {
-                // Released - exit duplicate mode
-                ClipLauncher.exitDuplicateMode();
-                Launchpad.setTopButtonColor(cc, Launchpad.colors.off);
+                if (ClipGestures.handleModifierRelease(cc)) return true;
             }
-            return true;
         }
 
         // Only handle button press (value > 0) for other buttons
@@ -2008,6 +2009,104 @@ var Page_ThirdDummy = {
 };
 
 /**
+ * Declarative gesture configuration for clip launcher
+ * Fluent API for configuring click, hold, and modifier behaviors
+ * @namespace
+ */
+var ClipGestures = {
+    _clickFn: null,
+    _holdFn: null,
+    _modifiers: {},        // { cc: { name, color, click, hold } }
+    _activeModifier: null, // Currently held modifier CC
+
+    click: function(fn) {
+        this._clickFn = fn;
+        return this;
+    },
+
+    hold: function(fn) {
+        this._holdFn = fn;
+        return this;
+    },
+
+    modifier: function(cc, config) {
+        this._modifiers[cc] = config;
+        return this;
+    },
+
+    // Called by handleTopButtonCC
+    handleModifierPress: function(cc) {
+        var mod = this._modifiers[cc];
+        if (mod) {
+            this._activeModifier = cc;
+            Launchpad.setTopButtonColor(cc, mod.color);
+            return true;
+        }
+        return false;
+    },
+
+    handleModifierRelease: function(cc) {
+        if (this._modifiers[cc]) {
+            this._activeModifier = null;
+            Launchpad.setTopButtonColor(cc, Launchpad.colors.off);
+            // Reset any modifier-specific state
+            var mod = this._modifiers[cc];
+            if (mod.onRelease) mod.onRelease.call(ClipLauncher);
+            return true;
+        }
+        return false;
+    },
+
+    // Called by pad click/hold
+    executeClick: function(t, s, slot) {
+        var fn = this._clickFn;
+        if (this._activeModifier) {
+            var mod = this._modifiers[this._activeModifier];
+            if (mod && mod.click) fn = mod.click;
+        }
+        if (fn) fn.call(ClipLauncher, t, s, slot);
+    },
+
+    executeHold: function(t, s, slot) {
+        var fn = this._holdFn;
+        if (this._activeModifier) {
+            var mod = this._modifiers[this._activeModifier];
+            if (mod && mod.hold) fn = mod.hold;
+        }
+        if (fn) fn.call(ClipLauncher, t, s, slot);
+    }
+};
+
+// Configure clip launcher gestures
+ClipGestures
+    .click(function(t, s, slot) {
+        // Cancel recording if in progress
+        if (slot.isRecording().get() || slot.isRecordingQueued().get()) {
+            this._trackBank.getItemAt(t).stop();
+            return;
+        }
+        // Launch if has content, otherwise record
+        if (slot.hasContent().get()) {
+            this.launchClip(t, s);
+        } else {
+            this.recordClip(t, s);
+        }
+    })
+    .hold(function(t, s, slot) {
+        this.deleteClip(t, s);
+    })
+    .modifier(Launchpad.buttons.top6, {
+        name: 'duplicate',
+        color: Launchpad.colors.green,
+        click: function(t, s, slot) {
+            this.handleDuplicateClick(t, s);
+        },
+        onRelease: function() {
+            this.clearDuplicateSource();
+        }
+    });
+
+/**
  * Clip launcher control for Bitwig session view
  * @namespace
  */
@@ -2018,8 +2117,7 @@ var ClipLauncher = {
     _numTracks: 7,   // Rows 1-7 for clips
     _numScenes: 8,   // Columns 1-8 for scenes
     _trackColors: [],  // Store track colors [{r, g, b}] per track
-    _duplicateMode: false,  // True when duplicate button is held
-    _duplicateSource: null, // {trackIndex, sceneIndex} of source clip
+    _duplicateSource: null, // {trackIndex, sceneIndex} of source clip for duplicate gesture
 
     init: function() {
         // Create track bank: 7 tracks, 0 sends, 8 scenes
@@ -2297,30 +2395,6 @@ var ClipLauncher = {
         if (debug) println("Delete clip: track " + trackIndex + ", scene " + sceneIndex);
     },
 
-    handleClipClick: function(trackIndex, sceneIndex) {
-        // Check if in duplicate mode first
-        if (this._duplicateMode) {
-            this.handleDuplicateClick(trackIndex, sceneIndex);
-            return;
-        }
-
-        var track = this._trackBank.getItemAt(trackIndex);
-        var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
-
-        // If recording or queued for recording, stop it (cancel)
-        if (slot.isRecording().get() || slot.isRecordingQueued().get()) {
-            track.stop();
-            if (debug) println("Cancel recording: track " + trackIndex + ", scene " + sceneIndex);
-            return;
-        }
-
-        if (slot.hasContent().get()) {
-            this.launchClip(trackIndex, sceneIndex);
-        } else {
-            this.recordClip(trackIndex, sceneIndex);
-        }
-    },
-
     registerPadBehaviors: function() {
         var self = this;
         // Rows 1-7 = clip pads (7 tracks × 8 scenes)
@@ -2332,10 +2406,18 @@ var ClipLauncher = {
                     var padNote = row * 10 + col;
 
                     Launchpad.registerPadBehavior(padNote,
-                        // Click callback: launch or record
-                        function() { self.handleClipClick(t, s); },
-                        // Hold callback: delete
-                        function() { self.deleteClip(t, s); }
+                        // Click callback - delegates to ClipGestures
+                        function() {
+                            var track = self._trackBank.getItemAt(t);
+                            var slot = track.clipLauncherSlotBank().getItemAt(s);
+                            ClipGestures.executeClick(t, s, slot);
+                        },
+                        // Hold callback - delegates to ClipGestures
+                        function() {
+                            var track = self._trackBank.getItemAt(t);
+                            var slot = track.clipLauncherSlotBank().getItemAt(s);
+                            ClipGestures.executeHold(t, s, slot);
+                        }
                     );
                 })(trackIndex, sceneIndex);
             }
@@ -2363,19 +2445,7 @@ var ClipLauncher = {
         }
     },
 
-    // Duplicate mode methods
-    enterDuplicateMode: function() {
-        this._duplicateMode = true;
-        this._duplicateSource = null;
-        if (debug) println("Entered duplicate mode");
-    },
-
-    exitDuplicateMode: function() {
-        this._duplicateMode = false;
-        this._duplicateSource = null;
-        if (debug) println("Exited duplicate mode");
-    },
-
+    // Duplicate gesture handler (used by ClipGestures modifier)
     handleDuplicateClick: function(trackIndex, sceneIndex) {
         var track = this._trackBank.getItemAt(trackIndex);
         var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
@@ -2384,6 +2454,9 @@ var ClipLauncher = {
             // First click - select source (must have content)
             if (slot.hasContent().get()) {
                 this._duplicateSource = { trackIndex: trackIndex, sceneIndex: sceneIndex };
+                // Highlight source pad pink
+                var padNote = (7 - trackIndex) * 10 + (sceneIndex + 1);
+                Pager.requestPaint(this.pageNumber, padNote, Launchpad.colors.pink);
                 if (debug) println("Duplicate source: track " + trackIndex + ", scene " + sceneIndex);
             }
         } else {
@@ -2394,8 +2467,16 @@ var ClipLauncher = {
                 trackIndex,
                 sceneIndex
             );
-            this._duplicateSource = null;  // Reset for next duplicate
+            this.clearDuplicateSource();
         }
+    },
+
+    clearDuplicateSource: function() {
+        if (this._duplicateSource) {
+            // Restore original color by triggering update
+            this.updateClipPad(this._duplicateSource.trackIndex, this._duplicateSource.sceneIndex);
+        }
+        this._duplicateSource = null;
     },
 
     duplicateClip: function(srcTrack, srcScene, dstTrack, dstScene) {
