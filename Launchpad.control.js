@@ -3138,7 +3138,16 @@ var Controller = {
                     (function(tid, pn) {
                         Launchpad.registerPadBehavior(pn, function() {
                             var track = Bitwig.getTrack(tid);
-                            if (track) track.arm().toggle();
+                            if (track) {
+                                // XOR arm: disarm all other tracks first
+                                for (var t = 0; t < 64; t++) {
+                                    var otherTrack = Bitwig.getTrack(t);
+                                    if (otherTrack && t !== tid) {
+                                        otherTrack.arm().set(false);
+                                    }
+                                }
+                                track.arm().set(true);
+                            }
                         }, null, Page_MainControl.pageNumber);
                     })(trackId, padNote);
                 }
