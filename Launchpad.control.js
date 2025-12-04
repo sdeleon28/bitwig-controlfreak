@@ -4,7 +4,7 @@ host.defineController("Generic", "Launchpad + Twister", "1.0", "3ffac818-54ac-45
 host.defineMidiPorts(4, 2);  // 4 inputs (Launchpad, Twister, Roland Piano, nanoKEY2), 2 outputs
 
 // Debug flag - set to true to enable verbose logging
-var debug = false;
+var debug = true;
 
 // ============================================================================
 // Namespace Structure
@@ -1362,12 +1362,13 @@ var Launchpad = {
     },
 
     /**
-     * Register click/hold behavior for a pad
+     * Register click/hold behavior for a pad on a specific page
      * @param {number} padNote - MIDI note number
      * @param {Function} clickCallback - Function to call on click
      * @param {Function} holdCallback - Function to call on hold (optional)
+     * @param {number} pageNumber - Page this behavior belongs to (required for isolation)
      */
-    registerPadBehavior: function(padNote, clickCallback, holdCallback) {
+    registerPadBehavior: function(padNote, clickCallback, holdCallback, pageNumber) {
         if (!this._padTimers[padNote]) {
             this._padTimers[padNote] = {};
         }
@@ -1375,16 +1376,23 @@ var Launchpad = {
         this._padTimers[padNote].clickCallback = clickCallback;
         this._padTimers[padNote].holdCallback = holdCallback || null;
         this._padTimers[padNote].pressTime = null;
+        this._padTimers[padNote].pageNumber = pageNumber || null;
     },
 
     /**
      * Handle pad press (called by Controller)
+     * Only triggers if behavior belongs to current page
      * @param {number} padNote - MIDI note number
      * @returns {boolean} True if handled
      */
     handlePadPress: function(padNote) {
         var padTimer = this._padTimers[padNote];
         if (!padTimer) return false;  // Not registered
+
+        // Check page ownership - only handle if behavior belongs to current page
+        if (padTimer.pageNumber !== null && padTimer.pageNumber !== Pager.getActivePage()) {
+            return false;  // Behavior belongs to different page
+        }
 
         // Record when button was pressed
         padTimer.pressTime = Date.now();
@@ -1394,12 +1402,18 @@ var Launchpad = {
 
     /**
      * Handle pad release (called by Controller)
+     * Only triggers if behavior belongs to current page
      * @param {number} padNote - MIDI note number
      * @returns {boolean} True if handled
      */
     handlePadRelease: function(padNote) {
         var padTimer = this._padTimers[padNote];
         if (!padTimer) return false;  // Not registered
+
+        // Check page ownership - only handle if behavior belongs to current page
+        if (padTimer.pageNumber !== null && padTimer.pageNumber !== Pager.getActivePage()) {
+            return false;  // Behavior belongs to different page
+        }
 
         // Calculate how long button was held
         var holdDuration = Date.now() - (padTimer.pressTime || 0);
@@ -1709,8 +1723,8 @@ var LaunchpadLane = {
                     Controller.prepareRecordingAtMarker(markerIndex);
                 };
 
-                // Register both behaviors
-                Launchpad.registerPadBehavior(padNote, clickCallback, holdCallback);
+                // Register both behaviors - main control page only
+                Launchpad.registerPadBehavior(padNote, clickCallback, holdCallback, Page_MainControl.pageNumber);
             })(i);
         }
 
@@ -2417,7 +2431,8 @@ var ClipLauncher = {
                             var track = self._trackBank.getItemAt(t);
                             var slot = track.clipLauncherSlotBank().getItemAt(s);
                             ClipGestures.executeHold(t, s, slot);
-                        }
+                        },
+                        self.pageNumber  // Page 2 - clip launcher
                     );
                 })(trackIndex, sceneIndex);
             }
@@ -2911,47 +2926,49 @@ var Controller = {
         var modeEnum = LaunchpadModeSwitcher.modeEnum;
         var modes = LaunchpadModeSwitcher.modes;
 
+        var page = Page_MainControl.pageNumber;
+
         // Mute mode button
         Launchpad.registerPadBehavior(modes.mute.note, function() {
             LaunchpadModeSwitcher.selectMode(modeEnum.MUTE);
         }, function() {
             self.clearAllMute();
-        });
+        }, page);
 
         // Solo mode button
         Launchpad.registerPadBehavior(modes.solo.note, function() {
             LaunchpadModeSwitcher.selectMode(modeEnum.SOLO);
         }, function() {
             self.clearAllSolo();
-        });
+        }, page);
 
         // Record arm mode button
         Launchpad.registerPadBehavior(modes.recordArm.note, function() {
             LaunchpadModeSwitcher.selectMode(modeEnum.RECORD_ARM);
         }, function() {
             self.clearAllArm();
-        });
+        }, page);
 
         // Other mode buttons (no hold behavior)
         Launchpad.registerPadBehavior(modes.volume.note, function() {
             LaunchpadModeSwitcher.selectMode(modeEnum.VOLUME);
-        }, null);
+        }, null, page);
 
         Launchpad.registerPadBehavior(modes.pan.note, function() {
             LaunchpadModeSwitcher.selectMode(modeEnum.PAN);
-        }, null);
+        }, null, page);
 
         Launchpad.registerPadBehavior(modes.sendA.note, function() {
             LaunchpadModeSwitcher.selectMode(modeEnum.SEND_A);
-        }, null);
+        }, null, page);
 
         Launchpad.registerPadBehavior(modes.sendB.note, function() {
             LaunchpadModeSwitcher.selectMode(modeEnum.SEND_B);
-        }, null);
+        }, null, page);
 
         Launchpad.registerPadBehavior(modes.stop.note, function() {
             LaunchpadModeSwitcher.selectMode(modeEnum.STOP);
-        }, null);
+        }, null, page);
     },
 
     /**
@@ -3104,26 +3121,26 @@ var Controller = {
 
                 // Register click behaviors based on current mode (no hold behaviors on track pads)
                 if (currentMode === modeEnum.MUTE) {
-                    (function(tid) {
-                        Launchpad.registerPadBehavior(padNote, function() {
+                    (function(tid, pn) {
+                        Launchpad.registerPadBehavior(pn, function() {
                             var track = Bitwig.getTrack(tid);
                             if (track) track.mute().toggle();
-                        }, null);
-                    })(trackId);
+                        }, null, Page_MainControl.pageNumber);
+                    })(trackId, padNote);
                 } else if (currentMode === modeEnum.SOLO) {
-                    (function(tid) {
-                        Launchpad.registerPadBehavior(padNote, function() {
+                    (function(tid, pn) {
+                        Launchpad.registerPadBehavior(pn, function() {
                             var track = Bitwig.getTrack(tid);
                             if (track) track.solo().toggle();
-                        }, null);
-                    })(trackId);
+                        }, null, Page_MainControl.pageNumber);
+                    })(trackId, padNote);
                 } else if (currentMode === modeEnum.RECORD_ARM) {
-                    (function(tid) {
-                        Launchpad.registerPadBehavior(padNote, function() {
+                    (function(tid, pn) {
+                        Launchpad.registerPadBehavior(pn, function() {
                             var track = Bitwig.getTrack(tid);
                             if (track) track.arm().toggle();
-                        }, null);
-                    })(trackId);
+                        }, null, Page_MainControl.pageNumber);
+                    })(trackId, padNote);
                 }
             }
         }
