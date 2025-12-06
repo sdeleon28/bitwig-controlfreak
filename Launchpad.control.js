@@ -2987,6 +2987,7 @@ var Controller = {
         if (groupNumber === 16) {
             // Top-level: link encoders 1-15 to depth-0 tracks
             // Encoder 16 remains unlinked
+            host.showPopupNotification("Top Level");
             var topTracks = Bitwig.getTopLevelTracks();
 
             for (var i = 0; i < topTracks.length; i++) {
@@ -3011,6 +3012,12 @@ var Controller = {
             var groupTrackId = Bitwig.findGroupByNumber(groupNumber);
 
             if (groupTrackId !== null) {
+                // Show group name notification
+                var groupTrack = Bitwig.getTrack(groupTrackId);
+                if (groupTrack) {
+                    host.showPopupNotification(groupTrack.name().get());
+                }
+
                 // Get children of this group
                 var children = Bitwig.getGroupChildren(groupTrackId);
 
@@ -3124,14 +3131,20 @@ var Controller = {
                     (function(tid, pn) {
                         Launchpad.registerPadBehavior(pn, function() {
                             var track = Bitwig.getTrack(tid);
-                            if (track) track.mute().toggle();
+                            if (track) {
+                                host.showPopupNotification(track.name().get());
+                                track.mute().toggle();
+                            }
                         }, null, Page_MainControl.pageNumber);
                     })(trackId, padNote);
                 } else if (currentMode === modeEnum.SOLO) {
                     (function(tid, pn) {
                         Launchpad.registerPadBehavior(pn, function() {
                             var track = Bitwig.getTrack(tid);
-                            if (track) track.solo().toggle();
+                            if (track) {
+                                host.showPopupNotification(track.name().get());
+                                track.solo().toggle();
+                            }
                         }, null, Page_MainControl.pageNumber);
                     })(trackId, padNote);
                 } else if (currentMode === modeEnum.RECORD_ARM) {
@@ -3139,6 +3152,7 @@ var Controller = {
                         Launchpad.registerPadBehavior(pn, function() {
                             var track = Bitwig.getTrack(tid);
                             if (track) {
+                                host.showPopupNotification(track.name().get());
                                 // XOR arm: disarm all other tracks first
                                 for (var t = 0; t < 64; t++) {
                                     var otherTrack = Bitwig.getTrack(t);
