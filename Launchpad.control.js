@@ -94,6 +94,11 @@ var Bitwig = {
         if (this._transport && this._transport.playPosition) {
             this._transport.playPosition().markInterested();
         }
+
+        // Mark interested in tempo for encoder control
+        if (this._transport && this._transport.tempo) {
+            this._transport.tempo().markInterested();
+        }
     },
 
     /**
@@ -1937,12 +1942,12 @@ var Page_ClipLauncher = {
         ClipLauncher.registerPadBehaviors();
 
         // Clear this page's state using Pager
-        Pager.requestClearAll(2);
+        Pager.requestClearAll(this.pageNumber);
 
         // Clear mode buttons (not used on this page)
         for (var mode in LaunchpadModeSwitcher.modes) {
             if (LaunchpadModeSwitcher.modes.hasOwnProperty(mode)) {
-                Pager.requestClear(2, LaunchpadModeSwitcher.modes[mode].note);
+                Pager.requestClear(this.pageNumber, LaunchpadModeSwitcher.modes[mode].note);
             }
         }
 
@@ -2572,6 +2577,23 @@ var Twister = {
     _trackToEncoder: {},
 
     /**
+     * Encoder-to-behavior links for custom behaviors (not track-linked)
+     * @private
+     */
+    _encoderBehaviors: {},
+
+    /**
+     * Encoder used for tempo control in top-level group
+     */
+    TEMPO_ENCODER: 4,
+
+    /**
+     * Tempo range for encoder mapping (BPM)
+     */
+    TEMPO_MIN: 60,
+    TEMPO_MAX: 230,
+
+    /**
      * Initialize Twister hardware
      * @param {Object} midiOutput - MIDI output port
      */
@@ -2683,7 +2705,7 @@ var Twister = {
     },
 
     /**
-     * Unlink all encoders from their tracks
+     * Unlink all encoders from their tracks and behaviors
      */
     unlinkAll: function() {
         for (var i = 1; i <= 16; i++) {
@@ -2767,20 +2789,57 @@ var Twister = {
     },
 
     /**
-     * Unlink an encoder from its track
+     * Link an encoder to custom behavior callbacks
+     * @param {number} encoderNumber - Encoder number (1-16)
+     * @param {Function} turnCallback - Called on encoder turn with value (0-127)
+     * @param {Function} pressCallback - Called on encoder press with pressed state (boolean)
+     * @param {Object} color - RGB color {r, g, b} (0-255 each)
+     */
+    linkEncoderToBehavior: function(encoderNumber, turnCallback, pressCallback, color) {
+        // Validate encoder number
+        if (encoderNumber < 1 || encoderNumber > 16) {
+            if (debug) println("Warning: Invalid encoder number " + encoderNumber + " (must be 1-16)");
+            return;
+        }
+
+        // Clear any existing track link for this encoder
+        this.unlinkEncoder(encoderNumber);
+
+        // Store the behavior
+        this._encoderBehaviors[encoderNumber] = {
+            turnCallback: turnCallback,
+            pressCallback: pressCallback
+        };
+
+        // Set encoder color
+        if (color) {
+            this.setEncoderColor(encoderNumber, color.r, color.g, color.b);
+        }
+
+        if (debug) println("Linked encoder " + encoderNumber + " to custom behavior");
+    },
+
+    /**
+     * Unlink an encoder from its track or behavior
      * @param {number} encoderNumber - Encoder number (1-16)
      */
     unlinkEncoder: function(encoderNumber) {
+        // Clear track link if exists
         if (this._encoderLinks[encoderNumber]) {
             var trackId = this._encoderLinks[encoderNumber].trackId;
 
             // Clean up mappings
             delete this._trackToEncoder[trackId];
             delete this._encoderLinks[encoderNumber];
-
-            // Clear encoder display
-            this.clearEncoder(encoderNumber);
         }
+
+        // Clear behavior link if exists
+        if (this._encoderBehaviors[encoderNumber]) {
+            delete this._encoderBehaviors[encoderNumber];
+        }
+
+        // Clear encoder display
+        this.clearEncoder(encoderNumber);
     },
 
     /**
@@ -2799,6 +2858,14 @@ var Twister = {
      * @param {number} value - MIDI value (0-127)
      */
     handleEncoderTurn: function(encoderNumber, value) {
+        // Check for custom behavior first
+        var behavior = this._encoderBehaviors[encoderNumber];
+        if (behavior && behavior.turnCallback) {
+            behavior.turnCallback(value);
+            return;
+        }
+
+        // Fall through to track handling
         var track = this.getLinkedTrack(encoderNumber);
         if (track) {
             var normalizedValue = value / 127.0;
@@ -2819,6 +2886,14 @@ var Twister = {
      * @param {boolean} pressed - True if pressed, false if released
      */
     handleEncoderPress: function(encoderNumber, pressed) {
+        // Check for custom behavior first
+        var behavior = this._encoderBehaviors[encoderNumber];
+        if (behavior && behavior.pressCallback) {
+            behavior.pressCallback(pressed);
+            return;
+        }
+
+        // Fall through to track handling
         var track = this.getLinkedTrack(encoderNumber);
         if (track) {
             track.solo().set(pressed);
@@ -3012,16 +3087,35 @@ var Controller = {
                 if (track) {
                     var name = track.name().get();
 
-                    // Parse for (x) notation (only 1-15)
+                    // Parse for (x) notation (only 1-15, skip tempo encoder)
                     var match = name.match(/\((\d+)\)/);
                     if (match) {
                         var encoderNum = parseInt(match[1]);
-                        if (encoderNum >= 1 && encoderNum <= 15) {
+                        if (encoderNum >= 1 && encoderNum <= 15 && encoderNum !== Twister.TEMPO_ENCODER) {
                             Twister.linkEncoderToTrack(encoderNum, trackId);
                         }
                     }
                 }
             }
+
+            // Link tempo encoder
+            Twister.linkEncoderToBehavior(Twister.TEMPO_ENCODER,
+                function(value) {
+                    var tempo = Bitwig.getTransport().tempo();
+                    // Map 0-127 to TEMPO_MIN-TEMPO_MAX BPM, rounded to integer
+                    var bpm = Math.round(Twister.TEMPO_MIN + (value / 127.0) * (Twister.TEMPO_MAX - Twister.TEMPO_MIN));
+                    tempo.setRaw(bpm);
+                },
+                null,  // no press behavior
+                { r: 255, g: 255, b: 255 }  // white color for tempo
+            );
+
+            // Initial LED sync to current tempo
+            var tempo = Bitwig.getTransport().tempo();
+            var currentBpm = tempo.getRaw();
+            var ledValue = Math.round((currentBpm - Twister.TEMPO_MIN) / (Twister.TEMPO_MAX - Twister.TEMPO_MIN) * 127);
+            ledValue = Math.max(0, Math.min(127, ledValue));
+            Twister.setEncoderLED(Twister.TEMPO_ENCODER, ledValue);
         } else {
             // Find group by number (any depth)
             var groupTrackId = Bitwig.findGroupByNumber(groupNumber);
@@ -3692,6 +3786,16 @@ function init() {
             });
         })(i, track);
     }
+
+    // Add tempo observer for encoder sync (bi-directional like volume/pan)
+    transport.tempo().addRawValueObserver(function(bpm) {
+        // Only update if tempo encoder is linked (top-level group selected)
+        if (Controller.selectedGroup === 16) {
+            var ledValue = Math.round((bpm - Twister.TEMPO_MIN) / (Twister.TEMPO_MAX - Twister.TEMPO_MIN) * 127);
+            ledValue = Math.max(0, Math.min(127, ledValue));
+            Twister.setEncoderLED(Twister.TEMPO_ENCODER, ledValue);
+        }
+    });
 
     // Enter Programmer Mode on Launchpad MK2
     Launchpad.enterProgrammerMode();

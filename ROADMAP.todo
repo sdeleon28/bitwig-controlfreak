@@ -34,9 +34,9 @@
     [ ] should "go into group"
     [ ] should set encoder colors to track colors
 [X] piano pitch shift
-[ ] main group
+[X] main group
     [X] top level tracks
-    [ ] tempo
+    [X] tempo
 [X] extra group features
     [X] group mute button
     [X] group solo button
