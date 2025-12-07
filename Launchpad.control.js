@@ -670,7 +670,10 @@ var Pages = {
             // Let Pager handle hardware clear + repaint
             Pager.switchToPage(pageNum);
 
-            // Notify new page to update its state
+            // Clear old page behaviors before showing new page
+            Launchpad.clearAllPadBehaviors();
+
+            // Notify new page to update its state (will register its behaviors)
             self.showCurrentPage();
             self.refreshPageButtons();
         });
@@ -1078,6 +1081,13 @@ var Launchpad = {
      * @private
      */
     _padTimers: {},
+
+    /**
+     * Clear all registered pad behaviors
+     */
+    clearAllPadBehaviors: function() {
+        this._padTimers = {};
+    },
 
     /**
      * Initialize Launchpad hardware
@@ -1693,7 +1703,7 @@ var LaunchpadLane = {
      */
     init: function() {
         this.topLane.init();
-        this.registerMarkerPadBehaviors();
+        // Note: registerMarkerPadBehaviors is called from Page_MainControl.show()
         if (debug) println("LaunchpadLane initialized");
     },
 
@@ -1872,9 +1882,12 @@ var Page_MainControl = {
     },
 
     show: function() {
+        // Register pad behaviors for this page
+        LaunchpadLane.registerMarkerPadBehaviors();
+
         // Display all main control elements (pass page number to use Pager)
         Controller.refreshGroupDisplay();
-        Controller.refreshTrackGrid();
+        Controller.refreshTrackGrid();  // Also registers track pad behaviors
         LaunchpadLane.refresh(1);
         LaunchpadModeSwitcher.refresh(1);
     },
@@ -1920,6 +1933,9 @@ var Page_ClipLauncher = {
     },
 
     show: function() {
+        // Register pad behaviors for this page
+        ClipLauncher.registerPadBehaviors();
+
         // Clear this page's state using Pager
         Pager.requestClearAll(2);
 
@@ -2149,8 +2165,7 @@ var ClipLauncher = {
         this.setupClipObservers();
         this.setupSceneObservers();
 
-        // Register click/hold behaviors for clip pads
-        this.registerPadBehaviors();
+        // Note: registerPadBehaviors is called from Page_ClipLauncher.show()
 
         if (debug) println("ClipLauncher initialized: " + this._numTracks + " tracks × " + this._numScenes + " scenes (Bitwig layout)");
     },
