@@ -68,6 +68,18 @@ var Bitwig = {
     _transport: null,
 
     /**
+     * Effect track bank for FX/return tracks
+     * @private
+     */
+    _effectTrackBank: null,
+
+    /**
+     * Cached FX tracks with [N] naming pattern
+     * @private
+     */
+    _fxTracks: [],
+
+    /**
      * Initialize Bitwig API
      * @param {Object} trackBank - Bitwig track bank object
      * @param {Object} transport - Bitwig transport object
@@ -401,6 +413,44 @@ var Bitwig = {
             }
         }
         return topLevel;
+    },
+
+    /**
+     * Get cached FX tracks (from effect track bank)
+     * @returns {Array} Array of {index, number, track} sorted by [N] number
+     */
+    getFxTracks: function() {
+        return this._fxTracks;
+    },
+
+    /**
+     * Update FX track cache when effect track name changes
+     * @param {number} effectIndex - Index in effect track bank (0-7)
+     * @param {string} name - Track name
+     * @param {Object} track - Track object
+     * @private
+     */
+    _updateFxTrackCache: function(effectIndex, name, track) {
+        // Remove any existing entry for this effect index
+        this._fxTracks = this._fxTracks.filter(function(fx) {
+            return fx.index !== effectIndex;
+        });
+
+        // Check if name has [N] pattern
+        var match = name.match(/\[(\d+)\]/);
+        if (match) {
+            var fxNum = parseInt(match[1]);
+            if (fxNum >= 1 && fxNum <= 8) {
+                this._fxTracks.push({
+                    index: effectIndex,  // Index in effect track bank (0-7)
+                    number: fxNum,       // [N] from name -> encoder position
+                    track: track
+                });
+                // Keep sorted by number
+                this._fxTracks.sort(function(a, b) { return a.number - b.number; });
+            }
+        }
+        println("FX tracks cache updated: " + this._fxTracks.length + " tracks");
     }
 };
 
@@ -2620,6 +2670,30 @@ var Twister = {
     _trackToEncoder: {},
 
     /**
+     * Track ID when in send mode (null = normal mode)
+     * @private
+     */
+    _sendModeTrackId: null,
+
+    /**
+     * Encoder-to-send links: encoderNum -> {trackId, sendIndex, send}
+     * @private
+     */
+    _sendLinks: {},
+
+    /**
+     * Reverse mapping: "trackId_sendIndex" -> encoderNum
+     * @private
+     */
+    _sendToEncoder: {},
+
+    /**
+     * Effect track index -> encoderNum for FX volume links
+     * @private
+     */
+    _effectTrackToEncoder: {},
+
+    /**
      * Encoder-to-behavior links for custom behaviors (not track-linked)
      * @private
      */
@@ -2754,6 +2828,8 @@ var Twister = {
         for (var i = 1; i <= 16; i++) {
             this.unlinkEncoder(i);
         }
+        // Reset send mode state
+        this._sendModeTrackId = null;
     },
 
     /**
@@ -2832,6 +2908,136 @@ var Twister = {
     },
 
     /**
+     * Link an encoder to a track's send (for Send A mode)
+     * @param {number} encoderNumber - Encoder number (1-8 for sends)
+     * @param {number} trackId - Source track ID
+     * @param {number} sendIndex - Send index (0-7)
+     * @param {Object} fxTrack - FX track object for color
+     */
+    linkEncoderToSend: function(encoderNumber, trackId, sendIndex, fxTrack) {
+        if (encoderNumber < 1 || encoderNumber > 8) {
+            if (debug) println("Warning: linkEncoderToSend only supports encoders 1-8");
+            return;
+        }
+
+        var track = Bitwig.getTrack(trackId);
+        if (!track) {
+            if (debug) println("Warning: Track " + trackId + " not found");
+            return;
+        }
+
+        var send = track.sendBank().getItemAt(sendIndex);
+        if (!send) {
+            if (debug) println("Warning: Send " + sendIndex + " not found");
+            return;
+        }
+
+        // Clean up any existing link for this encoder
+        this.unlinkEncoder(encoderNumber);
+
+        // Store send link
+        this._sendLinks[encoderNumber] = {
+            trackId: trackId,
+            sendIndex: sendIndex,
+            send: send
+        };
+
+        // Reverse mapping for observer
+        var key = trackId + '_' + sendIndex;
+        this._sendToEncoder[key] = encoderNumber;
+
+        // Initial LED sync
+        var value = send.value().get();
+        this.setEncoderLED(encoderNumber, Math.round(value * 127));
+
+        // Set color from FX track
+        if (fxTrack) {
+            var color = fxTrack.color();
+            this.setEncoderColor(encoderNumber,
+                Math.round(color.red() * 255),
+                Math.round(color.green() * 255),
+                Math.round(color.blue() * 255));
+        }
+
+        if (debug) println("Linked encoder " + encoderNumber + " to track " + trackId + " send " + sendIndex);
+    },
+
+    /**
+     * Link an encoder to an effect track's volume (for Send A mode top row)
+     * @param {number} encoderNumber - Encoder number (9-16 for FX volumes)
+     * @param {number} effectIndex - Index in effect track bank (0-7)
+     * @param {Object} track - Effect track object
+     */
+    linkEncoderToEffectTrack: function(encoderNumber, effectIndex, track) {
+        if (encoderNumber < 9 || encoderNumber > 16) {
+            if (debug) println("Warning: linkEncoderToEffectTrack only supports encoders 9-16");
+            return;
+        }
+
+        if (!track) {
+            if (debug) println("Warning: Effect track not provided");
+            return;
+        }
+
+        this.unlinkEncoder(encoderNumber);
+
+        // Store mapping for observer
+        this._effectTrackToEncoder[effectIndex] = encoderNumber;
+
+        // Store link info
+        this._encoderLinks[encoderNumber] = {
+            effectIndex: effectIndex,
+            track: track,
+            isEffectTrack: true
+        };
+
+        // Initial LED sync
+        var volumeValue = track.volume().get();
+        this.setEncoderLED(encoderNumber, Math.round(volumeValue * 127));
+
+        // Set color
+        var color = track.color();
+        this.setEncoderColor(encoderNumber,
+            Math.round(color.red() * 255),
+            Math.round(color.green() * 255),
+            Math.round(color.blue() * 255));
+
+        if (debug) println("Linked encoder " + encoderNumber + " to effect track " + effectIndex);
+    },
+
+    /**
+     * Link all encoders to a track's sends and FX volumes (Send A mode)
+     * Bottom 8 encoders: sends from track to FX [1]-[8]
+     * Top 8 encoders: FX track volumes
+     * @param {number} trackId - Track ID to link sends from
+     */
+    linkEncodersToTrackSends: function(trackId) {
+        this.unlinkAll();
+        this._sendModeTrackId = trackId;
+
+        var fxTracks = Bitwig.getFxTracks();
+
+        // Bottom 8 encoders: sends from track to FX [1]-[8]
+        // Send index is based on FX track order (i), encoder position from [N] naming
+        for (var i = 0; i < fxTracks.length && i < 8; i++) {
+            var fxNum = fxTracks[i].number;  // [N] from track name -> encoder position
+            var sendIndex = i;                // Send index based on FX track order
+            this.linkEncoderToSend(fxNum, trackId, sendIndex, fxTracks[i].track);
+        }
+
+        // Top 8 encoders: FX track volumes (effect tracks)
+        for (var i = 0; i < fxTracks.length && i < 8; i++) {
+            var fxNum = fxTracks[i].number;
+            var effectIndex = fxTracks[i].index;
+            var fxTrack = fxTracks[i].track;
+            // Link encoder (8 + fxNum) to effect track volume
+            this.linkEncoderToEffectTrack(8 + fxNum, effectIndex, fxTrack);
+        }
+
+        if (debug) println("Send mode activated for track " + trackId + " with " + fxTracks.length + " FX tracks");
+    },
+
+    /**
      * Link an encoder to custom behavior callbacks
      * @param {number} encoderNumber - Encoder number (1-16)
      * @param {Function} turnCallback - Called on encoder turn with value (0-127)
@@ -2867,13 +3073,27 @@ var Twister = {
      * @param {number} encoderNumber - Encoder number (1-16)
      */
     unlinkEncoder: function(encoderNumber) {
-        // Clear track link if exists
+        // Clear track link if exists (check for effect track first)
         if (this._encoderLinks[encoderNumber]) {
-            var trackId = this._encoderLinks[encoderNumber].trackId;
+            var link = this._encoderLinks[encoderNumber];
 
-            // Clean up mappings
-            delete this._trackToEncoder[trackId];
+            if (link.isEffectTrack) {
+                // Effect track link - clean up effect track mapping
+                delete this._effectTrackToEncoder[link.effectIndex];
+            } else if (link.trackId !== undefined) {
+                // Regular track link
+                delete this._trackToEncoder[link.trackId];
+            }
+
             delete this._encoderLinks[encoderNumber];
+        }
+
+        // Clear send link if exists
+        if (this._sendLinks[encoderNumber]) {
+            var sendLink = this._sendLinks[encoderNumber];
+            var key = sendLink.trackId + '_' + sendLink.sendIndex;
+            delete this._sendToEncoder[key];
+            delete this._sendLinks[encoderNumber];
         }
 
         // Clear behavior link if exists
@@ -2908,7 +3128,21 @@ var Twister = {
             return;
         }
 
-        // Fall through to track handling
+        // Check for send mode (encoders 1-8)
+        var sendLink = this._sendLinks[encoderNumber];
+        if (sendLink && LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.SEND_A) {
+            sendLink.send.value().set(value / 127.0);
+            return;
+        }
+
+        // Check for effect track link (encoders 9-16 in send mode)
+        var link = this._encoderLinks[encoderNumber];
+        if (link && link.isEffectTrack) {
+            link.track.volume().set(value / 127.0);
+            return;
+        }
+
+        // Fall through to regular track handling
         var track = this.getLinkedTrack(encoderNumber);
         if (track) {
             var normalizedValue = value / 127.0;
@@ -3316,6 +3550,16 @@ var Controller = {
                             }
                         }, null, Page_MainControl.pageNumber);
                     })(trackId, padNote);
+                } else if (currentMode === modeEnum.SEND_A) {
+                    (function(tid, pn) {
+                        Launchpad.registerPadBehavior(pn, function() {
+                            var track = Bitwig.getTrack(tid);
+                            if (track) {
+                                host.showPopupNotification(track.name().get() + " → Sends");
+                                Twister.linkEncodersToTrackSends(tid);
+                            }
+                        }, null, Page_MainControl.pageNumber);
+                    })(trackId, padNote);
                 }
             }
         }
@@ -3715,10 +3959,16 @@ function init() {
     });
 
     // Create main track bank to access all tracks (flat list including nested tracks)
-    trackBank = host.createMainTrackBank(64, 0, 0);
+    // 64 tracks, 8 sends (for FX routing), 0 scenes
+    trackBank = host.createMainTrackBank(64, 8, 0);
+
+    // Create effect track bank to access FX/return tracks
+    // 8 effect tracks, 0 scenes
+    var effectTrackBank = host.createEffectTrackBank(8, 0);
 
     // Initialize Bitwig namespace with track bank and transport
     Bitwig.init(trackBank, transport);
+    Bitwig._effectTrackBank = effectTrackBank;
 
     // Subscribe to track properties for tree building
     for (var i = 0; i < 64; i++) {
@@ -3755,6 +4005,22 @@ function init() {
                     Twister.setEncoderLED(encoderNumber, value);
                 }
             });
+
+            // Add send observers for bi-directional sync in Send A mode
+            var sendBank = trackObj.sendBank();
+            for (var s = 0; s < 8; s++) {
+                (function(tid, sendIndex) {
+                    var send = sendBank.getItemAt(sendIndex);
+                    send.value().markInterested();
+                    send.value().addValueObserver(128, function(value) {
+                        var key = tid + '_' + sendIndex;
+                        var encoderNum = Twister._sendToEncoder ? Twister._sendToEncoder[key] : null;
+                        if (encoderNum && LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.SEND_A) {
+                            Twister.setEncoderLED(encoderNum, value);
+                        }
+                    });
+                })(trackId, s);
+            }
 
             // Add mute observer for track grid
             trackObj.mute().markInterested();
@@ -3828,6 +4094,42 @@ function init() {
                 }
             });
         })(i, track);
+    }
+
+    // Set up effect track observers and cache FX tracks on startup
+    for (var e = 0; e < 8; e++) {
+        var effectTrack = effectTrackBank.getItemAt(e);
+        effectTrack.name().markInterested();
+        effectTrack.volume().markInterested();
+        effectTrack.color().markInterested();
+        effectTrack.exists().markInterested();
+
+        (function(effectIndex, effTrack) {
+            // Add volume observer for bi-directional sync
+            effTrack.volume().addValueObserver(function(value) {
+                // Update encoder LED if this effect track is linked
+                var encoderNum = Twister._effectTrackToEncoder ? Twister._effectTrackToEncoder[effectIndex] : null;
+                if (encoderNum) {
+                    Twister.setEncoderLED(encoderNum, Math.round(value * 127));
+                }
+            });
+
+            // Cache FX track info when name changes (detects [N] pattern)
+            effTrack.name().addValueObserver(function(name) {
+                Bitwig._updateFxTrackCache(effectIndex, name, effTrack);
+            });
+
+            // Update encoder color when effect track color changes
+            effTrack.color().addValueObserver(function(red, green, blue) {
+                var encoderNum = Twister._effectTrackToEncoder ? Twister._effectTrackToEncoder[effectIndex] : null;
+                if (encoderNum) {
+                    Twister.setEncoderColor(encoderNum,
+                        Math.round(red * 255),
+                        Math.round(green * 255),
+                        Math.round(blue * 255));
+                }
+            });
+        })(e, effectTrack);
     }
 
     // Add tempo observer for encoder sync (bi-directional like volume/pan)
