@@ -3501,8 +3501,8 @@ var Controller = {
         // Move playhead to start
         Bitwig.setPlayheadPosition(startPos);
 
-        // Enable arrangement record
-        Bitwig.setArrangementRecord(true);
+        // Enable arrangement record (NOT!)
+        // Bitwig.setArrangementRecord(true);
 
         if (debug) println("Recording prepared at marker " + markerIndex);
     },
