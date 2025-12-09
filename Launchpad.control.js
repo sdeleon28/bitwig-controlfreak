@@ -83,8 +83,8 @@ var Bitwig = {
         if (debug) println("Arranger created: " + this._arranger);
 
         if (this._arranger && this._arranger.createCueMarkerBank) {
-            this._markerBank = this._arranger.createCueMarkerBank(16);
-            if (debug) println("Marker bank created with 16 markers");
+            this._markerBank = this._arranger.createCueMarkerBank(32);
+            if (debug) println("Marker bank created with 32 markers");
         } else {
             println("WARNING: createCueMarkerBank not available on arranger object");
             this._markerBank = null;
@@ -1665,19 +1665,21 @@ var LaunchpadModeSwitcher = {
  */
 var LaunchpadLane = {
     /**
-     * Top lane pad configuration (top two rows, 8x2 = 16 pads)
+     * Top lane pad configuration (top four rows, 8x4 = 32 pads)
      */
     topLane: {
         /**
-         * Pad note numbers for top two rows
+         * Pad note numbers for top four rows
          */
         pads: [
             81, 82, 83, 84, 85, 86, 87, 88,  // Row 7 (top): markers 0-7
-            71, 72, 73, 74, 75, 76, 77, 78   // Row 6: markers 8-15
+            71, 72, 73, 74, 75, 76, 77, 78,  // Row 6: markers 8-15
+            61, 62, 63, 64, 65, 66, 67, 68,  // Row 5: markers 16-23
+            51, 52, 53, 54, 55, 56, 57, 58   // Row 4: markers 24-31
         ],
 
         /**
-         * Map pad note number → marker index (0-15)
+         * Map pad note number → marker index (0-31)
          * @private
          */
         _padToMarkerIndex: null,
@@ -1696,12 +1698,22 @@ var LaunchpadLane = {
         /**
          * Get marker index for a pad
          * @param {number} padNote - MIDI note number
-         * @returns {number|null} Marker index (0-15) or null
+         * @returns {number|null} Marker index (0-31) or null
          */
         getMarkerIndex: function(padNote) {
             return this._padToMarkerIndex[padNote] !== undefined ? this._padToMarkerIndex[padNote] : null;
         }
     },
+
+    /**
+     * Whether marker jumps should be quantized
+     */
+    quantizedJump: true,
+
+    /**
+     * Toggle pad note for quantized jump mode (bottom-right of top lane, marker 32)
+     */
+    QUANTIZE_TOGGLE_PAD: 58,
 
     /**
      * Initialize the lane
@@ -1716,20 +1728,24 @@ var LaunchpadLane = {
      * Register click and hold behaviors for marker pads
      */
     registerMarkerPadBehaviors: function() {
+        var self = this;
         var markerBank = Bitwig.getMarkerBank();
         if (!markerBank) return;
 
         for (var i = 0; i < this.topLane.pads.length; i++) {
             var padNote = this.topLane.pads[i];
 
+            // Skip toggle pad - handled separately
+            if (padNote === this.QUANTIZE_TOGGLE_PAD) continue;
+
             // Use closure to capture marker index
             (function(markerIndex) {
-                // Click: jump to marker
+                // Click: jump to marker (quantized or immediate based on toggle)
                 var clickCallback = function() {
                     var marker = markerBank.getItemAt(markerIndex);
                     if (marker && marker.exists().get()) {
-                        marker.launch(false);  // Jump immediately without quantization
-                        if (debug) println("Jumped to marker " + markerIndex);
+                        marker.launch(self.quantizedJump);
+                        if (debug) println("Jumped to marker " + markerIndex + (self.quantizedJump ? " (quantized)" : " (immediate)"));
                     }
                 };
 
@@ -1743,7 +1759,31 @@ var LaunchpadLane = {
             })(i);
         }
 
+        // Register toggle behavior for quantize mode
+        Launchpad.registerPadBehavior(this.QUANTIZE_TOGGLE_PAD, function() {
+            self.quantizedJump = !self.quantizedJump;
+            self.updateQuantizeToggleLED();
+            host.showPopupNotification(self.quantizedJump ? "Quantized Jump" : "Immediate Jump");
+        }, null, Page_MainControl.pageNumber);
+
+        // Update toggle LED to reflect initial state
+        this.updateQuantizeToggleLED();
+
         if (debug) println("Marker pad behaviors registered");
+    },
+
+    /**
+     * Update the quantize toggle LED to reflect current state
+     */
+    updateQuantizeToggleLED: function() {
+        var page = Page_MainControl.pageNumber;
+        if (this.quantizedJump) {
+            // Pink for quantized mode
+            Pager.requestPaint(page, this.QUANTIZE_TOGGLE_PAD, Launchpad.colors.pink);
+        } else {
+            // Yellow for immediate mode
+            Pager.requestPaint(page, this.QUANTIZE_TOGGLE_PAD, Launchpad.colors.yellow);
+        }
     },
 
     /**
@@ -1775,6 +1815,9 @@ var LaunchpadLane = {
                 Pager.requestPaint(pageNumber, this.topLane.pads[i], launchpadColor);
             }
         }
+
+        // Update quantize toggle LED
+        this.updateQuantizeToggleLED();
 
         if (debug) println("LaunchpadLane refreshed for page " + pageNumber);
     }
@@ -3803,7 +3846,7 @@ function init() {
     // Set up marker observers
     var markerBank = Bitwig.getMarkerBank();
     if (markerBank) {
-        for (var i = 0; i < 16; i++) {
+        for (var i = 0; i < 32; i++) {
             var marker = markerBank.getItemAt(i);
 
             // Mark properties as interested
