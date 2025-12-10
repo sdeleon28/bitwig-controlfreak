@@ -4,7 +4,7 @@ host.defineController("Generic", "Launchpad + Twister", "1.0", "3ffac818-54ac-45
 host.defineMidiPorts(4, 2);  // 4 inputs (Launchpad, Twister, Roland Piano, nanoKEY2), 2 outputs
 
 // Debug flag - set to true to enable verbose logging
-var debug = true;
+var debug = false;
 
 // ============================================================================
 // Namespace Structure
@@ -450,7 +450,6 @@ var Bitwig = {
                 this._fxTracks.sort(function(a, b) { return a.number - b.number; });
             }
         }
-        println("FX tracks cache updated: " + this._fxTracks.length + " tracks");
     }
 };
 
