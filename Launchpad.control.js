@@ -1775,8 +1775,11 @@ var LaunchpadLane = {
 
     /**
      * Register click and hold behaviors for marker pads
+     * @param {number} pageNumber - Page number to register behaviors for (default 1)
      */
-    registerMarkerPadBehaviors: function() {
+    registerMarkerPadBehaviors: function(pageNumber) {
+        if (typeof pageNumber === 'undefined') pageNumber = 1;
+
         var self = this;
         var markerBank = Bitwig.getMarkerBank();
         if (!markerBank) return;
@@ -1803,8 +1806,8 @@ var LaunchpadLane = {
                     Controller.prepareRecordingAtMarker(markerIndex);
                 };
 
-                // Register both behaviors - main control page only
-                Launchpad.registerPadBehavior(padNote, clickCallback, holdCallback, Page_MainControl.pageNumber);
+                // Register behaviors for specified page
+                Launchpad.registerPadBehavior(padNote, clickCallback, holdCallback, pageNumber);
             })(i);
         }
 
@@ -1813,12 +1816,12 @@ var LaunchpadLane = {
             self.quantizedJump = !self.quantizedJump;
             self.updateQuantizeToggleLED();
             host.showPopupNotification(self.quantizedJump ? "Quantized Jump" : "Immediate Jump");
-        }, null, Page_MainControl.pageNumber);
+        }, null, pageNumber);
 
         // Update toggle LED to reflect initial state
         this.updateQuantizeToggleLED();
 
-        if (debug) println("Marker pad behaviors registered");
+        if (debug) println("Marker pad behaviors registered for page " + pageNumber);
     },
 
     /**
@@ -2023,7 +2026,7 @@ var Page_MainControl = {
  */
 var Page_ClipLauncher = {
     id: "clip-launcher",
-    pageNumber: 2,  // ← Change this to move to different page number
+    pageNumber: 3,  // Clip launcher on page 3
 
     init: function() {
         if (debug) println("Page_ClipLauncher initialized on page " + this.pageNumber);
@@ -2085,49 +2088,33 @@ var Page_ClipLauncher = {
 };
 
 /**
- * Third demo page with diagonal pattern
- * TO MOVE THIS PAGE: Just change pageNumber property
+ * Page 2: Marker Manager (detailed marker view)
+ * Same markers as page 1 but will have different behavior in future
  * @namespace
  */
-var Page_ThirdDummy = {
-    id: "third-dummy",
-    pageNumber: 3,  // ← Change this to move to different page number
+var Page_MarkerManager = {
+    id: "marker-manager",
+    pageNumber: 2,
 
     init: function() {
-        if (debug) println("Page_ThirdDummy initialized on page " + this.pageNumber);
+        if (debug) println("Page_MarkerManager initialized on page " + this.pageNumber);
     },
 
     show: function() {
-        // Clear all pads
-        for (var i = 0; i < 128; i++) {
-            Launchpad.clearPad(i);
-        }
+        // Register marker pad behaviors for this page
+        LaunchpadLane.registerMarkerPadBehaviors(this.pageNumber);
 
-        // Show different pattern - diagonal line from bottom-left to top-right
-        Launchpad.setPadColor(11, Launchpad.colors.purple);   // Bottom-left
-        Launchpad.setPadColor(22, Launchpad.colors.purple);
-        Launchpad.setPadColor(33, Launchpad.colors.purple);
-        Launchpad.setPadColor(44, Launchpad.colors.purple);
-        Launchpad.setPadColor(55, Launchpad.colors.purple);
-        Launchpad.setPadColor(66, Launchpad.colors.purple);
-        Launchpad.setPadColor(77, Launchpad.colors.purple);
-        Launchpad.setPadColor(88, Launchpad.colors.purple);   // Top-right
-
-        // Clear mode buttons (not used on this page)
-        for (var mode in LaunchpadModeSwitcher.modes) {
-            if (LaunchpadModeSwitcher.modes.hasOwnProperty(mode)) {
-                Launchpad.setPadColor(LaunchpadModeSwitcher.modes[mode].note, 0);
-            }
-        }
+        // Refresh marker display for this page
+        LaunchpadLane.refresh(this.pageNumber);
     },
 
     hide: function() {
-        if (debug) println("Hiding third dummy page");
+        if (debug) println("Hiding marker manager page");
     },
 
     handlePadPress: function(padNote) {
-        if (debug) println("Page 3 pad pressed: " + padNote);
-        return false;  // Don't handle pads on this demo page
+        // Marker pads are handled by LaunchpadLane behaviors
+        return false;
     },
 
     handlePadRelease: function(padNote) {
@@ -2238,7 +2225,7 @@ ClipGestures
  * @namespace
  */
 var ClipLauncher = {
-    pageNumber: 2,  // Clip launcher lives on page 2
+    pageNumber: 3,  // Clip launcher on page 3
     _trackBank: null,
     _sceneBank: null,
     _numTracks: 7,   // Rows 1-7 for clips
@@ -4206,10 +4193,10 @@ function init() {
         }
     });
 
-    // Register pages
-    Pages.registerPage(Page_MainControl);
-    Pages.registerPage(Page_ClipLauncher);
-    Pages.registerPage(Page_ThirdDummy);
+    // Register pages (order: page 1, page 2, page 3)
+    Pages.registerPage(Page_MainControl);     // Page 1: Main control + markers
+    Pages.registerPage(Page_MarkerManager);   // Page 2: Detailed marker manager
+    Pages.registerPage(Page_ClipLauncher);    // Page 3: Clip launcher
 
     // Initialize pagination system (after pages registered)
     Pages.init();
