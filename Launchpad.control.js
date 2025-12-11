@@ -1755,16 +1755,6 @@ var LaunchpadLane = {
     },
 
     /**
-     * Whether marker jumps should be quantized
-     */
-    quantizedJump: true,
-
-    /**
-     * Toggle pad note for quantized jump mode (bottom-right of top lane, marker 32)
-     */
-    QUANTIZE_TOGGLE_PAD: 58,
-
-    /**
      * Initialize the lane
      */
     init: function() {
@@ -1780,24 +1770,20 @@ var LaunchpadLane = {
     registerMarkerPadBehaviors: function(pageNumber) {
         if (typeof pageNumber === 'undefined') pageNumber = 1;
 
-        var self = this;
         var markerBank = Bitwig.getMarkerBank();
         if (!markerBank) return;
 
         for (var i = 0; i < this.topLane.pads.length; i++) {
             var padNote = this.topLane.pads[i];
 
-            // Skip toggle pad - handled separately
-            if (padNote === this.QUANTIZE_TOGGLE_PAD) continue;
-
             // Use closure to capture marker index
             (function(markerIndex) {
-                // Click: jump to marker (quantized or immediate based on toggle)
+                // Click: jump to marker (always quantized)
                 var clickCallback = function() {
                     var marker = markerBank.getItemAt(markerIndex);
                     if (marker && marker.exists().get()) {
-                        marker.launch(self.quantizedJump);
-                        if (debug) println("Jumped to marker " + markerIndex + (self.quantizedJump ? " (quantized)" : " (immediate)"));
+                        marker.launch(true);
+                        if (debug) println("Jumped to marker " + markerIndex + " (quantized)");
                     }
                 };
 
@@ -1811,31 +1797,7 @@ var LaunchpadLane = {
             })(i);
         }
 
-        // Register toggle behavior for quantize mode
-        Launchpad.registerPadBehavior(this.QUANTIZE_TOGGLE_PAD, function() {
-            self.quantizedJump = !self.quantizedJump;
-            self.updateQuantizeToggleLED();
-            host.showPopupNotification(self.quantizedJump ? "Quantized Jump" : "Immediate Jump");
-        }, null, pageNumber);
-
-        // Update toggle LED to reflect initial state
-        this.updateQuantizeToggleLED();
-
         if (debug) println("Marker pad behaviors registered for page " + pageNumber);
-    },
-
-    /**
-     * Update the quantize toggle LED to reflect current state
-     */
-    updateQuantizeToggleLED: function() {
-        var page = Page_MainControl.pageNumber;
-        if (this.quantizedJump) {
-            // Pink for quantized mode
-            Pager.requestPaint(page, this.QUANTIZE_TOGGLE_PAD, Launchpad.colors.pink);
-        } else {
-            // Yellow for immediate mode
-            Pager.requestPaint(page, this.QUANTIZE_TOGGLE_PAD, Launchpad.colors.yellow);
-        }
     },
 
     /**
@@ -1867,9 +1829,6 @@ var LaunchpadLane = {
                 Pager.requestPaint(pageNumber, this.topLane.pads[i], launchpadColor);
             }
         }
-
-        // Update quantize toggle LED
-        this.updateQuantizeToggleLED();
 
         if (debug) println("LaunchpadLane refreshed for page " + pageNumber);
     }
