@@ -1759,45 +1759,8 @@ var LaunchpadLane = {
      */
     init: function() {
         this.topLane.init();
-        // Note: Page 1 uses registerBirdEyeBehaviors(), Page 2 uses registerMarkerPadBehaviors()
+        // Note: Page 1 uses registerBirdEyeBehaviors(), Page 2 uses ProjectExplorer.registerBehaviors()
         if (debug) println("LaunchpadLane initialized");
-    },
-
-    /**
-     * Register click and hold behaviors for marker pads
-     * @param {number} pageNumber - Page number to register behaviors for (default 1)
-     */
-    registerMarkerPadBehaviors: function(pageNumber) {
-        if (typeof pageNumber === 'undefined') pageNumber = 1;
-
-        var markerBank = Bitwig.getMarkerBank();
-        if (!markerBank) return;
-
-        for (var i = 0; i < this.topLane.pads.length; i++) {
-            var padNote = this.topLane.pads[i];
-
-            // Use closure to capture marker index
-            (function(markerIndex) {
-                // Click: jump to marker (always quantized)
-                var clickCallback = function() {
-                    var marker = markerBank.getItemAt(markerIndex);
-                    if (marker && marker.exists().get()) {
-                        marker.launch(true);
-                        if (debug) println("Jumped to marker " + markerIndex + " (quantized)");
-                    }
-                };
-
-                // Hold: prepare recording at marker
-                var holdCallback = function() {
-                    Controller.prepareRecordingAtMarker(markerIndex);
-                };
-
-                // Register behaviors for specified page
-                Launchpad.registerPadBehavior(padNote, clickCallback, holdCallback, pageNumber);
-            })(i);
-        }
-
-        if (debug) println("Marker pad behaviors registered for page " + pageNumber);
     },
 
     /**
@@ -1912,6 +1875,110 @@ var LaunchpadLane = {
         }
 
         if (debug) println("LaunchpadLane refreshed for page " + pageNumber);
+    }
+};
+
+/**
+ * Project Explorer - detailed markers view (Page 2)
+ * Self-contained namespace for page-specific marker navigation
+ * @namespace
+ */
+var ProjectExplorer = {
+    /**
+     * Page number this namespace is bound to
+     */
+    pageNumber: 2,
+
+    /**
+     * Register click and hold behaviors for marker pads
+     */
+    registerBehaviors: function() {
+        var self = this;
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return;
+
+        for (var i = 0; i < LaunchpadLane.topLane.pads.length; i++) {
+            var padNote = LaunchpadLane.topLane.pads[i];
+
+            (function(markerIndex) {
+                var clickCallback = function() {
+                    var marker = markerBank.getItemAt(markerIndex);
+                    if (marker && marker.exists().get()) {
+                        marker.launch(true);
+                        if (debug) println("ProjectExplorer: Jumped to marker " + markerIndex);
+                    }
+                };
+
+                var holdCallback = function() {
+                    self.prepareRecordingAtMarker(markerIndex);
+                };
+
+                Launchpad.registerPadBehavior(padNote, clickCallback, holdCallback, self.pageNumber);
+            })(i);
+        }
+
+        if (debug) println("ProjectExplorer behaviors registered");
+    },
+
+    /**
+     * Refresh marker pad display
+     */
+    refresh: function() {
+        // Clear all top lane pads
+        for (var i = 0; i < LaunchpadLane.topLane.pads.length; i++) {
+            Pager.requestClear(this.pageNumber, LaunchpadLane.topLane.pads[i]);
+        }
+
+        // Update pads for each marker
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return;
+
+        for (var i = 0; i < LaunchpadLane.topLane.pads.length; i++) {
+            var marker = markerBank.getItemAt(i);
+            if (marker && marker.exists().get()) {
+                var color = marker.getColor();
+                var launchpadColor = Launchpad.bitwigColorToLaunchpad(
+                    color.red(),
+                    color.green(),
+                    color.blue()
+                );
+                Pager.requestPaint(this.pageNumber, LaunchpadLane.topLane.pads[i], launchpadColor);
+            }
+        }
+
+        if (debug) println("ProjectExplorer refreshed");
+    },
+
+    /**
+     * Prepare for recording at a marker position
+     * @param {number} markerIndex - Marker index (0-31)
+     */
+    prepareRecordingAtMarker: function(markerIndex) {
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return;
+
+        var marker = markerBank.getItemAt(markerIndex);
+        if (!marker || !marker.exists().get()) return;
+
+        var startPos = marker.position().get();
+
+        // Find next marker position
+        var endPos = startPos + 4.0;
+        for (var i = markerIndex + 1; i < 32; i++) {
+            var nextMarker = markerBank.getItemAt(i);
+            if (nextMarker && nextMarker.exists().get()) {
+                endPos = nextMarker.position().get();
+                break;
+            }
+        }
+
+        if (debug) {
+            println("ProjectExplorer: Preparing recording at marker " + markerIndex);
+            println("  Start: " + startPos + " beats, End: " + endPos + " beats");
+        }
+
+        Bitwig.setTimeSelection(startPos, endPos);
+        Bitwig.setPlayheadPosition(startPos);
     }
 };
 
@@ -2141,11 +2208,9 @@ var Page_MarkerManager = {
     },
 
     show: function() {
-        // Register marker pad behaviors for this page
-        LaunchpadLane.registerMarkerPadBehaviors(this.pageNumber);
-
-        // Refresh marker display for this page
-        LaunchpadLane.refresh(this.pageNumber);
+        // Use ProjectExplorer for all page 2 behavior
+        ProjectExplorer.registerBehaviors();
+        ProjectExplorer.refresh();
     },
 
     hide: function() {
@@ -3738,48 +3803,6 @@ var Controller = {
     },
 
     /**
-     * Prepare for recording at a marker position
-     * @param {number} markerIndex - Marker index (0-15)
-     */
-    prepareRecordingAtMarker: function(markerIndex) {
-        var markerBank = Bitwig.getMarkerBank();
-        if (!markerBank) return;
-
-        var marker = markerBank.getItemAt(markerIndex);
-        if (!marker || !marker.exists().get()) return;
-
-        // Get current marker position
-        var startPos = marker.position().get();
-
-        // Find next marker position
-        var endPos = startPos + 4.0;  // Default to 4 bars if no next marker
-        for (var i = markerIndex + 1; i < 16; i++) {
-            var nextMarker = markerBank.getItemAt(i);
-            if (nextMarker && nextMarker.exists().get()) {
-                endPos = nextMarker.position().get();
-                break;
-            }
-        }
-
-        if (debug) {
-            println("Preparing recording: marker " + markerIndex);
-            println("  Start: " + startPos + " beats");
-            println("  End: " + endPos + " beats");
-        }
-
-        // Set time selection (loop range)
-        Bitwig.setTimeSelection(startPos, endPos);
-
-        // Move playhead to start
-        Bitwig.setPlayheadPosition(startPos);
-
-        // Enable arrangement record (NOT!)
-        // Bitwig.setArrangementRecord(true);
-
-        if (debug) println("Recording prepared at marker " + markerIndex);
-    },
-
-    /**
      * Prepare for recording across an entire color region (bird's eye view)
      * @param {number} startMarkerIndex - First marker of region
      * @param {number} endMarkerIndex - Last marker of region
@@ -4241,7 +4264,7 @@ function init() {
                     // Re-register and refresh both marker views
                     LaunchpadLane.registerBirdEyeBehaviors();  // Regions may have changed
                     LaunchpadLane.refreshBirdEye();            // Page 1: bird's eye regions
-                    LaunchpadLane.refresh(2);                  // Page 2: detailed markers
+                    ProjectExplorer.refresh();                 // Page 2: project explorer
                 });
 
                 // Observe color changes to refresh lane
@@ -4250,7 +4273,7 @@ function init() {
                     // Re-register and refresh both marker views
                     LaunchpadLane.registerBirdEyeBehaviors();  // Regions may have changed
                     LaunchpadLane.refreshBirdEye();            // Page 1: bird's eye regions
-                    LaunchpadLane.refresh(2);                  // Page 2: detailed markers
+                    ProjectExplorer.refresh();                 // Page 2: project explorer
                 });
             })(i);
         }
