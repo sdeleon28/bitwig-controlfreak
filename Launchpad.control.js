@@ -3198,6 +3198,9 @@ var Twister = {
         // Fall through to track handling
         var track = this.getLinkedTrack(encoderNumber);
         if (track) {
+            if (pressed) {
+                host.showPopupNotification("Encoder " + encoderNumber + ": " + track.name().get());
+            }
             track.solo().set(pressed);
         }
     },
