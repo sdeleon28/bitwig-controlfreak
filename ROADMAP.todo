@@ -32,7 +32,7 @@
         [X] update on startup
         [X] update on color change
     [ ] should "go into group"
-    [ ] should set encoder colors to track colors
+    [X] should set encoder colors to track colors
 [X] piano pitch shift
 [X] main group
     [X] top level tracks
@@ -40,19 +40,26 @@
 [X] extra group features
     [X] group mute button
     [X] group solo button
-[ ] page system
-    [X] mixer
-    [ ] clip launcher
-    [ ] plugin / device shortcuts
+[X] page system
 [X] go to marker functionality (top lane)
+[X] rewrite record arm
+    [X] should default to XOR
+    [X] hold clears
+[-] project explorer page
+    [-] show bar pads with surrounding marker colors
+    [ ] resolution - / + buttons
+        [ ] session -> - resolution
+        [ ] user 1 -> + resolution
+    [ ] page - / + buttons
+        [ ] user 2 -> - page
+        [ ] mixer -> + page
+        [ ] should light up in the same way as top page switcher
+[ ] mode selector -> only selected modes should light up (to bright color)
+[ ] remote control mode
+[ ] make page jumps immediate
 [ ] group actions -> top right
     [ ] select
     [ ] go into
     [ ] go out of
     [ ] group
     [ ] ungroup
-[ ] rewrite record arm
-    [ ] should default to XOR
-    [ ] toggle clears
-    [ ] double click goes into OR mode
-        [ ] refactor double click functionality into Bitwig
