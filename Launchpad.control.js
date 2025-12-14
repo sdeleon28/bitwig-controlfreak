@@ -1759,7 +1759,7 @@ var LaunchpadLane = {
      */
     init: function() {
         this.topLane.init();
-        // Note: registerMarkerPadBehaviors is called from Page_MainControl.show()
+        // Note: Page 1 uses registerBirdEyeBehaviors(), Page 2 uses registerMarkerPadBehaviors()
         if (debug) println("LaunchpadLane initialized");
     },
 
@@ -1798,6 +1798,87 @@ var LaunchpadLane = {
         }
 
         if (debug) println("Marker pad behaviors registered for page " + pageNumber);
+    },
+
+    /**
+     * Generate color regions from consecutive same-color markers (bird's eye view)
+     * @returns {Array} Array of region objects with startIndex, endIndex, color
+     */
+    generateColorRegions: function() {
+        var regions = [];
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return regions;
+
+        var currentRegion = null;
+        for (var i = 0; i < 32; i++) {
+            var marker = markerBank.getItemAt(i);
+            if (!marker || !marker.exists().get()) continue;
+
+            var color = marker.getColor();
+            var launchpadColor = Launchpad.bitwigColorToLaunchpad(
+                color.red(), color.green(), color.blue()
+            );
+
+            if (currentRegion && currentRegion.color === launchpadColor) {
+                // Extend current region
+                currentRegion.endIndex = i;
+            } else {
+                // Start new region
+                if (currentRegion) regions.push(currentRegion);
+                currentRegion = {
+                    startIndex: i,
+                    endIndex: i,
+                    color: launchpadColor
+                };
+            }
+        }
+        if (currentRegion) regions.push(currentRegion);
+        return regions;
+    },
+
+    /**
+     * Register bird's eye view behaviors for page 1 (regions instead of individual markers)
+     */
+    registerBirdEyeBehaviors: function() {
+        var regions = this.generateColorRegions();
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return;
+
+        for (var i = 0; i < regions.length && i < this.topLane.pads.length; i++) {
+            var padNote = this.topLane.pads[i];
+            (function(region) {
+                var clickCallback = function() {
+                    var marker = markerBank.getItemAt(region.startIndex);
+                    if (marker && marker.exists().get()) {
+                        marker.launch(true);
+                        if (debug) println("Jumped to region starting at marker " + region.startIndex);
+                    }
+                };
+                var holdCallback = function() {
+                    Controller.prepareRecordingAtRegion(region.startIndex, region.endIndex);
+                };
+                Launchpad.registerPadBehavior(padNote, clickCallback, holdCallback, 1);
+            })(regions[i]);
+        }
+
+        if (debug) println("Bird's eye behaviors registered with " + regions.length + " regions");
+    },
+
+    /**
+     * Refresh bird's eye view for page 1 (displays regions instead of individual markers)
+     */
+    refreshBirdEye: function() {
+        // Clear all pads
+        for (var i = 0; i < this.topLane.pads.length; i++) {
+            Pager.requestClear(1, this.topLane.pads[i]);
+        }
+
+        var regions = this.generateColorRegions();
+        for (var i = 0; i < regions.length && i < this.topLane.pads.length; i++) {
+            Pager.requestPaint(1, this.topLane.pads[i], regions[i].color);
+        }
+
+        if (debug) println("Bird's eye refreshed with " + regions.length + " regions");
     },
 
     /**
@@ -1941,13 +2022,13 @@ var Page_MainControl = {
     },
 
     show: function() {
-        // Register pad behaviors for this page
-        LaunchpadLane.registerMarkerPadBehaviors();
+        // Register bird's eye marker behaviors (regions instead of individual markers)
+        LaunchpadLane.registerBirdEyeBehaviors();
 
         // Display all main control elements (pass page number to use Pager)
         Controller.refreshGroupDisplay();
         Controller.refreshTrackGrid();  // Also registers track pad behaviors
-        LaunchpadLane.refresh(1);
+        LaunchpadLane.refreshBirdEye();
         LaunchpadModeSwitcher.refresh(1);
     },
 
@@ -2072,12 +2153,11 @@ var Page_MarkerManager = {
     },
 
     handlePadPress: function(padNote) {
-        // Marker pads are handled by LaunchpadLane behaviors
-        return false;
+        return Launchpad.handlePadPress(padNote);
     },
 
     handlePadRelease: function(padNote) {
-        return false;
+        return Launchpad.handlePadRelease(padNote);
     }
 };
 
@@ -3697,6 +3777,56 @@ var Controller = {
     },
 
     /**
+     * Prepare for recording across an entire color region (bird's eye view)
+     * @param {number} startMarkerIndex - First marker of region
+     * @param {number} endMarkerIndex - Last marker of region
+     */
+    prepareRecordingAtRegion: function(startMarkerIndex, endMarkerIndex) {
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return;
+
+        var startMarker = markerBank.getItemAt(startMarkerIndex);
+        if (!startMarker || !startMarker.exists().get()) return;
+
+        // Get start position from first marker of region
+        var startPos = startMarker.position().get();
+
+        // Find end position: next marker AFTER the region, or default to 4 bars after end marker
+        var endPos = null;
+        for (var i = endMarkerIndex + 1; i < 32; i++) {
+            var nextMarker = markerBank.getItemAt(i);
+            if (nextMarker && nextMarker.exists().get()) {
+                endPos = nextMarker.position().get();
+                break;
+            }
+        }
+
+        // If no marker after region, use end marker position + 4 bars
+        if (endPos === null) {
+            var endMarker = markerBank.getItemAt(endMarkerIndex);
+            if (endMarker && endMarker.exists().get()) {
+                endPos = endMarker.position().get() + 16.0;  // 4 bars (16 beats)
+            } else {
+                endPos = startPos + 16.0;
+            }
+        }
+
+        if (debug) {
+            println("Preparing recording for region: markers " + startMarkerIndex + "-" + endMarkerIndex);
+            println("  Start: " + startPos + " beats");
+            println("  End: " + endPos + " beats");
+        }
+
+        // Set time selection (loop range)
+        Bitwig.setTimeSelection(startPos, endPos);
+
+        // Move playhead to start
+        Bitwig.setPlayheadPosition(startPos);
+
+        if (debug) println("Recording prepared for region");
+    },
+
+    /**
      * Clear all armed tracks with flash animation
      */
     clearAllArm: function() {
@@ -4105,13 +4235,19 @@ function init() {
             (function(markerIndex) {
                 marker.exists().addValueObserver(function(exists) {
                     if (debug) println("Marker " + markerIndex + " exists: " + exists);
-                    LaunchpadLane.refresh();
+                    // Re-register and refresh both marker views
+                    LaunchpadLane.registerBirdEyeBehaviors();  // Regions may have changed
+                    LaunchpadLane.refreshBirdEye();            // Page 1: bird's eye regions
+                    LaunchpadLane.refresh(2);                  // Page 2: detailed markers
                 });
 
                 // Observe color changes to refresh lane
                 marker.getColor().addValueObserver(function(red, green, blue) {
                     if (debug) println("Marker " + markerIndex + " color changed");
-                    LaunchpadLane.refresh();
+                    // Re-register and refresh both marker views
+                    LaunchpadLane.registerBirdEyeBehaviors();  // Regions may have changed
+                    LaunchpadLane.refreshBirdEye();            // Page 1: bird's eye regions
+                    LaunchpadLane.refresh(2);                  // Page 2: detailed markers
                 });
             })(i);
         }
