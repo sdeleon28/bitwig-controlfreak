@@ -1683,9 +1683,8 @@ var LaunchpadModeSwitcher = {
                     var brightColor = Launchpad.getBrightnessVariant(baseColor, Launchpad.brightness.bright);
                     Pager.requestPaint(pageNumber, modeConfig.note, brightColor);
                 } else {
-                    // Dim when inactive
-                    var dimColor = Launchpad.getBrightnessVariant(baseColor, Launchpad.brightness.dim);
-                    Pager.requestPaint(pageNumber, modeConfig.note, dimColor);
+                    // OFF when inactive
+                    Pager.requestClear(pageNumber, modeConfig.note);
                 }
             }
         }
@@ -1705,6 +1704,58 @@ var LaunchpadModeSwitcher = {
             }
         }
         return null;
+    },
+
+    /**
+     * Register click and hold behaviors for mode buttons (page 1 only)
+     */
+    registerBehaviors: function() {
+        var self = this;
+        var modeEnum = this.modeEnum;
+        var modes = this.modes;
+        var page = Page_MainControl.pageNumber;
+
+        // Mute mode button
+        Launchpad.registerPadBehavior(modes.mute.note, function() {
+            self.selectMode(modeEnum.MUTE);
+        }, function() {
+            Controller.clearAllMute();
+        }, page);
+
+        // Solo mode button
+        Launchpad.registerPadBehavior(modes.solo.note, function() {
+            self.selectMode(modeEnum.SOLO);
+        }, function() {
+            Controller.clearAllSolo();
+        }, page);
+
+        // Record arm mode button
+        Launchpad.registerPadBehavior(modes.recordArm.note, function() {
+            self.selectMode(modeEnum.RECORD_ARM);
+        }, function() {
+            Controller.clearAllArm();
+        }, page);
+
+        // Other mode buttons (no hold behavior)
+        Launchpad.registerPadBehavior(modes.volume.note, function() {
+            self.selectMode(modeEnum.VOLUME);
+        }, null, page);
+
+        Launchpad.registerPadBehavior(modes.pan.note, function() {
+            self.selectMode(modeEnum.PAN);
+        }, null, page);
+
+        Launchpad.registerPadBehavior(modes.sendA.note, function() {
+            self.selectMode(modeEnum.SEND_A);
+        }, null, page);
+
+        Launchpad.registerPadBehavior(modes.sendB.note, function() {
+            self.selectMode(modeEnum.SEND_B);
+        }, null, page);
+
+        Launchpad.registerPadBehavior(modes.stop.note, function() {
+            self.selectMode(modeEnum.STOP);
+        }, null, page);
     }
 };
 
@@ -2096,7 +2147,10 @@ var Page_MainControl = {
         Controller.refreshGroupDisplay();
         Controller.refreshTrackGrid();  // Also registers track pad behaviors
         LaunchpadLane.refreshBirdEye();
-        LaunchpadModeSwitcher.refresh(1);
+
+        // Mode selector (page 1 only)
+        LaunchpadModeSwitcher.registerBehaviors();
+        LaunchpadModeSwitcher.refresh();
     },
 
     hide: function() {
@@ -3370,65 +3424,9 @@ var Controller = {
      * Initialize controller
      */
     init: function() {
-        // Register mode button behaviors
-        this.registerModeButtonBehaviors();
-
         // Auto-select group 16 (top-level tracks)
         this.selectGroup(16);
         if (debug) println("Controller initialized");
-    },
-
-    /**
-     * Register click and hold behaviors for mode buttons
-     */
-    registerModeButtonBehaviors: function() {
-        var self = this;
-        var modeEnum = LaunchpadModeSwitcher.modeEnum;
-        var modes = LaunchpadModeSwitcher.modes;
-
-        var page = Page_MainControl.pageNumber;
-
-        // Mute mode button
-        Launchpad.registerPadBehavior(modes.mute.note, function() {
-            LaunchpadModeSwitcher.selectMode(modeEnum.MUTE);
-        }, function() {
-            self.clearAllMute();
-        }, page);
-
-        // Solo mode button
-        Launchpad.registerPadBehavior(modes.solo.note, function() {
-            LaunchpadModeSwitcher.selectMode(modeEnum.SOLO);
-        }, function() {
-            self.clearAllSolo();
-        }, page);
-
-        // Record arm mode button
-        Launchpad.registerPadBehavior(modes.recordArm.note, function() {
-            LaunchpadModeSwitcher.selectMode(modeEnum.RECORD_ARM);
-        }, function() {
-            self.clearAllArm();
-        }, page);
-
-        // Other mode buttons (no hold behavior)
-        Launchpad.registerPadBehavior(modes.volume.note, function() {
-            LaunchpadModeSwitcher.selectMode(modeEnum.VOLUME);
-        }, null, page);
-
-        Launchpad.registerPadBehavior(modes.pan.note, function() {
-            LaunchpadModeSwitcher.selectMode(modeEnum.PAN);
-        }, null, page);
-
-        Launchpad.registerPadBehavior(modes.sendA.note, function() {
-            LaunchpadModeSwitcher.selectMode(modeEnum.SEND_A);
-        }, null, page);
-
-        Launchpad.registerPadBehavior(modes.sendB.note, function() {
-            LaunchpadModeSwitcher.selectMode(modeEnum.SEND_B);
-        }, null, page);
-
-        Launchpad.registerPadBehavior(modes.stop.note, function() {
-            LaunchpadModeSwitcher.selectMode(modeEnum.STOP);
-        }, null, page);
     },
 
     /**
