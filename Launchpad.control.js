@@ -111,6 +111,11 @@ var Bitwig = {
         if (this._transport && this._transport.tempo) {
             this._transport.tempo().markInterested();
         }
+
+        // Mark interested in play start position for bar navigation
+        if (this._transport && this._transport.playStartPosition) {
+            this._transport.playStartPosition().markInterested();
+        }
     },
 
     /**
@@ -1971,95 +1976,122 @@ var ProjectExplorer = {
     pageNumber: 2,
 
     /**
-     * Register click and hold behaviors for marker pads
+     * Beats per bar (assumes 4/4 time)
+     */
+    beatsPerBar: 4.0,
+
+    /**
+     * Full 8x8 grid (64 pads) - top-to-bottom, left-to-right
+     */
+    pads: [
+        81, 82, 83, 84, 85, 86, 87, 88,  // Row 7 (top): bars 0-7
+        71, 72, 73, 74, 75, 76, 77, 78,  // Row 6: bars 8-15
+        61, 62, 63, 64, 65, 66, 67, 68,  // Row 5: bars 16-23
+        51, 52, 53, 54, 55, 56, 57, 58,  // Row 4: bars 24-31
+        41, 42, 43, 44, 45, 46, 47, 48,  // Row 3: bars 32-39
+        31, 32, 33, 34, 35, 36, 37, 38,  // Row 2: bars 40-47
+        21, 22, 23, 24, 25, 26, 27, 28,  // Row 1: bars 48-55
+        11, 12, 13, 14, 15, 16, 17, 18   // Row 0 (bottom): bars 56-63
+    ],
+
+    /**
+     * Cache of sorted markers (rebuilt on refresh)
+     * @private
+     */
+    _sortedMarkers: [],
+
+    /**
+     * Register click behaviors for bar pads
      */
     registerBehaviors: function() {
         var self = this;
-        var markerBank = Bitwig.getMarkerBank();
-        if (!markerBank) return;
 
-        for (var i = 0; i < LaunchpadLane.topLane.pads.length; i++) {
-            var padNote = LaunchpadLane.topLane.pads[i];
-
-            (function(markerIndex) {
+        for (var i = 0; i < this.pads.length; i++) {
+            (function(barIndex, padNote) {
                 var clickCallback = function() {
-                    var marker = markerBank.getItemAt(markerIndex);
-                    if (marker && marker.exists().get()) {
-                        marker.launch(true);
-                        if (debug) println("ProjectExplorer: Jumped to marker " + markerIndex);
-                    }
+                    self.jumpToBar(barIndex);
                 };
-
-                var holdCallback = function() {
-                    self.prepareRecordingAtMarker(markerIndex);
-                };
-
-                Launchpad.registerPadBehavior(padNote, clickCallback, holdCallback, self.pageNumber);
-            })(i);
+                Launchpad.registerPadBehavior(padNote, clickCallback, null, self.pageNumber);
+            })(i, this.pads[i]);
         }
 
-        if (debug) println("ProjectExplorer behaviors registered");
+        if (debug) println("ProjectExplorer behaviors registered for " + this.pads.length + " pads");
     },
 
     /**
-     * Refresh marker pad display
+     * Refresh bar-based display (one pad per bar, colored by closest previous marker)
      */
     refresh: function() {
-        // Clear all top lane pads
-        for (var i = 0; i < LaunchpadLane.topLane.pads.length; i++) {
-            Pager.requestClear(this.pageNumber, LaunchpadLane.topLane.pads[i]);
+        // Clear all 64 pads
+        for (var i = 0; i < this.pads.length; i++) {
+            Pager.requestClear(this.pageNumber, this.pads[i]);
         }
 
-        // Update pads for each marker
         var markerBank = Bitwig.getMarkerBank();
         if (!markerBank) return;
 
-        for (var i = 0; i < LaunchpadLane.topLane.pads.length; i++) {
+        // Build sorted list of markers with positions, colors, and marker refs
+        var markers = [];
+        for (var i = 0; i < 32; i++) {
             var marker = markerBank.getItemAt(i);
             if (marker && marker.exists().get()) {
                 var color = marker.getColor();
-                var launchpadColor = Launchpad.bitwigColorToLaunchpad(
-                    color.red(),
-                    color.green(),
-                    color.blue()
-                );
-                Pager.requestPaint(this.pageNumber, LaunchpadLane.topLane.pads[i], launchpadColor);
+                markers.push({
+                    position: marker.position().get(),
+                    color: Launchpad.bitwigColorToLaunchpad(color.red(), color.green(), color.blue()),
+                    marker: marker  // Keep marker ref for launch()
+                });
             }
         }
 
-        if (debug) println("ProjectExplorer refreshed");
+        if (markers.length === 0) return;
+
+        // Sort by position
+        markers.sort(function(a, b) { return a.position - b.position; });
+        this._sortedMarkers = markers;  // Cache for jumpToBar
+
+        // Get first marker position (bar 0 of display)
+        var firstBarBeat = markers[0].position;
+
+        // Display 64 bars
+        for (var bar = 0; bar < 64; bar++) {
+            var barStartBeat = firstBarBeat + (bar * this.beatsPerBar);
+
+            // Find color: closest marker at or before this bar
+            var padColor = null;
+            for (var m = markers.length - 1; m >= 0; m--) {
+                if (markers[m].position <= barStartBeat) {
+                    padColor = markers[m].color;
+                    break;
+                }
+            }
+
+            if (padColor !== null) {
+                Pager.requestPaint(this.pageNumber, this.pads[bar], padColor);
+            }
+        }
+
+        if (debug) println("ProjectExplorer refreshed (bar-based, 64 bars)");
     },
 
     /**
-     * Prepare for recording at a marker position
-     * @param {number} markerIndex - Marker index (0-31)
+     * Jump to a specific bar position (quantized when playing)
+     * @param {number} barIndex - Bar index (0-63)
      */
-    prepareRecordingAtMarker: function(markerIndex) {
-        var markerBank = Bitwig.getMarkerBank();
-        if (!markerBank) return;
+    jumpToBar: function(barIndex) {
+        if (this._sortedMarkers.length === 0) return;
 
-        var marker = markerBank.getItemAt(markerIndex);
-        if (!marker || !marker.exists().get()) return;
+        var firstBarBeat = this._sortedMarkers[0].position;
+        var targetBeat = firstBarBeat + (barIndex * this.beatsPerBar);
 
-        var startPos = marker.position().get();
-
-        // Find next marker position
-        var endPos = startPos + 4.0;
-        for (var i = markerIndex + 1; i < 32; i++) {
-            var nextMarker = markerBank.getItemAt(i);
-            if (nextMarker && nextMarker.exists().get()) {
-                endPos = nextMarker.position().get();
-                break;
-            }
+        // Set play start position to target bar, then launch (quantized)
+        var transport = Bitwig.getTransport();
+        if (transport) {
+            transport.playStartPosition().set(targetBeat);
+            transport.launchFromPlayStartPosition();
         }
 
-        if (debug) {
-            println("ProjectExplorer: Preparing recording at marker " + markerIndex);
-            println("  Start: " + startPos + " beats, End: " + endPos + " beats");
-        }
-
-        Bitwig.setTimeSelection(startPos, endPos);
-        Bitwig.setPlayheadPosition(startPos);
+        if (debug) println("ProjectExplorer: Launched to bar " + barIndex + " (beat " + targetBeat + ")");
     }
 };
 
