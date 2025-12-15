@@ -1191,6 +1191,7 @@ var Launchpad = {
     setPadColorFlashing: function(padNumber, color) {
         if (!this._output) return;
         var colorValue = typeof color === 'string' ? this.colors[color] : color;
+        this._output.sendMidi(0x90, padNumber, 0);  // Clear static first
         this._output.sendMidi(0x91, padNumber, colorValue);  // Channel 2 = Flashing
     },
 
@@ -2006,6 +2007,18 @@ var ProjectExplorer = {
     _sortedMarkers: [],
 
     /**
+     * Pad that's queued to play (pulsing)
+     * @private
+     */
+    _queuedPad: null,
+
+    /**
+     * Pad where playhead currently is (flashing)
+     * @private
+     */
+    _playingPad: null,
+
+    /**
      * Decrease resolution (zoom out - more bars per pad)
      */
     decreaseResolution: function() {
@@ -2122,7 +2135,109 @@ var ProjectExplorer = {
             transport.jumpToPlayStartPosition();
         }
 
+        // Set this pad as queued (pulsing)
+        this.setQueuedPad(padIndex);
+
         if (debug) println("ProjectExplorer: Launched to bar " + barIndex + " (beat " + targetBeat + ")");
+    },
+
+    /**
+     * Set a pad as queued (pulsing until it starts playing)
+     * @param {number} padIndex - Pad index (0-63)
+     */
+    setQueuedPad: function(padIndex) {
+        // Clear previous queued pad (restore to static)
+        if (this._queuedPad !== null && this._queuedPad !== this._playingPad) {
+            this.repaintPad(this._queuedPad, 'static');
+        }
+
+        this._queuedPad = padIndex;
+
+        // Paint new queued pad as pulsing (unless it's already playing)
+        if (padIndex !== null && padIndex !== this._playingPad) {
+            this.repaintPad(padIndex, 'pulsing');
+        }
+    },
+
+    /**
+     * Update the playhead indicator (called by playPosition observer)
+     * @param {number} beat - Current playhead position in beats
+     */
+    updatePlayheadIndicator: function(beat) {
+        if (Pager.getActivePage() !== this.pageNumber) return;
+
+        var newPadIndex = this.getPadIndexForBeat(beat);
+        if (newPadIndex === this._playingPad) return;
+
+        // Restore previous playing pad to static
+        if (this._playingPad !== null) {
+            this.repaintPad(this._playingPad, 'static');
+        }
+
+        // Clear queued if we've arrived at the queued pad
+        if (newPadIndex === this._queuedPad) {
+            this._queuedPad = null;
+        }
+
+        this._playingPad = newPadIndex;
+
+        // Paint new playing pad as flashing
+        if (newPadIndex !== null) {
+            this.repaintPad(newPadIndex, 'flashing');
+        }
+    },
+
+    /**
+     * Get pad index for a beat position
+     * @param {number} beat - Beat position
+     * @returns {number|null} Pad index (0-63) or null if out of range
+     */
+    getPadIndexForBeat: function(beat) {
+        if (this._sortedMarkers.length === 0) return null;
+        var firstBarBeat = this._sortedMarkers[0].position;
+        if (beat < firstBarBeat) return null;
+
+        var barIndex = Math.floor((beat - firstBarBeat) / this.beatsPerBar);
+        var padIndex = Math.floor(barIndex / this.barsPerPad);
+
+        return (padIndex >= 0 && padIndex < 64) ? padIndex : null;
+    },
+
+    /**
+     * Get color for a pad
+     * @param {number} padIndex - Pad index (0-63)
+     * @returns {number|null} Launchpad color or null
+     */
+    getColorForPad: function(padIndex) {
+        if (this._sortedMarkers.length === 0) return null;
+        var firstBarBeat = this._sortedMarkers[0].position;
+        var barStartBeat = firstBarBeat + (padIndex * this.barsPerPad * this.beatsPerBar);
+
+        for (var m = this._sortedMarkers.length - 1; m >= 0; m--) {
+            if (this._sortedMarkers[m].position <= barStartBeat) {
+                return this._sortedMarkers[m].color;
+            }
+        }
+        return null;
+    },
+
+    /**
+     * Repaint a pad with specified mode
+     * @param {number} padIndex - Pad index (0-63)
+     * @param {string} mode - 'static', 'pulsing', or 'flashing'
+     */
+    repaintPad: function(padIndex, mode) {
+        var color = this.getColorForPad(padIndex);
+        if (color === null) return;
+
+        var padNote = this.pads[padIndex];
+        if (mode === 'pulsing') {
+            Pager.requestPaintPulsing(this.pageNumber, padNote, color);
+        } else if (mode === 'flashing') {
+            Pager.requestPaintFlashing(this.pageNumber, padNote, color);
+        } else {
+            Pager.requestPaint(this.pageNumber, padNote, color);
+        }
     }
 };
 
@@ -4148,6 +4263,7 @@ function init() {
 
     // Launchpad on port 0
     launchpadOut = host.getMidiOutPort(0);
+    launchpadOut.setShouldSendMidiBeatClock(true);  // Sync flashing/pulsing to project BPM
     Launchpad.init(launchpadOut);
 
     noteIn = host.getMidiInPort(0).createNoteInput("Launchpad", "??????");
@@ -4342,6 +4458,11 @@ function init() {
             ledValue = Math.max(0, Math.min(127, ledValue));
             Twister.setEncoderLED(Twister.TEMPO_ENCODER, ledValue);
         }
+    });
+
+    // Add playPosition observer for ProjectExplorer playhead indicator
+    transport.playPosition().addValueObserver(function(beats) {
+        ProjectExplorer.updatePlayheadIndicator(beats);
     });
 
     // Enter Programmer Mode on Launchpad MK2
