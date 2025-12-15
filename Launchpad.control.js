@@ -223,7 +223,7 @@ var Bitwig = {
      * @returns {Object|null} Track object or null if not found
      */
     getTrack: function(id) {
-        if (!this._trackBank || id < 0 || id >= 64) {
+        if (!this._trackBank || id === undefined || id === null || id < 0 || id >= 64) {
             return null;
         }
         var track = this._trackBank.getItemAt(id);
@@ -1372,21 +1372,20 @@ var Launchpad = {
         var track = Bitwig.getTrack(trackId);
         if (!track) return this.colors.off;
 
-        var currentMode = LaunchpadModeSwitcher.currentMode;
-        var modeEnum = LaunchpadModeSwitcher.modeEnum;
+        var padMode = LaunchpadModeSwitcher.getPadMode();
 
         // Check mode-specific state
-        if (currentMode === modeEnum.MUTE) {
+        if (padMode === 'mute') {
             if (track.mute().get()) {
                 // Muted: bright amber
                 return this.getBrightnessVariant(this.colors.amber, this.brightness.bright);
             }
-        } else if (currentMode === modeEnum.SOLO) {
+        } else if (padMode === 'solo') {
             if (track.solo().get()) {
                 // Soloed: bright yellow
                 return this.getBrightnessVariant(this.colors.yellow, this.brightness.bright);
             }
-        } else if (currentMode === modeEnum.RECORD_ARM) {
+        } else if (padMode === 'recordArm') {
             if (track.arm().get()) {
                 // Armed: bright red
                 return this.getBrightnessVariant(this.colors.red, this.brightness.bright);
@@ -1628,45 +1627,85 @@ var LaunchpadModeSwitcher = {
     },
 
     /**
-     * Currently selected mode
+     * Mode categories
+     */
+    encoderModes: ['volume', 'pan'],
+    padModes: ['mute', 'solo', 'recordArm', 'sendA'],
+
+    /**
+     * Currently selected encoder mode (volume, pan)
      * @private
      */
-    currentMode: null,
+    currentEncoderMode: null,
+
+    /**
+     * Currently selected pad mode (mute, solo, recordArm, sendA)
+     * @private
+     */
+    currentPadMode: null,
 
     /**
      * Initialize mode switcher
      */
     init: function() {
-        // Set default mode to volume
-        this.selectMode(this.modeEnum.VOLUME);
+        this.currentEncoderMode = 'volume';
+        this.currentPadMode = 'recordArm';
     },
 
     /**
-     * Select a mode (XOR - only one active at a time)
-     * @param {string} modeName - Name of the mode to select
+     * Select an encoder mode (volume, pan)
+     * @param {string} modeName - Name of the encoder mode
      */
-    selectMode: function(modeName) {
-        if (!this.modes[modeName]) {
-            if (debug) println("Warning: Unknown mode '" + modeName + "'");
+    selectEncoderMode: function(modeName) {
+        if (this.encoderModes.indexOf(modeName) === -1) {
+            if (debug) println("Warning: Unknown encoder mode '" + modeName + "'");
             return;
         }
 
-        this.currentMode = modeName;
+        this.currentEncoderMode = modeName;
         this.refresh();
 
-        // Refresh encoder LEDs based on new mode
-        if (modeName === this.modeEnum.PAN) {
+        // Refresh encoder LEDs based on mode
+        if (modeName === 'pan') {
             Twister.refreshEncoderLEDsForPan();
-        } else if (modeName === this.modeEnum.VOLUME) {
+        } else if (modeName === 'volume') {
             Twister.refreshEncoderLEDsForVolume();
         }
+    },
 
-        // Refresh track grid colors for modes that affect pad display
+    /**
+     * Select a pad mode (mute, solo, recordArm, sendA)
+     * @param {string} modeName - Name of the pad mode
+     */
+    selectPadMode: function(modeName) {
+        if (this.padModes.indexOf(modeName) === -1) {
+            if (debug) println("Warning: Unknown pad mode '" + modeName + "'");
+            return;
+        }
+
+        this.currentPadMode = modeName;
+        this.refresh();
         Controller.refreshTrackGrid();
     },
 
     /**
-     * Refresh all mode button colors
+     * Get current encoder mode
+     * @returns {string} Current encoder mode
+     */
+    getEncoderMode: function() {
+        return this.currentEncoderMode;
+    },
+
+    /**
+     * Get current pad mode
+     * @returns {string} Current pad mode
+     */
+    getPadMode: function() {
+        return this.currentPadMode;
+    },
+
+    /**
+     * Refresh all mode button colors (two lights active: encoder mode + pad mode)
      * @param {number} pageNumber - Page number to paint to (default 1)
      */
     refresh: function(pageNumber) {
@@ -1676,11 +1715,11 @@ var LaunchpadModeSwitcher = {
         for (var mode in this.modes) {
             if (this.modes.hasOwnProperty(mode)) {
                 var modeConfig = this.modes[mode];
-                var baseColor = modeConfig.color;
+                var isActive = (mode === this.currentEncoderMode || mode === this.currentPadMode);
 
-                if (mode === this.currentMode) {
+                if (isActive) {
                     // Bright when active
-                    var brightColor = Launchpad.getBrightnessVariant(baseColor, Launchpad.brightness.bright);
+                    var brightColor = Launchpad.getBrightnessVariant(modeConfig.color, Launchpad.brightness.bright);
                     Pager.requestPaint(pageNumber, modeConfig.note, brightColor);
                 } else {
                     // OFF when inactive
@@ -1711,51 +1750,42 @@ var LaunchpadModeSwitcher = {
      */
     registerBehaviors: function() {
         var self = this;
-        var modeEnum = this.modeEnum;
         var modes = this.modes;
         var page = Page_MainControl.pageNumber;
 
-        // Mute mode button
+        // Encoder mode buttons (no hold behavior)
+        Launchpad.registerPadBehavior(modes.volume.note, function() {
+            self.selectEncoderMode('volume');
+        }, null, page);
+
+        Launchpad.registerPadBehavior(modes.pan.note, function() {
+            self.selectEncoderMode('pan');
+        }, null, page);
+
+        // Pad mode buttons
         Launchpad.registerPadBehavior(modes.mute.note, function() {
-            self.selectMode(modeEnum.MUTE);
+            self.selectPadMode('mute');
         }, function() {
             Controller.clearAllMute();
         }, page);
 
-        // Solo mode button
         Launchpad.registerPadBehavior(modes.solo.note, function() {
-            self.selectMode(modeEnum.SOLO);
+            self.selectPadMode('solo');
         }, function() {
             Controller.clearAllSolo();
         }, page);
 
-        // Record arm mode button
         Launchpad.registerPadBehavior(modes.recordArm.note, function() {
-            self.selectMode(modeEnum.RECORD_ARM);
+            self.selectPadMode('recordArm');
         }, function() {
             Controller.clearAllArm();
         }, page);
 
-        // Other mode buttons (no hold behavior)
-        Launchpad.registerPadBehavior(modes.volume.note, function() {
-            self.selectMode(modeEnum.VOLUME);
-        }, null, page);
-
-        Launchpad.registerPadBehavior(modes.pan.note, function() {
-            self.selectMode(modeEnum.PAN);
-        }, null, page);
-
         Launchpad.registerPadBehavior(modes.sendA.note, function() {
-            self.selectMode(modeEnum.SEND_A);
+            self.selectPadMode('sendA');
         }, null, page);
 
-        Launchpad.registerPadBehavior(modes.sendB.note, function() {
-            self.selectMode(modeEnum.SEND_B);
-        }, null, page);
-
-        Launchpad.registerPadBehavior(modes.stop.note, function() {
-            self.selectMode(modeEnum.STOP);
-        }, null, page);
+        // Placeholders: sendB and stop have no behavior (stay off)
     }
 };
 
@@ -3272,9 +3302,9 @@ var Twister = {
             return;
         }
 
-        // Check for send mode (encoders 1-8)
+        // Check for send mode (encoders 1-8) - sendA is a pad mode
         var sendLink = this._sendLinks[encoderNumber];
-        if (sendLink && LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.SEND_A) {
+        if (sendLink && LaunchpadModeSwitcher.getPadMode() === 'sendA') {
             sendLink.send.value().set(value / 127.0);
             return;
         }
@@ -3291,8 +3321,8 @@ var Twister = {
         if (track) {
             var normalizedValue = value / 127.0;
 
-            // Check current mode
-            if (LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.PAN) {
+            // Check encoder mode (volume or pan)
+            if (LaunchpadModeSwitcher.getEncoderMode() === 'pan') {
                 track.pan().set(normalizedValue);
             } else {
                 // Default: volume mode
@@ -3592,8 +3622,7 @@ var Controller = {
         }
 
         // Link pads based on encoder links
-        var currentMode = LaunchpadModeSwitcher.currentMode;
-        var modeEnum = LaunchpadModeSwitcher.modeEnum;
+        var padMode = LaunchpadModeSwitcher.getPadMode();
 
         for (var encoderNum = 1; encoderNum <= 16; encoderNum++) {
             var link = Twister._encoderLinks[encoderNum];
@@ -3603,8 +3632,8 @@ var Controller = {
 
                 Launchpad.linkPadToTrack(padNote, trackId, page);
 
-                // Register click behaviors based on current mode (no hold behaviors on track pads)
-                if (currentMode === modeEnum.MUTE) {
+                // Register click behaviors based on current pad mode
+                if (padMode === 'mute') {
                     (function(tid, pn) {
                         Launchpad.registerPadBehavior(pn, function() {
                             var track = Bitwig.getTrack(tid);
@@ -3614,7 +3643,7 @@ var Controller = {
                             }
                         }, null, Page_MainControl.pageNumber);
                     })(trackId, padNote);
-                } else if (currentMode === modeEnum.SOLO) {
+                } else if (padMode === 'solo') {
                     (function(tid, pn) {
                         Launchpad.registerPadBehavior(pn, function() {
                             var track = Bitwig.getTrack(tid);
@@ -3624,7 +3653,7 @@ var Controller = {
                             }
                         }, null, Page_MainControl.pageNumber);
                     })(trackId, padNote);
-                } else if (currentMode === modeEnum.RECORD_ARM) {
+                } else if (padMode === 'recordArm') {
                     (function(tid, pn) {
                         Launchpad.registerPadBehavior(pn, function() {
                             var track = Bitwig.getTrack(tid);
@@ -3641,7 +3670,7 @@ var Controller = {
                             }
                         }, null, Page_MainControl.pageNumber);
                     })(trackId, padNote);
-                } else if (currentMode === modeEnum.SEND_A) {
+                } else if (padMode === 'sendA') {
                     (function(tid, pn) {
                         Launchpad.registerPadBehavior(pn, function() {
                             var track = Bitwig.getTrack(tid);
@@ -4091,7 +4120,7 @@ function init() {
             // Add volume observer that checks for encoder links
             trackObj.volume().addValueObserver(128, function(value) {
                 var encoderNumber = Twister._trackToEncoder[trackId];
-                if (encoderNumber && LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.VOLUME) {
+                if (encoderNumber && LaunchpadModeSwitcher.getEncoderMode() === 'volume') {
                     Twister.setEncoderLED(encoderNumber, value);
                 }
             });
@@ -4100,7 +4129,7 @@ function init() {
             trackObj.pan().markInterested();
             trackObj.pan().addValueObserver(128, function(value) {
                 var encoderNumber = Twister._trackToEncoder[trackId];
-                if (encoderNumber && LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.PAN) {
+                if (encoderNumber && LaunchpadModeSwitcher.getEncoderMode() === 'pan') {
                     Twister.setEncoderLED(encoderNumber, value);
                 }
             });
@@ -4114,7 +4143,7 @@ function init() {
                     send.value().addValueObserver(128, function(value) {
                         var key = tid + '_' + sendIndex;
                         var encoderNum = Twister._sendToEncoder ? Twister._sendToEncoder[key] : null;
-                        if (encoderNum && LaunchpadModeSwitcher.currentMode === LaunchpadModeSwitcher.modeEnum.SEND_A) {
+                        if (encoderNum && LaunchpadModeSwitcher.getPadMode() === 'sendA') {
                             Twister.setEncoderLED(encoderNum, value);
                         }
                     });
@@ -4162,12 +4191,10 @@ function init() {
                     Twister.setEncoderColor(encoderNumber, redMidi, greenMidi, blueMidi);
                 }
 
-                // Update pad colors - check if this is a track grid pad or group selector pad
+                // Update pad colors - only for group selector pads
+                // Track grid pads are handled by Controller.refreshTrackGrid (based on pad mode)
                 var padNumber = Launchpad._padToTrack[trackId];
                 if (padNumber) {
-                    var currentMode = LaunchpadModeSwitcher.currentMode;
-                    var modeEnum = LaunchpadModeSwitcher.modeEnum;
-
                     // Check if this is a group selector pad
                     var isGroupSelector = LaunchpadQuadrant.bottomRight.getGroup(padNumber) !== null;
 
@@ -4183,13 +4210,8 @@ function init() {
                             var dimColor = Launchpad.getBrightnessVariant(launchpadColor, Launchpad.brightness.dim);
                             Launchpad.setPadColor(padNumber, dimColor);
                         }
-                    } else {
-                        // Track grid pad - only update if NOT in mute/solo/record arm mode
-                        if (currentMode !== modeEnum.MUTE && currentMode !== modeEnum.SOLO && currentMode !== modeEnum.RECORD_ARM) {
-                            var color = Launchpad.getTrackGridPadColor(trackId);
-                            Launchpad.setPadColor(padNumber, color);
-                        }
                     }
+                    // Track grid pads: don't update here - refreshTrackGrid handles them
                 }
             });
         })(i, track);
