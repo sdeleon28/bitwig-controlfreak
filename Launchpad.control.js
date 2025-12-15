@@ -1981,6 +1981,11 @@ var ProjectExplorer = {
     beatsPerBar: 4.0,
 
     /**
+     * Resolution: number of bars per pad (1, 2, 4, 8, 16, 32)
+     */
+    barsPerPad: 1,
+
+    /**
      * Full 8x8 grid (64 pads) - top-to-bottom, left-to-right
      */
     pads: [
@@ -1999,6 +2004,28 @@ var ProjectExplorer = {
      * @private
      */
     _sortedMarkers: [],
+
+    /**
+     * Decrease resolution (zoom out - more bars per pad)
+     */
+    decreaseResolution: function() {
+        if (this.barsPerPad < 32) {
+            this.barsPerPad *= 2;
+            this.refresh();
+            host.showPopupNotification(this.barsPerPad + " bars/pad");
+        }
+    },
+
+    /**
+     * Increase resolution (zoom in - fewer bars per pad)
+     */
+    increaseResolution: function() {
+        if (this.barsPerPad > 1) {
+            this.barsPerPad /= 2;
+            this.refresh();
+            host.showPopupNotification(this.barsPerPad + " bars/pad");
+        }
+    },
 
     /**
      * Register click behaviors for bar pads
@@ -2053,9 +2080,11 @@ var ProjectExplorer = {
         // Get first marker position (bar 0 of display)
         var firstBarBeat = markers[0].position;
 
-        // Display 64 bars
-        for (var bar = 0; bar < 64; bar++) {
-            var barStartBeat = firstBarBeat + (bar * this.beatsPerBar);
+        // Display pads based on resolution
+        // Each pad represents barsPerPad bars
+        for (var padIndex = 0; padIndex < 64; padIndex++) {
+            var barIndex = padIndex * this.barsPerPad;  // First bar of this pad's range
+            var barStartBeat = firstBarBeat + (barIndex * this.beatsPerBar);
 
             // Find color: closest marker at or before this bar
             var padColor = null;
@@ -2067,21 +2096,23 @@ var ProjectExplorer = {
             }
 
             if (padColor !== null) {
-                Pager.requestPaint(this.pageNumber, this.pads[bar], padColor);
+                Pager.requestPaint(this.pageNumber, this.pads[padIndex], padColor);
             }
         }
 
-        if (debug) println("ProjectExplorer refreshed (bar-based, 64 bars)");
+        if (debug) println("ProjectExplorer refreshed (barsPerPad: " + this.barsPerPad + ")");
     },
 
     /**
      * Jump to a specific bar position (quantized when playing)
-     * @param {number} barIndex - Bar index (0-63)
+     * @param {number} padIndex - Pad index (0-63)
      */
-    jumpToBar: function(barIndex) {
+    jumpToBar: function(padIndex) {
         if (this._sortedMarkers.length === 0) return;
 
         var firstBarBeat = this._sortedMarkers[0].position;
+        // Convert pad index to bar index based on resolution
+        var barIndex = padIndex * this.barsPerPad;
         var targetBeat = firstBarBeat + (barIndex * this.beatsPerBar);
 
         // Set play start position to target bar, then launch (quantized)
@@ -2107,7 +2138,9 @@ var LaunchpadTopButtons = {
         previousPage: Launchpad.buttons.top1,
         nextPage: Launchpad.buttons.top2,
         barBack: Launchpad.buttons.top3,
-        barForward: Launchpad.buttons.top4
+        barForward: Launchpad.buttons.top4,
+        decreaseResolution: Launchpad.buttons.top5,  // CC 108
+        increaseResolution: Launchpad.buttons.top6   // CC 109
         // Note: Modifier buttons (like duplicate) are configured in ClipGestures
     },
 
@@ -2120,6 +2153,10 @@ var LaunchpadTopButtons = {
         // Set button colors for bar navigation - use CC message for top buttons
         Launchpad.setTopButtonColor(this.buttons.barBack, Launchpad.colors.pink);
         Launchpad.setTopButtonColor(this.buttons.barForward, Launchpad.colors.pink);
+
+        // Set button colors for resolution control
+        Launchpad.setTopButtonColor(this.buttons.decreaseResolution, Launchpad.colors.cyan);
+        Launchpad.setTopButtonColor(this.buttons.increaseResolution, Launchpad.colors.cyan);
 
         // Register button handlers
         this.registerBarNavigation();
@@ -2181,6 +2218,18 @@ var LaunchpadTopButtons = {
             println("Bar forward button pressed!");
             Bitwig.movePlayheadByBars(1);
             return true;
+        }
+
+        // Resolution control (only on ProjectExplorer page)
+        if (Pager.getActivePage() === ProjectExplorer.pageNumber) {
+            if (cc === this.buttons.decreaseResolution) {
+                ProjectExplorer.decreaseResolution();
+                return true;
+            }
+            if (cc === this.buttons.increaseResolution) {
+                ProjectExplorer.increaseResolution();
+                return true;
+            }
         }
 
         return false;
