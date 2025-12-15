@@ -2119,7 +2119,7 @@ var ProjectExplorer = {
         var transport = Bitwig.getTransport();
         if (transport) {
             transport.playStartPosition().set(targetBeat);
-            transport.launchFromPlayStartPosition();
+            transport.jumpToPlayStartPosition();
         }
 
         if (debug) println("ProjectExplorer: Launched to bar " + barIndex + " (beat " + targetBeat + ")");
