@@ -2019,6 +2019,26 @@ var ProjectExplorer = {
     _playingPad: null,
 
     /**
+     * Current page (0-indexed)
+     * @private
+     */
+    _currentPage: 0,
+
+    /**
+     * Total number of pages
+     * @private
+     */
+    _totalPages: 1,
+
+    /**
+     * Button definitions for pagination
+     */
+    buttons: {
+        prevPage: 110,  // top7 (CC 110)
+        nextPage: 111   // top8 (CC 111)
+    },
+
+    /**
      * Decrease resolution (zoom out - more bars per pad)
      */
     decreaseResolution: function() {
@@ -2037,6 +2057,52 @@ var ProjectExplorer = {
             this.barsPerPad /= 2;
             this.refresh();
             host.showPopupNotification(this.barsPerPad + " bars/pad");
+        }
+    },
+
+    /**
+     * Go to previous page
+     */
+    prevPage: function() {
+        if (this._currentPage > 0) {
+            this._currentPage--;
+            this.refresh();
+            this.refreshPageButtons();
+            host.showPopupNotification("Page " + (this._currentPage + 1) + "/" + this._totalPages);
+        }
+    },
+
+    /**
+     * Go to next page
+     */
+    nextPage: function() {
+        if (this._currentPage < this._totalPages - 1) {
+            this._currentPage++;
+            this.refresh();
+            this.refreshPageButtons();
+            host.showPopupNotification("Page " + (this._currentPage + 1) + "/" + this._totalPages);
+        }
+    },
+
+    /**
+     * Update page navigation button colors
+     */
+    refreshPageButtons: function() {
+        // Only update when on this page
+        if (Pager.getActivePage() !== this.pageNumber) return;
+
+        // Previous page button
+        if (this._currentPage > 0) {
+            Launchpad.setTopButtonColor(this.buttons.prevPage, Launchpad.colors.purple);
+        } else {
+            Launchpad.setTopButtonColor(this.buttons.prevPage, 0);
+        }
+
+        // Next page button
+        if (this._currentPage < this._totalPages - 1) {
+            Launchpad.setTopButtonColor(this.buttons.nextPage, Launchpad.colors.purple);
+        } else {
+            Launchpad.setTopButtonColor(this.buttons.nextPage, 0);
         }
     },
 
@@ -2084,19 +2150,39 @@ var ProjectExplorer = {
             }
         }
 
-        if (markers.length === 0) return;
+        if (markers.length === 0) {
+            this._totalPages = 1;
+            this._currentPage = 0;
+            this.refreshPageButtons();
+            return;
+        }
 
         // Sort by position
         markers.sort(function(a, b) { return a.position - b.position; });
         this._sortedMarkers = markers;  // Cache for jumpToBar
 
-        // Get first marker position (bar 0 of display)
+        // Get first and last marker positions
         var firstBarBeat = markers[0].position;
+        var lastBarBeat = markers[markers.length - 1].position;
 
-        // Display pads based on resolution
+        // Calculate total bars needed (from first marker to last marker + some buffer)
+        var totalBeats = lastBarBeat - firstBarBeat + (64 * this.barsPerPad * this.beatsPerBar);
+        var totalBars = Math.ceil(totalBeats / this.beatsPerBar);
+        var barsPerPage = 64 * this.barsPerPad;
+        this._totalPages = Math.max(1, Math.ceil(totalBars / barsPerPage));
+
+        // Clamp current page to valid range
+        if (this._currentPage >= this._totalPages) {
+            this._currentPage = this._totalPages - 1;
+        }
+
+        // Calculate page offset (in bars)
+        var pageOffsetBars = this._currentPage * barsPerPage;
+
+        // Display pads based on resolution and current page
         // Each pad represents barsPerPad bars
         for (var padIndex = 0; padIndex < 64; padIndex++) {
-            var barIndex = padIndex * this.barsPerPad;  // First bar of this pad's range
+            var barIndex = pageOffsetBars + (padIndex * this.barsPerPad);  // First bar of this pad's range
             var barStartBeat = firstBarBeat + (barIndex * this.beatsPerBar);
 
             // Find color: closest marker at or before this bar
@@ -2113,7 +2199,10 @@ var ProjectExplorer = {
             }
         }
 
-        if (debug) println("ProjectExplorer refreshed (barsPerPad: " + this.barsPerPad + ")");
+        // Update page buttons
+        this.refreshPageButtons();
+
+        if (debug) println("ProjectExplorer refreshed (barsPerPad: " + this.barsPerPad + ", page: " + (this._currentPage + 1) + "/" + this._totalPages + ")");
     },
 
     /**
@@ -2124,8 +2213,9 @@ var ProjectExplorer = {
         if (this._sortedMarkers.length === 0) return;
 
         var firstBarBeat = this._sortedMarkers[0].position;
-        // Convert pad index to bar index based on resolution
-        var barIndex = padIndex * this.barsPerPad;
+        // Convert pad index to bar index based on resolution and current page
+        var pageOffsetBars = this._currentPage * 64 * this.barsPerPad;
+        var barIndex = pageOffsetBars + (padIndex * this.barsPerPad);
         var targetBeat = firstBarBeat + (barIndex * this.beatsPerBar);
 
         // Set play start position to target bar, then launch (quantized)
@@ -2198,20 +2288,30 @@ var ProjectExplorer = {
         if (beat < firstBarBeat) return null;
 
         var barIndex = Math.floor((beat - firstBarBeat) / this.beatsPerBar);
-        var padIndex = Math.floor(barIndex / this.barsPerPad);
+        var globalPadIndex = Math.floor(barIndex / this.barsPerPad);
 
-        return (padIndex >= 0 && padIndex < 64) ? padIndex : null;
+        // Calculate which page this pad is on and the local pad index
+        var pageOfPad = Math.floor(globalPadIndex / 64);
+        var localPadIndex = globalPadIndex % 64;
+
+        // Only return pad index if it's on the current page
+        if (pageOfPad !== this._currentPage) return null;
+
+        return (localPadIndex >= 0 && localPadIndex < 64) ? localPadIndex : null;
     },
 
     /**
-     * Get color for a pad
+     * Get color for a pad (accounting for current page)
      * @param {number} padIndex - Pad index (0-63)
      * @returns {number|null} Launchpad color or null
      */
     getColorForPad: function(padIndex) {
         if (this._sortedMarkers.length === 0) return null;
         var firstBarBeat = this._sortedMarkers[0].position;
-        var barStartBeat = firstBarBeat + (padIndex * this.barsPerPad * this.beatsPerBar);
+        // Account for page offset
+        var pageOffsetBars = this._currentPage * 64 * this.barsPerPad;
+        var barIndex = pageOffsetBars + (padIndex * this.barsPerPad);
+        var barStartBeat = firstBarBeat + (barIndex * this.beatsPerBar);
 
         for (var m = this._sortedMarkers.length - 1; m >= 0; m--) {
             if (this._sortedMarkers[m].position <= barStartBeat) {
@@ -2335,7 +2435,7 @@ var LaunchpadTopButtons = {
             return true;
         }
 
-        // Resolution control (only on ProjectExplorer page)
+        // Resolution and pagination control (only on ProjectExplorer page)
         if (Pager.getActivePage() === ProjectExplorer.pageNumber) {
             if (cc === this.buttons.decreaseResolution) {
                 ProjectExplorer.decreaseResolution();
@@ -2343,6 +2443,15 @@ var LaunchpadTopButtons = {
             }
             if (cc === this.buttons.increaseResolution) {
                 ProjectExplorer.increaseResolution();
+                return true;
+            }
+            // Pagination: top7 = prev page, top8 = next page
+            if (cc === ProjectExplorer.buttons.prevPage) {
+                ProjectExplorer.prevPage();
+                return true;
+            }
+            if (cc === ProjectExplorer.buttons.nextPage) {
+                ProjectExplorer.nextPage();
                 return true;
             }
         }
@@ -2494,6 +2603,9 @@ var Page_MarkerManager = {
     },
 
     hide: function() {
+        // Clear pagination buttons when leaving this page
+        Launchpad.setTopButtonColor(ProjectExplorer.buttons.prevPage, 0);
+        Launchpad.setTopButtonColor(ProjectExplorer.buttons.nextPage, 0);
         if (debug) println("Hiding marker manager page");
     },
 
