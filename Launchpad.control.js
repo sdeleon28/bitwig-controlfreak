@@ -160,6 +160,15 @@ var Bitwig = {
     },
 
     /**
+     * Clear time selection by setting loop duration to 0
+     */
+    clearTimeSelection: function() {
+        if (!this._transport) return;
+        this._transport.arrangerLoopDuration().set(0);
+        if (debug) println("Time selection cleared");
+    },
+
+    /**
      * Move playhead to position
      * @param {number} beats - Position in beats
      */
@@ -727,21 +736,17 @@ var Pages = {
             oldPage.hide();
         }
 
-        // Flash page number animation
-        var self = this;
-        Animations.flashPageNumber(pageNum, function() {
-            self._currentPageNumber = pageNum;
+        this._currentPageNumber = pageNum;
 
-            // Let Pager handle hardware clear + repaint
-            Pager.switchToPage(pageNum);
+        // Let Pager handle hardware clear + repaint
+        Pager.switchToPage(pageNum);
 
-            // Clear old page behaviors before showing new page
-            Launchpad.clearAllPadBehaviors();
+        // Clear old page behaviors before showing new page
+        Launchpad.clearAllPadBehaviors();
 
-            // Notify new page to update its state (will register its behaviors)
-            self.showCurrentPage();
-            self.refreshPageButtons();
-        });
+        // Notify new page to update its state (will register its behaviors)
+        this.showCurrentPage();
+        this.refreshPageButtons();
     },
 
     /**
@@ -2058,6 +2063,7 @@ var ProjectExplorer = {
     _timeSelectActive: false,
     _timeSelectStartPad: null,
     _timeSelectOriginalColors: {},
+    _timeSelectLastPress: 0,  // For double-click detection
 
     /**
      * Loop range state (from Bitwig observers)
@@ -2193,6 +2199,10 @@ var ProjectExplorer = {
         var firstBarBeat = markers[0].position;
         var lastBarBeat = markers[markers.length - 1].position;
 
+        // Calculate content end: last marker + one pad's worth of bars
+        // Pads beyond this are considered empty space and should stay off
+        var lastContentBeat = lastBarBeat + (this.barsPerPad * this.beatsPerBar);
+
         // Calculate total bars needed (from first marker to last marker + some buffer)
         var totalBeats = lastBarBeat - firstBarBeat + (64 * this.barsPerPad * this.beatsPerBar);
         var totalBars = Math.ceil(totalBeats / this.beatsPerBar);
@@ -2212,6 +2222,11 @@ var ProjectExplorer = {
         for (var padIndex = 0; padIndex < 64; padIndex++) {
             var barIndex = pageOffsetBars + (padIndex * this.barsPerPad);  // First bar of this pad's range
             var barStartBeat = firstBarBeat + (barIndex * this.beatsPerBar);
+
+            // Skip pads beyond content - keep them off (avoids conflict with time selection)
+            if (barStartBeat >= lastContentBeat) {
+                continue;
+            }
 
             // Find color: closest marker at or before this bar
             var padColor = null;
@@ -2378,8 +2393,20 @@ var ProjectExplorer = {
 
     /**
      * Handle time select modifier press (Record Arm button)
+     * Double-click clears the time selection
      */
     handleTimeSelectModifierPress: function() {
+        var now = Date.now();
+        var doubleClickThreshold = 400;  // ms
+
+        if (now - this._timeSelectLastPress < doubleClickThreshold) {
+            // Double-click: clear time selection
+            Bitwig.clearTimeSelection();
+            this._timeSelectLastPress = 0;
+            return;
+        }
+
+        this._timeSelectLastPress = now;
         this._timeSelectActive = true;
         this._timeSelectStartPad = null;
         this._timeSelectOriginalColors = {};
