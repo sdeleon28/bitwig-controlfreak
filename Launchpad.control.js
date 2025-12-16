@@ -706,6 +706,12 @@ var Pages = {
         if (pageNum < 1 || pageNum > this._totalPages) return;
         if (pageNum === this._currentPageNumber) return;
 
+        // Reset any active ProjectExplorer time select gesture on main page switch
+        if (ProjectExplorer._timeSelectActive) {
+            ProjectExplorer.resetTimeSelectGesture();
+            Launchpad.setPadColor(ProjectExplorer.modifiers.timeSelect, Launchpad.colors.red);
+        }
+
         var oldPage = this.getCurrentPage();
         var newPage = this.getPageByNumber(pageNum);
 
@@ -2039,6 +2045,28 @@ var ProjectExplorer = {
     },
 
     /**
+     * Modifier buttons for gestures
+     */
+    modifiers: {
+        timeSelect: 19  // Record Arm button (note 19)
+    },
+
+    /**
+     * Time selection gesture state
+     * @private
+     */
+    _timeSelectActive: false,
+    _timeSelectStartPad: null,
+    _timeSelectOriginalColors: {},
+
+    /**
+     * Loop range state (from Bitwig observers)
+     * @private
+     */
+    _loopStartBeat: 0,
+    _loopDuration: 0,
+
+    /**
      * Decrease resolution (zoom out - more bars per pad)
      */
     decreaseResolution: function() {
@@ -2195,6 +2223,10 @@ var ProjectExplorer = {
             }
 
             if (padColor !== null) {
+                // Override with white if pad is within loop range
+                if (this.isPadInLoopRange(padIndex)) {
+                    padColor = Launchpad.colors.white;
+                }
                 Pager.requestPaint(this.pageNumber, this.pads[padIndex], padColor);
             }
         }
@@ -2338,6 +2370,132 @@ var ProjectExplorer = {
         } else {
             Pager.requestPaint(this.pageNumber, padNote, color);
         }
+    },
+
+    // ========================================================================
+    // Time Selection Gesture
+    // ========================================================================
+
+    /**
+     * Handle time select modifier press (Record Arm button)
+     */
+    handleTimeSelectModifierPress: function() {
+        this._timeSelectActive = true;
+        this._timeSelectStartPad = null;
+        this._timeSelectOriginalColors = {};
+        // Light modifier button white
+        Launchpad.setPadColor(this.modifiers.timeSelect, Launchpad.colors.white);
+    },
+
+    /**
+     * Handle time select modifier release
+     */
+    handleTimeSelectModifierRelease: function() {
+        // Reset gesture state
+        this.resetTimeSelectGesture();
+        // Restore modifier button to normal (red for recordArm)
+        Launchpad.setPadColor(this.modifiers.timeSelect, Launchpad.colors.red);
+    },
+
+    /**
+     * Handle pad press during time selection gesture
+     * @param {number} padNote - MIDI note number of pressed pad
+     */
+    handleTimeSelectPadPress: function(padNote) {
+        var padIndex = this.pads.indexOf(padNote);
+        if (padIndex === -1) return;  // Not a grid pad
+
+        if (this._timeSelectStartPad === null) {
+            // First tap - set start
+            this._timeSelectStartPad = padIndex;
+            this._timeSelectOriginalColors[padIndex] = this.getColorForPad(padIndex);
+            Pager.requestPaint(this.pageNumber, padNote, Launchpad.colors.white);
+        } else {
+            // Second tap - set end
+            var startPad = this._timeSelectStartPad;
+            var endPad = padIndex;
+
+            if (endPad <= startPad) {
+                // End before or equal to start - cancel
+                this.resetTimeSelectGesture();
+                return;
+            }
+
+            // Highlight full range white
+            for (var i = startPad; i <= endPad; i++) {
+                if (this._timeSelectOriginalColors[i] === undefined) {
+                    this._timeSelectOriginalColors[i] = this.getColorForPad(i);
+                }
+                Pager.requestPaint(this.pageNumber, this.pads[i], Launchpad.colors.white);
+            }
+
+            // Calculate beats and make time selection
+            var startBeat = this.getBeatForPad(startPad);
+            var endBeat = this.getBeatForPad(endPad + 1);  // End of last pad
+            Bitwig.setTimeSelection(startBeat, endBeat);
+
+            // Clear original colors so they won't be restored on modifier release
+            // The loop observers will handle painting via refresh()
+            this._timeSelectOriginalColors = {};
+
+            host.showPopupNotification("Time selection set");
+        }
+    },
+
+    /**
+     * Reset time selection gesture state and restore pad colors
+     */
+    resetTimeSelectGesture: function() {
+        // Restore original pad colors
+        for (var padIndex in this._timeSelectOriginalColors) {
+            var color = this._timeSelectOriginalColors[padIndex];
+            if (color !== null) {
+                Pager.requestPaint(this.pageNumber, this.pads[padIndex], color);
+            }
+        }
+        this._timeSelectActive = false;
+        this._timeSelectStartPad = null;
+        this._timeSelectOriginalColors = {};
+    },
+
+    /**
+     * Refresh loop highlight when Bitwig's loop range changes.
+     * Called by observers on arrangerLoopStart and arrangerLoopDuration.
+     */
+    refreshLoopHighlight: function() {
+        // Only refresh if we're on the ProjectExplorer page
+        if (Pager.getActivePage() !== this.pageNumber) return;
+        this.refresh();
+    },
+
+    /**
+     * Check if a pad falls within the current loop range
+     * @param {number} padIndex - Pad index (0-63)
+     * @returns {boolean} True if pad is within loop range
+     */
+    isPadInLoopRange: function(padIndex) {
+        if (this._loopDuration <= 0) return false;
+        if (this._sortedMarkers.length === 0) return false;
+
+        var padStartBeat = this.getBeatForPad(padIndex);
+        var padEndBeat = this.getBeatForPad(padIndex + 1);
+        var loopEndBeat = this._loopStartBeat + this._loopDuration;
+
+        // Pad is in range if it overlaps with loop range
+        return padStartBeat < loopEndBeat && padEndBeat > this._loopStartBeat;
+    },
+
+    /**
+     * Get beat position for start of a pad
+     * @param {number} padIndex - Pad index (0-63)
+     * @returns {number} Beat position
+     */
+    getBeatForPad: function(padIndex) {
+        if (this._sortedMarkers.length === 0) return 0;
+        var firstBarBeat = this._sortedMarkers[0].position;
+        var pageOffsetBars = this._currentPage * 64 * this.barsPerPad;
+        var barIndex = pageOffsetBars + (padIndex * this.barsPerPad);
+        return firstBarBeat + (barIndex * this.beatsPerBar);
     }
 };
 
@@ -2606,14 +2764,40 @@ var Page_MarkerManager = {
         // Clear pagination buttons when leaving this page
         Launchpad.setTopButtonColor(ProjectExplorer.buttons.prevPage, 0);
         Launchpad.setTopButtonColor(ProjectExplorer.buttons.nextPage, 0);
+        // Note: Time select gesture is NOT reset here to allow cross-page selection
+        // It will be reset by main page navigation (Pages.switchToPage)
         if (debug) println("Hiding marker manager page");
     },
 
     handlePadPress: function(padNote) {
+        // Check for time select modifier (Record Arm button)
+        if (padNote === ProjectExplorer.modifiers.timeSelect) {
+            ProjectExplorer.handleTimeSelectModifierPress();
+            return true;
+        }
+
+        // If time select gesture is active, handle as gesture input
+        if (ProjectExplorer._timeSelectActive) {
+            ProjectExplorer.handleTimeSelectPadPress(padNote);
+            return true;
+        }
+
         return Launchpad.handlePadPress(padNote);
     },
 
     handlePadRelease: function(padNote) {
+        // Check for time select modifier release
+        if (padNote === ProjectExplorer.modifiers.timeSelect) {
+            ProjectExplorer.handleTimeSelectModifierRelease();
+            return true;
+        }
+
+        // Block grid pad releases during time selection (prevents jumpToBar trigger)
+        if (ProjectExplorer._timeSelectActive) {
+            var padIndex = ProjectExplorer.pads.indexOf(padNote);
+            if (padIndex !== -1) return true;  // Consume release, don't trigger click
+        }
+
         return Launchpad.handlePadRelease(padNote);
     }
 };
@@ -4575,6 +4759,19 @@ function init() {
     // Add playPosition observer for ProjectExplorer playhead indicator
     transport.playPosition().addValueObserver(function(beats) {
         ProjectExplorer.updatePlayheadIndicator(beats);
+    });
+
+    // Add loop range observers for bi-directional time selection display
+    transport.arrangerLoopStart().markInterested();
+    transport.arrangerLoopStart().addValueObserver(function(beats) {
+        ProjectExplorer._loopStartBeat = beats;
+        ProjectExplorer.refreshLoopHighlight();
+    });
+
+    transport.arrangerLoopDuration().markInterested();
+    transport.arrangerLoopDuration().addValueObserver(function(duration) {
+        ProjectExplorer._loopDuration = duration;
+        ProjectExplorer.refreshLoopHighlight();
     });
 
     // Enter Programmer Mode on Launchpad MK2
