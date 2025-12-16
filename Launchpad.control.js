@@ -2415,8 +2415,8 @@ var ProjectExplorer = {
             var startPad = this._timeSelectStartPad;
             var endPad = padIndex;
 
-            if (endPad <= startPad) {
-                // End before or equal to start - cancel
+            if (endPad < startPad) {
+                // End before start - cancel
                 this.resetTimeSelectGesture();
                 return;
             }
