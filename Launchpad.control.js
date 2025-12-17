@@ -368,9 +368,10 @@ function init() {
         }
     });
 
-    // Add playPosition observer for ProjectExplorer playhead indicator
+    // Add playPosition observer for playhead indicators
     transport.playPosition().addValueObserver(function(beats) {
         ProjectExplorer.updatePlayheadIndicator(beats);
+        LaunchpadLane.updatePlayheadIndicator(beats);
     });
 
     // Add loop range observers for bi-directional time selection display

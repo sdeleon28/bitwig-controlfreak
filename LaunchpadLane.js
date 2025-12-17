@@ -4,6 +4,18 @@
  */
 var LaunchpadLane = {
     /**
+     * Pad that's queued to play (pulsing)
+     * @private
+     */
+    _queuedPad: null,
+
+    /**
+     * Pad where playhead currently is (flashing)
+     * @private
+     */
+    _playingPad: null,
+
+    /**
      * Top lane pad configuration (top four rows, 8x4 = 32 pads)
      */
     topLane: {
@@ -131,6 +143,7 @@ var LaunchpadLane = {
                     var marker = markerBank.getItemAt(markerIndex);
                     if (marker && marker.exists().get()) {
                         marker.launch(true);
+                        LaunchpadLane.setQueuedPad(markerIndex);
                         if (debug) println("Jumped to marker " + markerIndex);
                     }
                 };
@@ -189,5 +202,114 @@ var LaunchpadLane = {
         }
 
         if (debug) println("LaunchpadLane refreshed for page " + pageNumber);
+    },
+
+    /**
+     * Update playhead indicator (called by playPosition observer)
+     * @param {number} beat - Current playhead position in beats
+     */
+    updatePlayheadIndicator: function(beat) {
+        if (Pager.getActivePage() !== 1) return;
+
+        var newPadIndex = this.getPadIndexForBeat(beat);
+        if (newPadIndex === this._playingPad) return;
+
+        // Restore previous playing pad to static
+        if (this._playingPad !== null) {
+            this.repaintPad(this._playingPad, 'static');
+        }
+
+        // Clear queued if playhead arrived
+        if (newPadIndex === this._queuedPad) {
+            this._queuedPad = null;
+        }
+
+        this._playingPad = newPadIndex;
+
+        // Paint new playing pad as flashing
+        if (newPadIndex !== null) {
+            this.repaintPad(newPadIndex, 'flashing');
+        }
+    },
+
+    /**
+     * Set a pad as queued (pulsing until playhead arrives)
+     * @param {number} padIndex - Pad index (0-31)
+     */
+    setQueuedPad: function(padIndex) {
+        // Clear previous queued pad (restore to static)
+        if (this._queuedPad !== null && this._queuedPad !== this._playingPad) {
+            this.repaintPad(this._queuedPad, 'static');
+        }
+
+        this._queuedPad = padIndex;
+
+        // Paint new queued pad as pulsing (unless it's already playing)
+        if (padIndex !== null && padIndex !== this._playingPad) {
+            this.repaintPad(padIndex, 'pulsing');
+        }
+    },
+
+    /**
+     * Get pad index for a beat position (based on marker ranges)
+     * @param {number} beat - Beat position
+     * @returns {number|null} Pad index (0-31) or null if out of range
+     */
+    getPadIndexForBeat: function(beat) {
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return null;
+
+        // Build sorted markers with their indices
+        var markers = [];
+        for (var i = 0; i < this.topLane.pads.length; i++) {
+            var marker = markerBank.getItemAt(i);
+            if (marker && marker.exists().get()) {
+                markers.push({ index: i, position: marker.position().get() });
+            }
+        }
+        if (markers.length === 0) return null;
+
+        markers.sort(function(a, b) { return a.position - b.position; });
+
+        // Find which marker range contains the beat (last marker at or before beat)
+        for (var i = markers.length - 1; i >= 0; i--) {
+            if (beat >= markers[i].position) {
+                return markers[i].index;
+            }
+        }
+        return null;
+    },
+
+    /**
+     * Get color for a pad (marker index)
+     * @param {number} padIndex - Pad index (0-31)
+     * @returns {number|null} Launchpad color or null
+     */
+    getColorForPad: function(padIndex) {
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return null;
+        var marker = markerBank.getItemAt(padIndex);
+        if (!marker || !marker.exists().get()) return null;
+        var color = marker.getColor();
+        return Launchpad.bitwigColorToLaunchpad(color.red(), color.green(), color.blue());
+    },
+
+    /**
+     * Repaint a pad with specified mode
+     * @param {number} padIndex - Pad index (0-31)
+     * @param {string} mode - 'static', 'pulsing', or 'flashing'
+     */
+    repaintPad: function(padIndex, mode) {
+        var color = this.getColorForPad(padIndex);
+        if (color === null) return;
+
+        var padNote = this.topLane.pads[padIndex];
+        if (mode === 'pulsing') {
+            Pager.requestPaintPulsing(1, padNote, color);
+        } else if (mode === 'flashing') {
+            Pager.requestPaintFlashing(1, padNote, color);
+        } else {
+            Pager.requestPaint(1, padNote, color);
+        }
     }
 };
