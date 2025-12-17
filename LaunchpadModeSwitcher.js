@@ -35,7 +35,7 @@ var LaunchpadModeSwitcher = {
      * Mode categories
      */
     encoderModes: ['volume', 'pan'],
-    padModes: ['mute', 'solo', 'recordArm', 'sendA'],
+    padModes: ['mute', 'solo', 'recordArm', 'sendA', 'select'],
 
     /**
      * Currently selected encoder mode (volume, pan)
@@ -190,6 +190,11 @@ var LaunchpadModeSwitcher = {
             self.selectPadMode('sendA');
         }, null, page);
 
-        // Placeholders: sendB and stop have no behavior (stay off)
+        // Stop button = select mode (select track + remote controls)
+        Launchpad.registerPadBehavior(modes.stop.note, function() {
+            self.selectPadMode('select');
+        }, null, page);
+
+        // Placeholder: sendB has no behavior (stays off)
     }
 };

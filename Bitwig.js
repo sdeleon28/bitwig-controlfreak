@@ -40,6 +40,12 @@ var Bitwig = {
     _transport: null,
 
     /**
+     * Application object for invoking actions
+     * @private
+     */
+    _application: null,
+
+    /**
      * Effect track bank for FX/return tracks
      * @private
      */
@@ -50,6 +56,24 @@ var Bitwig = {
      * @private
      */
     _fxTracks: [],
+
+    /**
+     * Cursor track that follows selection
+     * @private
+     */
+    _cursorTrack: null,
+
+    /**
+     * Cursor device that follows first device on selected track
+     * @private
+     */
+    _cursorDevice: null,
+
+    /**
+     * Remote controls page for cursor device (8 params)
+     * @private
+     */
+    _remoteControls: null,
 
     /**
      * Initialize Bitwig API
@@ -88,6 +112,9 @@ var Bitwig = {
         if (this._transport && this._transport.playStartPosition) {
             this._transport.playStartPosition().markInterested();
         }
+
+        // Create application object for actions
+        this._application = host.createApplication();
     },
 
     /**
@@ -435,6 +462,77 @@ var Bitwig = {
                 // Keep sorted by number
                 this._fxTracks.sort(function(a, b) { return a.number - b.number; });
             }
+        }
+    },
+
+    /**
+     * Initialize cursor track/device for remote control linking
+     * @param {Object} cursorTrack - Cursor track object
+     * @param {Object} cursorDevice - Cursor device object
+     * @param {Object} remoteControls - Remote controls page object
+     */
+    initCursor: function(cursorTrack, cursorDevice, remoteControls) {
+        this._cursorTrack = cursorTrack;
+        this._cursorDevice = cursorDevice;
+        this._remoteControls = remoteControls;
+        if (debug) println("Cursor track/device initialized");
+    },
+
+    /**
+     * Get cursor track
+     * @returns {Object|null} Cursor track or null
+     */
+    getCursorTrack: function() {
+        return this._cursorTrack;
+    },
+
+    /**
+     * Get cursor device
+     * @returns {Object|null} Cursor device or null
+     */
+    getCursorDevice: function() {
+        return this._cursorDevice;
+    },
+
+    /**
+     * Get remote controls page
+     * @returns {Object|null} Remote controls page or null
+     */
+    getRemoteControls: function() {
+        return this._remoteControls;
+    },
+
+    /**
+     * Select a track in mixer (XOR - deselects others)
+     * @param {number} trackId - Track ID to select
+     */
+    selectTrack: function(trackId) {
+        var track = this.getTrack(trackId);
+        if (track) {
+            track.selectInMixer();
+            if (debug) println("Selected track " + trackId + ": " + track.name().get());
+        }
+    },
+
+    /**
+     * Invoke a Bitwig action by ID
+     * @param {string} actionId - Action ID from BitwigActions constants
+     */
+    invokeAction: function(actionId) {
+        println("invokeAction called with: " + actionId);
+        if (!this._application) {
+            println("ERROR: Application not initialized");
+            return;
+        }
+        println("Application exists, getting action...");
+        var action = this._application.getAction(actionId);
+        println("Action result: " + action);
+        if (action) {
+            println("Invoking action: " + actionId);
+            action.invoke();
+            println("Action invoked successfully");
+        } else {
+            println("ERROR: Action not found: " + actionId);
         }
     }
 };

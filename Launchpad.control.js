@@ -9,6 +9,7 @@ var debug = false;
 // Load external modules
 // Layer 1: Foundation
 load('Bitwig.js');
+load('BitwigActions.js');
 load('Pages.js');
 
 // Layer 2: Hardware abstraction
@@ -202,6 +203,27 @@ function init() {
     // Initialize Bitwig namespace with track bank and transport
     Bitwig.init(trackBank, transport);
     Bitwig._effectTrackBank = effectTrackBank;
+
+    // Create cursor track that follows selection (for select mode + remote controls)
+    var cursorTrack = host.createCursorTrack("cursor", "Cursor", 0, 0, true);
+    var cursorDevice = cursorTrack.createCursorDevice();
+    var remoteControls = cursorTrack.createCursorRemoteControlsPage(8);
+
+    // Mark remote control parameters as interested and add observers
+    for (var rc = 0; rc < 8; rc++) {
+        var param = remoteControls.getParameter(rc);
+        param.markInterested();
+        param.value().markInterested();
+        param.name().markInterested();
+        // Add observer for bi-directional sync with Twister
+        (function(paramIndex) {
+            param.value().addValueObserver(function(value) {
+                Twister.updateRemoteControlLED(paramIndex, value);
+            });
+        })(rc);
+    }
+
+    Bitwig.initCursor(cursorTrack, cursorDevice, remoteControls);
 
     // Subscribe to track properties for tree building
     for (var i = 0; i < 64; i++) {

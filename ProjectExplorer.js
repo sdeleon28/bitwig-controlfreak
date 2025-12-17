@@ -75,7 +75,8 @@ var ProjectExplorer = {
      * Modifier buttons for gestures
      */
     modifiers: {
-        timeSelect: 19  // Record Arm button (note 19)
+        timeSelect: 19,  // Record Arm button (note 19)
+        copySelect: 29   // Solo button (note 29)
     },
 
     /**
@@ -86,6 +87,12 @@ var ProjectExplorer = {
     _timeSelectStartPad: null,
     _timeSelectOriginalColors: {},
     _timeSelectLastPress: 0,  // For double-click detection
+
+    /**
+     * Copy selection gesture state
+     * @private
+     */
+    _copySelectActive: false,
 
     /**
      * Loop range state (from Bitwig observers)
@@ -558,5 +565,51 @@ var ProjectExplorer = {
         var pageOffsetBars = this._currentPage * 64 * this.barsPerPad;
         var barIndex = pageOffsetBars + (padIndex * this.barsPerPad);
         return firstBarBeat + (barIndex * this.beatsPerBar);
+    },
+
+    // ========================================================================
+    // Copy Time Selection Gesture
+    // ========================================================================
+
+    /**
+     * Handle copy select modifier press (Solo button)
+     */
+    handleCopySelectModifierPress: function() {
+        if (this._loopDuration <= 0) {
+            host.showPopupNotification("No time selection");
+            return;
+        }
+        this._copySelectActive = true;
+        Launchpad.setPadColor(this.modifiers.copySelect, Launchpad.colors.white);
+    },
+
+    /**
+     * Handle copy select modifier release
+     */
+    handleCopySelectModifierRelease: function() {
+        this._copySelectActive = false;
+        Launchpad.setPadColor(this.modifiers.copySelect, Launchpad.colors.blue);
+    },
+
+    /**
+     * Handle pad press during copy selection gesture
+     * @param {number} padNote - MIDI note number of pressed pad
+     */
+    handleCopySelectPadPress: function(padNote) {
+        var padIndex = this.pads.indexOf(padNote);
+        if (padIndex === -1) return;
+
+        var destBeat = this.getBeatForPad(padIndex);
+        this.performDuplicateTime(destBeat);
+    },
+
+    /**
+     * Duplicate the current time selection to a destination position
+     * @param {number} destBeat - Destination beat position
+     */
+    performDuplicateTime: function(destBeat) {
+        // TODO: Implement copy time selection feature
+        // Workflow needs: time selection, mode switching, insert silence, split, copy, paste
+        host.showPopupNotification("Copy feature not yet implemented");
     }
 };

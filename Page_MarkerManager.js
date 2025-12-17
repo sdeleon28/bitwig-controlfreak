@@ -33,9 +33,21 @@ var Page_MarkerManager = {
             return true;
         }
 
+        // Check for copy select modifier (Solo button)
+        if (padNote === ProjectExplorer.modifiers.copySelect) {
+            ProjectExplorer.handleCopySelectModifierPress();
+            return true;
+        }
+
         // If time select gesture is active, handle as gesture input
         if (ProjectExplorer._timeSelectActive) {
             ProjectExplorer.handleTimeSelectPadPress(padNote);
+            return true;
+        }
+
+        // If copy select gesture is active, handle as gesture input
+        if (ProjectExplorer._copySelectActive) {
+            ProjectExplorer.handleCopySelectPadPress(padNote);
             return true;
         }
 
@@ -49,8 +61,20 @@ var Page_MarkerManager = {
             return true;
         }
 
+        // Check for copy select modifier release
+        if (padNote === ProjectExplorer.modifiers.copySelect) {
+            ProjectExplorer.handleCopySelectModifierRelease();
+            return true;
+        }
+
         // Block grid pad releases during time selection (prevents jumpToBar trigger)
         if (ProjectExplorer._timeSelectActive) {
+            var padIndex = ProjectExplorer.pads.indexOf(padNote);
+            if (padIndex !== -1) return true;  // Consume release, don't trigger click
+        }
+
+        // Block grid pad releases during copy selection
+        if (ProjectExplorer._copySelectActive) {
             var padIndex = ProjectExplorer.pads.indexOf(padNote);
             if (padIndex !== -1) return true;  // Consume release, don't trigger click
         }

@@ -75,6 +75,12 @@ var Twister = {
     _encoderBehaviors: {},
 
     /**
+     * Remote control mode active (for select mode)
+     * @private
+     */
+    _remoteControlMode: false,
+
+    /**
      * Encoder used for tempo control in top-level group
      */
     TEMPO_ENCODER: 4,
@@ -205,6 +211,8 @@ var Twister = {
         }
         // Reset send mode state
         this._sendModeTrackId = null;
+        // Reset remote control mode
+        this._remoteControlMode = false;
     },
 
     /**
@@ -413,6 +421,47 @@ var Twister = {
     },
 
     /**
+     * Link encoders 1-8 to remote controls of selected track's device
+     */
+    linkEncodersToRemoteControls: function() {
+        this.unlinkAll();
+        this._remoteControlMode = true;
+
+        var remoteControls = Bitwig.getRemoteControls();
+        if (!remoteControls) {
+            if (debug) println("No remote controls available");
+            return;
+        }
+
+        // Link bottom 8 encoders to remote control params
+        // Bitwig params 1-4 (top row) -> encoders 5-8 (second row)
+        // Bitwig params 5-8 (bottom row) -> encoders 1-4 (bottom row)
+        for (var i = 0; i < 8; i++) {
+            var param = remoteControls.getParameter(i);
+            var encoderNum = ((i + 4) % 8) + 1;
+            // Initial LED sync
+            var value = param.value().get();
+            this.setEncoderLED(encoderNum, Math.round(value * 127));
+            // Blue color for remote controls
+            this.setEncoderColor(encoderNum, 80, 80, 255);
+        }
+
+        if (debug) println("Remote control mode activated");
+    },
+
+    /**
+     * Update LED for remote control parameter (called by observer)
+     * @param {number} paramIndex - Parameter index (0-7)
+     * @param {number} value - Normalized value (0-1)
+     */
+    updateRemoteControlLED: function(paramIndex, value) {
+        if (!this._remoteControlMode) return;
+        if (paramIndex < 0 || paramIndex > 7) return;
+        var encoderNum = ((paramIndex + 4) % 8) + 1;
+        this.setEncoderLED(encoderNum, Math.round(value * 127));
+    },
+
+    /**
      * Link an encoder to custom behavior callbacks
      * @param {number} encoderNumber - Encoder number (1-16)
      * @param {Function} turnCallback - Called on encoder turn with value (0-127)
@@ -496,6 +545,17 @@ var Twister = {
      * @param {number} value - MIDI value (0-127)
      */
     handleEncoderTurn: function(encoderNumber, value) {
+        // Check for remote control mode (encoders 1-8)
+        if (this._remoteControlMode && encoderNumber <= 8) {
+            var remoteControls = Bitwig.getRemoteControls();
+            if (remoteControls) {
+                // Reverse mapping: encoders 5-8 -> params 0-3, encoders 1-4 -> params 4-7
+                var paramIndex = ((encoderNumber + 3) % 8);
+                remoteControls.getParameter(paramIndex).value().set(value / 127.0);
+            }
+            return;
+        }
+
         // Check for custom behavior first
         var behavior = this._encoderBehaviors[encoderNumber];
         if (behavior && behavior.turnCallback) {

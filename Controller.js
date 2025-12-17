@@ -239,6 +239,19 @@ var Controller = {
                             }
                         }, null, Page_MainControl.pageNumber);
                     })(trackId, padNote);
+                } else if (padMode === 'select') {
+                    (function(tid, pn) {
+                        Launchpad.registerPadBehavior(pn, function() {
+                            var track = Bitwig.getTrack(tid);
+                            if (track) {
+                                // Select track (XOR - deselects others)
+                                Bitwig.selectTrack(tid);
+                                // Link Twister encoders to remote controls
+                                Twister.linkEncodersToRemoteControls();
+                                host.showPopupNotification(track.name().get() + " → Remote Controls");
+                            }
+                        }, null, Page_MainControl.pageNumber);
+                    })(trackId, padNote);
                 }
             }
         }
