@@ -396,6 +396,19 @@ var ProjectExplorer = {
      * @param {string} mode - 'static', 'pulsing', or 'flashing'
      */
     repaintPad: function(padIndex, mode) {
+        // Use white only for: explicitly selected pads OR pads in loop range
+        if (this._timeSelectOriginalColors[padIndex] !== undefined || this.isPadInLoopRange(padIndex)) {
+            var padNote = this.pads[padIndex];
+            if (mode === 'pulsing') {
+                Pager.requestPaintPulsing(this.pageNumber, padNote, Launchpad.colors.white);
+            } else if (mode === 'flashing') {
+                Pager.requestPaintFlashing(this.pageNumber, padNote, Launchpad.colors.white);
+            } else {
+                Pager.requestPaint(this.pageNumber, padNote, Launchpad.colors.white);
+            }
+            return;
+        }
+
         var color = this.getColorForPad(padIndex);
         if (color === null) return;
 
