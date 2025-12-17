@@ -61,76 +61,11 @@ var LaunchpadLane = {
      */
     init: function() {
         this.topLane.init();
-        // Note: Page 1 uses registerBirdEyeBehaviors(), Page 2 uses ProjectExplorer.registerBehaviors()
         if (debug) println("LaunchpadLane initialized");
     },
 
     /**
-     * Generate color regions from consecutive same-color markers (bird's eye view)
-     * @returns {Array} Array of region objects with startIndex, endIndex, color
-     */
-    generateColorRegions: function() {
-        var regions = [];
-        var markerBank = Bitwig.getMarkerBank();
-        if (!markerBank) return regions;
-
-        var currentRegion = null;
-        for (var i = 0; i < 32; i++) {
-            var marker = markerBank.getItemAt(i);
-            if (!marker || !marker.exists().get()) continue;
-
-            var color = marker.getColor();
-            var launchpadColor = Launchpad.bitwigColorToLaunchpad(
-                color.red(), color.green(), color.blue()
-            );
-
-            if (currentRegion && currentRegion.color === launchpadColor) {
-                // Extend current region
-                currentRegion.endIndex = i;
-            } else {
-                // Start new region
-                if (currentRegion) regions.push(currentRegion);
-                currentRegion = {
-                    startIndex: i,
-                    endIndex: i,
-                    color: launchpadColor
-                };
-            }
-        }
-        if (currentRegion) regions.push(currentRegion);
-        return regions;
-    },
-
-    /**
-     * Register bird's eye view behaviors for page 1 (regions instead of individual markers)
-     */
-    registerBirdEyeBehaviors: function() {
-        var regions = this.generateColorRegions();
-        var markerBank = Bitwig.getMarkerBank();
-        if (!markerBank) return;
-
-        for (var i = 0; i < regions.length && i < this.topLane.pads.length; i++) {
-            var padNote = this.topLane.pads[i];
-            (function(region) {
-                var clickCallback = function() {
-                    var marker = markerBank.getItemAt(region.startIndex);
-                    if (marker && marker.exists().get()) {
-                        marker.launch(true);
-                        if (debug) println("Jumped to region starting at marker " + region.startIndex);
-                    }
-                };
-                var holdCallback = function() {
-                    Controller.prepareRecordingAtRegion(region.startIndex, region.endIndex);
-                };
-                Launchpad.registerPadBehavior(padNote, clickCallback, holdCallback, 1);
-            })(regions[i]);
-        }
-
-        if (debug) println("Bird's eye behaviors registered with " + regions.length + " regions");
-    },
-
-    /**
-     * Register simple marker behaviors for page 1 (one pad per marker)
+     * Register marker behaviors for page 1 (one pad per marker)
      */
     registerMarkerBehaviors: function() {
         var markerBank = Bitwig.getMarkerBank();
@@ -147,28 +82,14 @@ var LaunchpadLane = {
                         if (debug) println("Jumped to marker " + markerIndex);
                     }
                 };
-                Launchpad.registerPadBehavior(padNote, clickCallback, null, 1);
+                var holdCallback = function() {
+                    Controller.prepareRecordingAtRegion(markerIndex, markerIndex);
+                };
+                Launchpad.registerPadBehavior(padNote, clickCallback, holdCallback, 1);
             })(i);
         }
 
         if (debug) println("Marker behaviors registered for " + this.topLane.pads.length + " pads");
-    },
-
-    /**
-     * Refresh bird's eye view for page 1 (displays regions instead of individual markers)
-     */
-    refreshBirdEye: function() {
-        // Clear all pads
-        for (var i = 0; i < this.topLane.pads.length; i++) {
-            Pager.requestClear(1, this.topLane.pads[i]);
-        }
-
-        var regions = this.generateColorRegions();
-        for (var i = 0; i < regions.length && i < this.topLane.pads.length; i++) {
-            Pager.requestPaint(1, this.topLane.pads[i], regions[i].color);
-        }
-
-        if (debug) println("Bird's eye refreshed with " + regions.length + " regions");
     },
 
     /**

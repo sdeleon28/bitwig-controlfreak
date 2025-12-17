@@ -406,17 +406,16 @@ function init() {
                 marker.exists().addValueObserver(function(exists) {
                     if (debug) println("Marker " + markerIndex + " exists: " + exists);
                     // Re-register and refresh both marker views
-                    LaunchpadLane.registerBirdEyeBehaviors();  // Regions may have changed
-                    LaunchpadLane.refreshBirdEye();            // Page 1: bird's eye regions
+                    LaunchpadLane.registerMarkerBehaviors();   // Re-register marker behaviors
+                    LaunchpadLane.refresh();                   // Page 1: simple markers
                     ProjectExplorer.refresh();                 // Page 2: project explorer
                 });
 
                 // Observe color changes to refresh lane
                 marker.getColor().addValueObserver(function(red, green, blue) {
                     if (debug) println("Marker " + markerIndex + " color changed");
-                    // Re-register and refresh both marker views
-                    LaunchpadLane.registerBirdEyeBehaviors();  // Regions may have changed
-                    LaunchpadLane.refreshBirdEye();            // Page 1: bird's eye regions
+                    // Refresh marker views
+                    LaunchpadLane.refresh();                   // Page 1: simple markers
                     ProjectExplorer.refresh();                 // Page 2: project explorer
                 });
             })(i);
