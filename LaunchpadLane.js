@@ -118,6 +118,30 @@ var LaunchpadLane = {
     },
 
     /**
+     * Register simple marker behaviors for page 1 (one pad per marker)
+     */
+    registerMarkerBehaviors: function() {
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return;
+
+        for (var i = 0; i < this.topLane.pads.length; i++) {
+            var padNote = this.topLane.pads[i];
+            (function(markerIndex) {
+                var clickCallback = function() {
+                    var marker = markerBank.getItemAt(markerIndex);
+                    if (marker && marker.exists().get()) {
+                        marker.launch(true);
+                        if (debug) println("Jumped to marker " + markerIndex);
+                    }
+                };
+                Launchpad.registerPadBehavior(padNote, clickCallback, null, 1);
+            })(i);
+        }
+
+        if (debug) println("Marker behaviors registered for " + this.topLane.pads.length + " pads");
+    },
+
+    /**
      * Refresh bird's eye view for page 1 (displays regions instead of individual markers)
      */
     refreshBirdEye: function() {

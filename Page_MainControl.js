@@ -13,13 +13,13 @@ var Page_MainControl = {
     },
 
     show: function() {
-        // Register bird's eye marker behaviors (regions instead of individual markers)
-        LaunchpadLane.registerBirdEyeBehaviors();
+        // Register marker behaviors (one pad per marker)
+        LaunchpadLane.registerMarkerBehaviors();
 
         // Display all main control elements (pass page number to use Pager)
         Controller.refreshGroupDisplay();
         Controller.refreshTrackGrid();  // Also registers track pad behaviors
-        LaunchpadLane.refreshBirdEye();
+        LaunchpadLane.refresh();
 
         // Mode selector (page 1 only)
         LaunchpadModeSwitcher.registerBehaviors();
