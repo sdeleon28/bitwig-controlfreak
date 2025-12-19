@@ -113,6 +113,14 @@ var Bitwig = {
             this._transport.playStartPosition().markInterested();
         }
 
+        // Mark interested in loop bounds for reading
+        if (this._transport && this._transport.arrangerLoopStart) {
+            this._transport.arrangerLoopStart().markInterested();
+        }
+        if (this._transport && this._transport.arrangerLoopDuration) {
+            this._transport.arrangerLoopDuration().markInterested();
+        }
+
         // Create application object for actions
         this._application = host.createApplication();
     },
