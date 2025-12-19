@@ -205,7 +205,9 @@ var BitwigActions = {
     // Tools
     // ========================================================================
     TOOL_POINTER: "select_object_selection_tool",
+    TOOL_OBJECT_SELECTION: "select_object_selection_tool",  // alias for TOOL_POINTER
     TOOL_TIME_SELECTION: "select_time_selection_tool",
+    TOOL_EVENT_SELECTION: "select_event_selection_tool",
     TOOL_PEN: "select_create_tool",
     TOOL_ERASER: "select_erase_tool",
     TOOL_KNIFE: "select_cut_tool",
@@ -391,6 +393,26 @@ var BitwigActions = {
     // Selection
     // ========================================================================
     SELECT_EVERYTHING: "select_everything",
+    SELECT_ALL: "Select All",
+    UNSELECT_ALL: "Unselect All",
+    SELECT_ITEM_AT_CURSOR: "select_item_at_cursor",
+    TOGGLE_SELECTION_AT_CURSOR: "Toggle selection of item at cursor",
+    SELECT_PREV_TRACK: "Select previous track",
+    SELECT_NEXT_TRACK: "Select next track",
+    SELECT_PREV_ITEM: "Select previous item",
+    SELECT_NEXT_ITEM: "Select next item",
+
+    // Selection Mode Toggle
+    TOGGLE_OBJECT_TIME_SELECTION: "switch_between_event_and_time_selection",
+
+    // Time Selection Actions
+    PLAY_FROM_TIME_SELECTION: "play_from_time_selection",
+    TIME_SEL_STEP_EARLIER: "move_time_selection_one_step_earlier",
+    TIME_SEL_STEP_LATER: "move_time_selection_one_step_later",
+    TIME_SEL_EVENT_EARLIER: "move_time_selection_one_event_earlier",
+    TIME_SEL_EVENT_LATER: "move_time_selection_one_event_later",
+    TIME_SEL_TO_FIRST: "move_time_selection_to_first_item",
+    TIME_SEL_TO_LAST: "move_time_selection_to_last_item",
 
     // ========================================================================
     // Miscellaneous
