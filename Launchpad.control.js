@@ -35,6 +35,7 @@ load('ClipGestures.js');
 load('Page_MainControl.js');
 load('Page_ClipLauncher.js');
 load('Page_MarkerManager.js');
+load('Page_DebugActions.js');
 
 // Layer 6: Orchestrator
 load('Controller.js');
@@ -479,10 +480,11 @@ function init() {
         }
     });
 
-    // Register pages (order: page 1, page 2, page 3)
+    // Register pages (order: page 1, page 2, page 3, page 4)
     Pages.registerPage(Page_MainControl);     // Page 1: Main control + markers
     Pages.registerPage(Page_MarkerManager);   // Page 2: Detailed marker manager
     Pages.registerPage(Page_ClipLauncher);    // Page 3: Clip launcher
+    Pages.registerPage(Page_DebugActions);    // Page 4: Debug actions for testing
 
     // Initialize pagination system (after pages registered)
     Pages.init();
