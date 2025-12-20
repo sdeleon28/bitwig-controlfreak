@@ -6,7 +6,7 @@ host.defineMidiPorts(1, 1);
 // ============== CONFIGURATION ==============
 // Adjust these values to match your GGD plugin and playing style
 
-var FIRST_GGD_RIMSHOT_VELOCITY = 99;      // GGD rimshot sounds start at this velocity (lowered for testing)
+var FIRST_GGD_RIMSHOT_VELOCITY = 99;      // GGD rimshot sounds start at this velocity
 var FIRST_RIMPAD_RIMSHOT_VELOCITY = 80;   // Rim pad velocity threshold for rimshot vs crosstick
 
 var GGD_SNARE_NOTE = 38;                  // D1 - GGD snare/rimshot note
@@ -14,6 +14,8 @@ var GGD_CROSSTICK_NOTE = 37;              // C#1 - GGD crosstick note
 
 var TD17_SNARE_NOTE = 38;                 // TD-17 snare pad output
 var TD17_RIMSHOT_NOTE = 40;               // TD-17 rim output
+
+var RIM_SOFT_HARD_THRESHOLD = 50;         // Rim pad velocity threshold for soft hit vs hard hit
 // ===========================================
 
 var noteInput;
@@ -47,17 +49,40 @@ function scaleVelocity(velocity, inMin, inMax, outMin, outMax) {
  */
 function onMidi(status, data1, data2) {
     var isNoteOn = (status & 0xF0) === 0x90 && data2 > 0;
-    var isSnare = data1 === 38;
+    var isNoteOff = (status & 0xF0) === 0x80 || ((status & 0xF0) === 0x90 && data2 === 0);
 
-    // ONLY forward snare note-on with capped velocity
-    if (isNoteOn && isSnare) {
-        var capped = Math.min(data2, FIRST_GGD_RIMSHOT_VELOCITY);
-        println("SNARE HIT: input vel=" + data2 + " -> output vel=" + capped + " status=" + status.toString(16));
-        noteInput.sendRawMidiEvent(status, 38, capped);
+    // Snare pad: cap velocity
+    if (isNoteOn && data1 === TD17_SNARE_NOTE) {
+        var capped = Math.min(data2, FIRST_GGD_RIMSHOT_VELOCITY - 1);
+        println("SNARE: vel " + data2 + " -> " + capped);
+        noteInput.sendRawMidiEvent(status, GGD_SNARE_NOTE, capped);
         return;
     }
 
-    // Block everything else - no forwarding, no logging
+    // Rim pad: route to crosstick or rimshot
+    if (isNoteOn && data1 === TD17_RIMSHOT_NOTE) {
+        if (data2 < RIM_SOFT_HARD_THRESHOLD) {
+            // Crosstick: scale 1-(threshold-1) → 1-127
+            var crosstickVel = scaleVelocity(data2, 1, RIM_SOFT_HARD_THRESHOLD - 1, 1, 127);
+            println("RIM SOFT: vel " + data2 + " -> crosstick (" + GGD_CROSSTICK_NOTE + ") vel " + crosstickVel);
+            noteInput.sendRawMidiEvent(status, GGD_CROSSTICK_NOTE, crosstickVel);
+        } else {
+            // Rimshot: scale threshold-127 → FIRST_GGD_RIMSHOT_VELOCITY-127
+            var rimshotVel = scaleVelocity(data2, RIM_SOFT_HARD_THRESHOLD, 127, FIRST_GGD_RIMSHOT_VELOCITY, 127);
+            println("RIM HARD: vel " + data2 + " -> rimshot (" + GGD_SNARE_NOTE + ") vel " + rimshotVel);
+            noteInput.sendRawMidiEvent(status, GGD_SNARE_NOTE, rimshotVel);
+        }
+        return;
+    }
+
+    // Note-off for rim: release both possible notes
+    if (isNoteOff && data1 === TD17_RIMSHOT_NOTE) {
+        noteInput.sendRawMidiEvent(status, GGD_CROSSTICK_NOTE, 0);
+        noteInput.sendRawMidiEvent(status, GGD_SNARE_NOTE, 0);
+        return;
+    }
+
+    // Block everything else
 }
 
 function flush() {}
