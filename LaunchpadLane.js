@@ -16,6 +16,20 @@ var LaunchpadLane = {
     _playingPad: null,
 
     /**
+     * Action pads (pads 29-32, notes 55-58) - used for editing actions
+     */
+    actionPads: {
+        pads: [55, 56, 57, 58],  // Note numbers
+        indices: [28, 29, 30, 31],  // Indices in topLane.pads
+        colors: {
+            toggleMode: 53,    // Pink
+            insertSilence: 49, // Purple
+            copy: 37,          // Cyan
+            paste: 21          // Green
+        }
+    },
+
+    /**
      * Top lane pad configuration (top four rows, 8x4 = 32 pads)
      */
     topLane: {
@@ -65,13 +79,17 @@ var LaunchpadLane = {
     },
 
     /**
-     * Register marker behaviors for page 1 (one pad per marker)
+     * Register marker behaviors for page 1 (one pad per marker, skip action pads)
      */
     registerMarkerBehaviors: function() {
         var markerBank = Bitwig.getMarkerBank();
         if (!markerBank) return;
+        var self = this;
 
         for (var i = 0; i < this.topLane.pads.length; i++) {
+            // Skip action pad indices (28-31)
+            if (this.actionPads.indices.indexOf(i) !== -1) continue;
+
             var padNote = this.topLane.pads[i];
             (function(markerIndex) {
                 var clickCallback = function() {
@@ -89,7 +107,47 @@ var LaunchpadLane = {
             })(i);
         }
 
-        if (debug) println("Marker behaviors registered for " + this.topLane.pads.length + " pads");
+        if (debug) println("Marker behaviors registered (excluding action pads)");
+    },
+
+    /**
+     * Register action button behaviors for page 1 (pads 55-58)
+     */
+    registerActionBehaviors: function() {
+        var colors = this.actionPads.colors;
+
+        // Pad 55: Toggle Object/Time Selection
+        Launchpad.registerPadBehavior(55, function() {
+            Bitwig.invokeAction(BitwigActions.TOGGLE_OBJECT_TIME_SELECTION);
+            host.showPopupNotification("Toggle Obj/Time Mode");
+        }, null, 1);
+
+        // Pad 56: Insert Silence (hold: Remove Time)
+        Launchpad.registerPadBehavior(56, function() {
+            Bitwig.invokeAction(BitwigActions.INSERT_SILENCE);
+            host.showPopupNotification("Insert Silence");
+        }, function() {
+            Bitwig.invokeAction(BitwigActions.REMOVE_TIME);
+            host.showPopupNotification("Remove Time");
+        }, 1);
+
+        // Pad 57: Copy (hold: Cut = copy + remove time)
+        Launchpad.registerPadBehavior(57, function() {
+            Bitwig._application.copy();
+            host.showPopupNotification("Copy");
+        }, function() {
+            Bitwig.invokeAction(BitwigActions.CUT_TIME);
+            host.showPopupNotification("Cut Time");
+        }, 1);
+
+        // Pad 58: Paste + insert cue marker
+        Launchpad.registerPadBehavior(58, function() {
+            Bitwig._application.paste();
+            Bitwig.invokeAction(BitwigActions.INSERT_CUE_MARKER);
+            host.showPopupNotification("Paste + Marker");
+        }, null, 1);
+
+        if (debug) println("Action behaviors registered for pads 55-58");
     },
 
     /**
@@ -99,16 +157,21 @@ var LaunchpadLane = {
     refresh: function(pageNumber) {
         if (typeof pageNumber === 'undefined') pageNumber = 1;
 
-        // Clear all top lane pads
+        // Clear all top lane pads (except action pads)
         for (var i = 0; i < this.topLane.pads.length; i++) {
-            Pager.requestClear(pageNumber, this.topLane.pads[i]);
+            if (this.actionPads.indices.indexOf(i) === -1) {
+                Pager.requestClear(pageNumber, this.topLane.pads[i]);
+            }
         }
 
-        // Update pads for each marker
+        // Update pads for each marker (skip action pads)
         var markerBank = Bitwig.getMarkerBank();
         if (!markerBank) return;
 
         for (var i = 0; i < this.topLane.pads.length; i++) {
+            // Skip action pad indices
+            if (this.actionPads.indices.indexOf(i) !== -1) continue;
+
             var marker = markerBank.getItemAt(i);
             if (marker && marker.exists().get()) {
                 // Get marker color using getColor() method
@@ -122,7 +185,24 @@ var LaunchpadLane = {
             }
         }
 
+        // Paint action pads with their distinct colors
+        this.refreshActionPads(pageNumber);
+
         if (debug) println("LaunchpadLane refreshed for page " + pageNumber);
+    },
+
+    /**
+     * Refresh action pad colors
+     * @param {number} pageNumber - Page number to paint to (default 1)
+     */
+    refreshActionPads: function(pageNumber) {
+        if (typeof pageNumber === 'undefined') pageNumber = 1;
+        var colors = this.actionPads.colors;
+
+        Pager.requestPaint(pageNumber, 55, colors.toggleMode);    // Pink
+        Pager.requestPaint(pageNumber, 56, colors.insertSilence); // Purple
+        Pager.requestPaint(pageNumber, 57, colors.copy);          // Cyan
+        Pager.requestPaint(pageNumber, 58, colors.paste);         // Green
     },
 
     /**

@@ -7,6 +7,22 @@ var Page_MarkerManager = {
     id: "marker-manager",
     pageNumber: 2,
 
+    /**
+     * Right side action buttons (vertical layout)
+     */
+    actionButtons: {
+        toggleMode: 89,     // Volume button
+        insertSilence: 79,  // Pan button
+        copy: 69,           // Send A button
+        paste: 59,          // Send B button
+        colors: {
+            toggleMode: 53,    // Pink
+            insertSilence: 49, // Purple
+            copy: 37,          // Cyan
+            paste: 21          // Green
+        }
+    },
+
     init: function() {
         if (debug) println("Page_MarkerManager initialized on page " + this.pageNumber);
     },
@@ -15,6 +31,63 @@ var Page_MarkerManager = {
         // Use ProjectExplorer for all page 2 behavior
         ProjectExplorer.registerBehaviors();
         ProjectExplorer.refresh();
+
+        // Register and paint action buttons
+        this.registerActionBehaviors();
+        this.refreshActionButtons();
+    },
+
+    /**
+     * Register action button behaviors for right side buttons
+     */
+    registerActionBehaviors: function() {
+        var btns = this.actionButtons;
+
+        // Note 89 (Volume): Toggle Object/Time Selection
+        Launchpad.registerPadBehavior(btns.toggleMode, function() {
+            Bitwig.invokeAction(BitwigActions.TOGGLE_OBJECT_TIME_SELECTION);
+            host.showPopupNotification("Toggle Obj/Time Mode");
+        }, null, this.pageNumber);
+
+        // Note 79 (Pan): Insert Silence (hold: Remove Time)
+        Launchpad.registerPadBehavior(btns.insertSilence, function() {
+            Bitwig.invokeAction(BitwigActions.INSERT_SILENCE);
+            host.showPopupNotification("Insert Silence");
+        }, function() {
+            Bitwig.invokeAction(BitwigActions.REMOVE_TIME);
+            host.showPopupNotification("Remove Time");
+        }, this.pageNumber);
+
+        // Note 69 (Send A): Copy (hold: Cut Time)
+        Launchpad.registerPadBehavior(btns.copy, function() {
+            Bitwig._application.copy();
+            host.showPopupNotification("Copy");
+        }, function() {
+            Bitwig.invokeAction(BitwigActions.CUT_TIME);
+            host.showPopupNotification("Cut Time");
+        }, this.pageNumber);
+
+        // Note 59 (Send B): Paste + insert cue marker
+        Launchpad.registerPadBehavior(btns.paste, function() {
+            Bitwig._application.paste();
+            Bitwig.invokeAction(BitwigActions.INSERT_CUE_MARKER);
+            host.showPopupNotification("Paste + Marker");
+        }, null, this.pageNumber);
+
+        if (debug) println("Action behaviors registered for right side buttons on page 2");
+    },
+
+    /**
+     * Paint action buttons with their colors
+     */
+    refreshActionButtons: function() {
+        var btns = this.actionButtons;
+        var colors = btns.colors;
+
+        Pager.requestPaint(this.pageNumber, btns.toggleMode, colors.toggleMode);
+        Pager.requestPaint(this.pageNumber, btns.insertSilence, colors.insertSilence);
+        Pager.requestPaint(this.pageNumber, btns.copy, colors.copy);
+        Pager.requestPaint(this.pageNumber, btns.paste, colors.paste);
     },
 
     hide: function() {

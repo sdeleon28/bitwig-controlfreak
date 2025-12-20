@@ -15,6 +15,7 @@ var Page_MainControl = {
     show: function() {
         // Register marker behaviors (one pad per marker)
         LaunchpadLane.registerMarkerBehaviors();
+        LaunchpadLane.registerActionBehaviors();
 
         // Display all main control elements (pass page number to use Pager)
         Controller.refreshGroupDisplay();
