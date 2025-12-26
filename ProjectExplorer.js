@@ -102,6 +102,13 @@ var ProjectExplorer = {
     _loopDuration: 0,
 
     /**
+     * Pad layout state - declarative definition of pads with colors and bar counts
+     * Array of {color: number, bars: number, startBeat: number}
+     * @private
+     */
+    _padLayout: [],
+
+    /**
      * Decrease resolution (zoom out - more bars per pad)
      */
     decreaseResolution: function() {
@@ -224,6 +231,9 @@ var ProjectExplorer = {
         markers.sort(function(a, b) { return a.position - b.position; });
         this._sortedMarkers = markers;  // Cache for jumpToBar
 
+        // Build pad layout accounting for partial pads
+        this.buildPadLayout();
+
         // Get first and last marker positions
         var firstBarBeat = markers[0].position;
         var lastBarBeat = markers[markers.length - 1].position;
@@ -243,42 +253,86 @@ var ProjectExplorer = {
             this._currentPage = this._totalPages - 1;
         }
 
-        // Calculate page offset (in bars)
-        var pageOffsetBars = this._currentPage * barsPerPage;
-
-        // Display pads based on resolution and current page
-        // Each pad represents barsPerPad bars
+        // Display pads based on pad layout (accounts for partial pads)
+        var pageOffsetPads = this._currentPage * 64;
         for (var padIndex = 0; padIndex < 64; padIndex++) {
-            var barIndex = pageOffsetBars + (padIndex * this.barsPerPad);  // First bar of this pad's range
-            var barStartBeat = firstBarBeat + (barIndex * this.beatsPerBar);
+            var globalPadIndex = pageOffsetPads + padIndex;
 
-            // Skip pads beyond content - keep them off (avoids conflict with time selection)
-            if (barStartBeat >= lastContentBeat) {
+            // Skip pads beyond the layout (content end)
+            if (globalPadIndex >= this._padLayout.length) {
                 continue;
             }
 
-            // Find color: closest marker at or before this bar
-            var padColor = null;
-            for (var m = markers.length - 1; m >= 0; m--) {
-                if (markers[m].position <= barStartBeat) {
-                    padColor = markers[m].color;
-                    break;
-                }
+            var padDesc = this._padLayout[globalPadIndex];
+            var padColor = padDesc.color;
+
+            // Override with white if pad is within loop range
+            if (this.isPadInLoopRange(padIndex)) {
+                padColor = Launchpad.colors.white;
             }
 
-            if (padColor !== null) {
-                // Override with white if pad is within loop range
-                if (this.isPadInLoopRange(padIndex)) {
-                    padColor = Launchpad.colors.white;
-                }
-                Pager.requestPaint(this.pageNumber, this.pads[padIndex], padColor);
-            }
+            Pager.requestPaint(this.pageNumber, this.pads[padIndex], padColor);
         }
 
         // Update page buttons
         this.refreshPageButtons();
 
         if (debug) println("ProjectExplorer refreshed (barsPerPad: " + this.barsPerPad + ", page: " + (this._currentPage + 1) + "/" + this._totalPages + ")");
+    },
+
+    /**
+     * Build pad layout accounting for partial pads at marker boundaries
+     * Creates a declarative definition of all pads with their colors and bar counts
+     * @private
+     */
+    buildPadLayout: function() {
+        if (this._sortedMarkers.length === 0) {
+            this._padLayout = [];
+            return;
+        }
+
+        this._padLayout = [];
+        var currentBeat = this._sortedMarkers[0].position;
+        var currentMarkerIndex = 0;
+        var currentColor = this._sortedMarkers[0].color;
+
+        // Calculate content end: last marker + one pad's worth
+        var lastMarkerBeat = this._sortedMarkers[this._sortedMarkers.length - 1].position;
+        var contentEndBeat = lastMarkerBeat + (this.barsPerPad * this.beatsPerBar);
+
+        // Build layout until we pass content end
+        while (currentBeat < contentEndBeat) {
+            // Check if we're exactly at a marker boundary (catches markers at pad boundaries)
+            while (currentMarkerIndex + 1 < this._sortedMarkers.length &&
+                   this._sortedMarkers[currentMarkerIndex + 1].position <= currentBeat) {
+                currentMarkerIndex++;
+                currentColor = this._sortedMarkers[currentMarkerIndex].color;
+            }
+
+            var theoreticalEndBeat = currentBeat + (this.barsPerPad * this.beatsPerBar);
+
+            // Check if next marker interrupts this pad
+            var nextMarkerIndex = currentMarkerIndex + 1;
+            var actualEndBeat = theoreticalEndBeat;
+            var actualBars = this.barsPerPad;
+
+            if (nextMarkerIndex < this._sortedMarkers.length) {
+                var nextMarkerBeat = this._sortedMarkers[nextMarkerIndex].position;
+                if (nextMarkerBeat > currentBeat && nextMarkerBeat < theoreticalEndBeat) {
+                    // Partial pad - marker interrupts
+                    actualEndBeat = nextMarkerBeat;
+                    actualBars = (nextMarkerBeat - currentBeat) / this.beatsPerBar;
+                }
+            }
+
+            this._padLayout.push({
+                color: currentColor,
+                bars: actualBars,
+                startBeat: currentBeat
+            });
+
+            currentBeat = actualEndBeat;
+        }
     },
 
     /**
@@ -382,19 +436,11 @@ var ProjectExplorer = {
      * @returns {number|null} Launchpad color or null
      */
     getColorForPad: function(padIndex) {
-        if (this._sortedMarkers.length === 0) return null;
-        var firstBarBeat = this._sortedMarkers[0].position;
-        // Account for page offset
-        var pageOffsetBars = this._currentPage * 64 * this.barsPerPad;
-        var barIndex = pageOffsetBars + (padIndex * this.barsPerPad);
-        var barStartBeat = firstBarBeat + (barIndex * this.beatsPerBar);
+        var pageOffsetPads = this._currentPage * 64;
+        var globalPadIndex = pageOffsetPads + padIndex;
 
-        for (var m = this._sortedMarkers.length - 1; m >= 0; m--) {
-            if (this._sortedMarkers[m].position <= barStartBeat) {
-                return this._sortedMarkers[m].color;
-            }
-        }
-        return null;
+        if (globalPadIndex >= this._padLayout.length) return null;
+        return this._padLayout[globalPadIndex].color;
     },
 
     /**
@@ -500,7 +546,13 @@ var ProjectExplorer = {
 
             // Calculate beats and make time selection
             var startBeat = this.getBeatForPad(startPad);
-            var endBeat = this.getBeatForPad(endPad + 1);  // End of last pad
+
+            // Calculate end beat for endPad - account for partial pads
+            var pageOffsetPads = this._currentPage * 64;
+            var globalEndPadIndex = pageOffsetPads + endPad;
+            var endPadDesc = this._padLayout[globalEndPadIndex];
+            var endBeat = endPadDesc.startBeat + (endPadDesc.bars * this.beatsPerBar);
+
             Bitwig.setTimeSelection(startBeat, endBeat);
 
             // Clear original colors so they won't be restored on modifier release
@@ -560,11 +612,11 @@ var ProjectExplorer = {
      * @returns {number} Beat position
      */
     getBeatForPad: function(padIndex) {
-        if (this._sortedMarkers.length === 0) return 0;
-        var firstBarBeat = this._sortedMarkers[0].position;
-        var pageOffsetBars = this._currentPage * 64 * this.barsPerPad;
-        var barIndex = pageOffsetBars + (padIndex * this.barsPerPad);
-        return firstBarBeat + (barIndex * this.beatsPerBar);
+        var pageOffsetPads = this._currentPage * 64;
+        var globalPadIndex = pageOffsetPads + padIndex;
+
+        if (globalPadIndex >= this._padLayout.length) return 0;
+        return this._padLayout[globalPadIndex].startBeat;
     },
 
     // ========================================================================
