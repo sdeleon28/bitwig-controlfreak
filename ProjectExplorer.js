@@ -195,6 +195,51 @@ var ProjectExplorer = {
     },
 
     /**
+     * Auto-calculate the best resolution to fit all content on one page
+     * Finds the smallest barsPerPad that fits everything in 64 pads
+     */
+    autoResolution: function() {
+        var markerBank = Bitwig.getMarkerBank();
+        if (!markerBank) return;
+
+        // Build list of marker positions
+        var positions = [];
+        for (var i = 0; i < 32; i++) {
+            var marker = markerBank.getItemAt(i);
+            if (marker && marker.exists().get()) {
+                positions.push(marker.position().get());
+            }
+        }
+
+        if (positions.length === 0) return;
+
+        // Get first and last marker positions
+        positions.sort(function(a, b) { return a - b; });
+        var firstBeat = positions[0];
+        var lastBeat = positions[positions.length - 1];
+
+        // Total content: from first marker to last marker + 1 pad buffer
+        var contentBars = Math.ceil((lastBeat - firstBeat) / this.beatsPerBar) + 1;
+
+        // Find smallest barsPerPad that fits in 64 pads
+        var resolutions = [1, 2, 4, 8, 16, 32];
+        for (var i = 0; i < resolutions.length; i++) {
+            var bpp = resolutions[i];
+            var padsNeeded = Math.ceil(contentBars / bpp);
+            if (padsNeeded <= 64) {
+                this.barsPerPad = bpp;
+                this._currentPage = 0;
+                if (debug) println("ProjectExplorer: Auto-resolution set to " + bpp + " bars/pad (" + padsNeeded + " pads needed)");
+                return;
+            }
+        }
+
+        // Fallback to max resolution if content is huge
+        this.barsPerPad = 32;
+        this._currentPage = 0;
+    },
+
+    /**
      * Refresh bar-based display (one pad per bar, colored by closest previous marker)
      */
     refresh: function() {

@@ -30,6 +30,7 @@ var Page_MarkerManager = {
     show: function() {
         // Use ProjectExplorer for all page 2 behavior
         ProjectExplorer.registerBehaviors();
+        ProjectExplorer.autoResolution();  // Auto-fit content to one page
         ProjectExplorer.refresh();
 
         // Register and paint action buttons
