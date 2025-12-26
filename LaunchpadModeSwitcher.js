@@ -11,7 +11,7 @@ var LaunchpadModeSwitcher = {
         PAN: 'pan',
         SEND_A: 'sendA',
         SEND_B: 'sendB',
-        STOP: 'stop',
+        SELECT: 'select',
         MUTE: 'mute',
         SOLO: 'solo',
         RECORD_ARM: 'recordArm'
@@ -25,7 +25,7 @@ var LaunchpadModeSwitcher = {
         pan: { note: 79, color: Launchpad.colors.pink },
         sendA: { note: 69, color: Launchpad.colors.purple },
         sendB: { note: 59, color: Launchpad.colors.purple },
-        stop: { note: 49, color: Launchpad.colors.blue },
+        select: { note: 49, color: Launchpad.colors.white },
         mute: { note: 39, color: Launchpad.colors.amber },
         solo: { note: 29, color: Launchpad.colors.yellow },
         recordArm: { note: 19, color: Launchpad.colors.red }      // Bottom
@@ -190,8 +190,8 @@ var LaunchpadModeSwitcher = {
             self.selectPadMode('sendA');
         }, null, page);
 
-        // Stop button = select mode (select track + remote controls)
-        Launchpad.registerPadBehavior(modes.stop.note, function() {
+        // Select mode button (select track + remote controls)
+        Launchpad.registerPadBehavior(modes.select.note, function() {
             self.selectPadMode('select');
         }, null, page);
 
