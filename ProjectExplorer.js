@@ -86,13 +86,13 @@ var ProjectExplorer = {
     _timeSelectActive: false,
     _timeSelectStartPad: null,
     _timeSelectOriginalColors: {},
-    _timeSelectLastPress: 0,  // For double-click detection
 
     /**
-     * Copy selection gesture state
+     * Whether to highlight selection range on pads (toggle with double-click)
      * @private
      */
-    _copySelectActive: false,
+    _highlightSelectionEnabled: true,
+
 
     /**
      * Loop range state (from Bitwig observers)
@@ -479,25 +479,16 @@ var ProjectExplorer = {
 
     /**
      * Handle time select modifier press (Record Arm button)
-     * Double-click clears the time selection
+     * Starts the time selection gesture
      */
     handleTimeSelectModifierPress: function() {
-        var now = Date.now();
-        var doubleClickThreshold = 400;  // ms
-
-        if (now - this._timeSelectLastPress < doubleClickThreshold) {
-            // Double-click: clear time selection
-            Bitwig.clearTimeSelection();
-            this._timeSelectLastPress = 0;
-            return;
-        }
-
-        this._timeSelectLastPress = now;
         this._timeSelectActive = true;
         this._timeSelectStartPad = null;
         this._timeSelectOriginalColors = {};
-        // Light modifier button white
-        Launchpad.setPadColor(this.modifiers.timeSelect, Launchpad.colors.white);
+        // Light based on current highlight mode
+        var color = this._highlightSelectionEnabled ?
+            Launchpad.colors.white : Launchpad.colors.red;
+        Launchpad.setPadColor(this.modifiers.timeSelect, color);
     },
 
     /**
@@ -506,8 +497,25 @@ var ProjectExplorer = {
     handleTimeSelectModifierRelease: function() {
         // Reset gesture state
         this.resetTimeSelectGesture();
-        // Restore modifier button to normal (red for recordArm)
-        Launchpad.setPadColor(this.modifiers.timeSelect, Launchpad.colors.red);
+        // Restore to mode-based color
+        var color = this._highlightSelectionEnabled ?
+            Launchpad.colors.white : Launchpad.colors.red;
+        Launchpad.setPadColor(this.modifiers.timeSelect, color);
+    },
+
+    /**
+     * Handle double-click on time select modifier
+     * Toggles highlight selection display mode
+     */
+    handleTimeSelectDoubleClick: function() {
+        this._highlightSelectionEnabled = !this._highlightSelectionEnabled;
+        var state = this._highlightSelectionEnabled ? "ON" : "OFF";
+        host.showPopupNotification("Toggled selection highlight to " + state);
+        this.refresh();
+        // Update button color
+        var color = this._highlightSelectionEnabled ?
+            Launchpad.colors.white : Launchpad.colors.red;
+        Launchpad.setPadColor(this.modifiers.timeSelect, color);
     },
 
     /**
@@ -593,6 +601,7 @@ var ProjectExplorer = {
      * @returns {boolean} True if pad is within loop range
      */
     isPadInLoopRange: function(padIndex) {
+        if (!this._highlightSelectionEnabled) return false;
         if (this._loopDuration <= 0) return false;
         if (this._sortedMarkers.length === 0) return false;
 
@@ -617,49 +626,4 @@ var ProjectExplorer = {
         return this._padLayout[globalPadIndex].startBeat;
     },
 
-    // ========================================================================
-    // Copy Time Selection Gesture
-    // ========================================================================
-
-    /**
-     * Handle copy select modifier press (Solo button)
-     */
-    handleCopySelectModifierPress: function() {
-        if (this._loopDuration <= 0) {
-            host.showPopupNotification("No time selection");
-            return;
-        }
-        this._copySelectActive = true;
-        Launchpad.setPadColor(this.modifiers.copySelect, Launchpad.colors.white);
-    },
-
-    /**
-     * Handle copy select modifier release
-     */
-    handleCopySelectModifierRelease: function() {
-        this._copySelectActive = false;
-        Launchpad.setPadColor(this.modifiers.copySelect, Launchpad.colors.blue);
-    },
-
-    /**
-     * Handle pad press during copy selection gesture
-     * @param {number} padNote - MIDI note number of pressed pad
-     */
-    handleCopySelectPadPress: function(padNote) {
-        var padIndex = this.pads.indexOf(padNote);
-        if (padIndex === -1) return;
-
-        var destBeat = this.getBeatForPad(padIndex);
-        this.performDuplicateTime(destBeat);
-    },
-
-    /**
-     * Duplicate the current time selection to a destination position
-     * @param {number} destBeat - Destination beat position
-     */
-    performDuplicateTime: function(destBeat) {
-        // TODO: Implement copy time selection feature
-        // Workflow needs: time selection, mode switching, insert silence, split, copy, paste
-        host.showPopupNotification("Copy feature not yet implemented");
-    }
 };

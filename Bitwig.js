@@ -167,11 +167,10 @@ var Bitwig = {
     },
 
     /**
-     * Clear time selection by setting loop duration to 0
+     * Clear time selection using Unselect All action
      */
     clearTimeSelection: function() {
-        if (!this._transport) return;
-        this._transport.arrangerLoopDuration().set(0);
+        this.invokeAction(BitwigActions.UNSELECT_ALL);
         if (debug) println("Time selection cleared");
     },
 

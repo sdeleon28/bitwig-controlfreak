@@ -5,8 +5,15 @@
 var Launchpad = {
     // Hold timing configuration (milliseconds)
     holdTiming: {
-        hold: 400  // Time to hold button before triggering hold action
+        hold: 400,           // Time to hold button before triggering hold action
+        clickThreshold: 400  // Time window for multi-click detection
     },
+
+    /**
+     * Click tracking state for multi-click detection
+     * @private
+     */
+    _clickTracking: {},
 
     // Launchpad color constants
     colors: {
@@ -432,5 +439,77 @@ var Launchpad = {
         padTimer.pressTime = null;
 
         return true;  // Handled
+    },
+
+    // ========================================================================
+    // Multi-Click Tracking Helpers
+    // ========================================================================
+
+    /**
+     * Track a pad press for multi-click detection
+     * Call this when a pad is pressed to record the timestamp
+     * @param {number} padNote - MIDI note number
+     */
+    trackPadPress: function(padNote) {
+        if (!this._clickTracking[padNote]) {
+            this._clickTracking[padNote] = {
+                pressTime: null,
+                clickCount: 0,
+                lastClickTime: 0
+            };
+        }
+        this._clickTracking[padNote].pressTime = Date.now();
+    },
+
+    /**
+     * Track a pad release and determine click type
+     * Call this when a pad is released to get the click type
+     * @param {number} padNote - MIDI note number
+     * @returns {string} Click type: 'double', 'triple', or null (single/pending)
+     */
+    trackPadRelease: function(padNote) {
+        var tracking = this._clickTracking[padNote];
+        if (!tracking) {
+            return null;
+        }
+
+        var now = Date.now();
+
+        // Multi-click counting
+        if (now - tracking.lastClickTime < this.holdTiming.clickThreshold) {
+            tracking.clickCount++;
+        } else {
+            tracking.clickCount = 1;
+        }
+        tracking.lastClickTime = now;
+        tracking.pressTime = null;
+
+        // Triple-click: fire immediately
+        if (tracking.clickCount >= 3) {
+            this._resetClickTracking(padNote);
+            return 'triple';
+        }
+
+        // Double-click: fire immediately
+        if (tracking.clickCount >= 2) {
+            this._resetClickTracking(padNote);
+            return 'double';
+        }
+
+        // Single click - return null (caller handles single-click behavior)
+        return null;
+    },
+
+    /**
+     * Reset click tracking state for a pad
+     * @param {number} padNote - MIDI note number
+     * @private
+     */
+    _resetClickTracking: function(padNote) {
+        if (this._clickTracking[padNote]) {
+            this._clickTracking[padNote].clickCount = 0;
+            this._clickTracking[padNote].lastClickTime = 0;
+            this._clickTracking[padNote].pressTime = null;
+        }
     }
 };

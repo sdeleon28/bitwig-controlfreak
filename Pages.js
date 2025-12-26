@@ -88,7 +88,9 @@ var Pages = {
         // Reset any active ProjectExplorer time select gesture on main page switch
         if (ProjectExplorer._timeSelectActive) {
             ProjectExplorer.resetTimeSelectGesture();
-            Launchpad.setPadColor(ProjectExplorer.modifiers.timeSelect, Launchpad.colors.red);
+            var color = ProjectExplorer._highlightSelectionEnabled ?
+                Launchpad.colors.white : Launchpad.colors.red;
+            Launchpad.setPadColor(ProjectExplorer.modifiers.timeSelect, color);
         }
 
         var oldPage = this.getCurrentPage();

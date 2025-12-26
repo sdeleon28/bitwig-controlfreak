@@ -102,6 +102,7 @@ var Page_MarkerManager = {
     handlePadPress: function(padNote) {
         // Check for time select modifier (Record Arm button)
         if (padNote === ProjectExplorer.modifiers.timeSelect) {
+            Launchpad.trackPadPress(padNote);  // Track for double-click detection
             ProjectExplorer.handleTimeSelectModifierPress();
             return true;
         }
@@ -130,6 +131,11 @@ var Page_MarkerManager = {
     handlePadRelease: function(padNote) {
         // Check for time select modifier release
         if (padNote === ProjectExplorer.modifiers.timeSelect) {
+            // Check for double-click gesture
+            var clickType = Launchpad.trackPadRelease(padNote);
+            if (clickType === 'double') {
+                ProjectExplorer.handleTimeSelectDoubleClick();
+            }
             ProjectExplorer.handleTimeSelectModifierRelease();
             return true;
         }
