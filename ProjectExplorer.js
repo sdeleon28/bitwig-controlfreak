@@ -342,11 +342,9 @@ var ProjectExplorer = {
     jumpToBar: function(padIndex) {
         if (this._sortedMarkers.length === 0) return;
 
-        var firstBarBeat = this._sortedMarkers[0].position;
-        // Convert pad index to bar index based on resolution and current page
-        var pageOffsetBars = this._currentPage * 64 * this.barsPerPad;
-        var barIndex = pageOffsetBars + (padIndex * this.barsPerPad);
-        var targetBeat = firstBarBeat + (barIndex * this.beatsPerBar);
+        // Use pad layout to get correct beat position (accounts for partial pads)
+        var targetBeat = this.getBeatForPad(padIndex);
+        if (targetBeat === 0 && padIndex > 0) return;  // Invalid pad
 
         // Set play start position to target bar, then launch (quantized)
         var transport = Bitwig.getTransport();
@@ -358,7 +356,7 @@ var ProjectExplorer = {
         // Set this pad as queued (pulsing)
         this.setQueuedPad(padIndex);
 
-        if (debug) println("ProjectExplorer: Launched to bar " + barIndex + " (beat " + targetBeat + ")");
+        if (debug) println("ProjectExplorer: Jump to pad " + padIndex + " (beat " + targetBeat + ")");
     },
 
     /**
