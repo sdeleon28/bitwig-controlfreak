@@ -87,11 +87,6 @@ var ProjectExplorer = {
     _timeSelectStartPad: null,
     _timeSelectOriginalColors: {},
 
-    /**
-     * Whether to highlight selection range on pads (toggle with double-click)
-     * @private
-     */
-    _highlightSelectionEnabled: true,
 
 
     /**
@@ -524,43 +519,22 @@ var ProjectExplorer = {
 
     /**
      * Handle time select modifier press (Record Arm button)
-     * Starts the time selection gesture
+     * Starts the time selection gesture and hides loop highlighting
      */
     handleTimeSelectModifierPress: function() {
         this._timeSelectActive = true;
         this._timeSelectStartPad = null;
         this._timeSelectOriginalColors = {};
-        // Light based on current highlight mode
-        var color = this._highlightSelectionEnabled ?
-            Launchpad.colors.white : Launchpad.colors.red;
-        Launchpad.setPadColor(this.modifiers.timeSelect, color);
+        Launchpad.setPadColor(this.modifiers.timeSelect, Launchpad.colors.white);
+        this.refresh();  // Refresh to hide loop range highlighting
     },
 
     /**
      * Handle time select modifier release
      */
     handleTimeSelectModifierRelease: function() {
-        // Reset gesture state
         this.resetTimeSelectGesture();
-        // Restore to mode-based color
-        var color = this._highlightSelectionEnabled ?
-            Launchpad.colors.white : Launchpad.colors.red;
-        Launchpad.setPadColor(this.modifiers.timeSelect, color);
-    },
-
-    /**
-     * Handle double-click on time select modifier
-     * Toggles highlight selection display mode
-     */
-    handleTimeSelectDoubleClick: function() {
-        this._highlightSelectionEnabled = !this._highlightSelectionEnabled;
-        var state = this._highlightSelectionEnabled ? "ON" : "OFF";
-        host.showPopupNotification("Toggled selection highlight to " + state);
-        this.refresh();
-        // Update button color
-        var color = this._highlightSelectionEnabled ?
-            Launchpad.colors.white : Launchpad.colors.red;
-        Launchpad.setPadColor(this.modifiers.timeSelect, color);
+        Launchpad.setPadColor(this.modifiers.timeSelect, Launchpad.colors.red);
     },
 
     /**
@@ -618,19 +592,13 @@ var ProjectExplorer = {
     },
 
     /**
-     * Reset time selection gesture state and restore pad colors
+     * Reset time selection gesture state and restore display
      */
     resetTimeSelectGesture: function() {
-        // Restore original pad colors
-        for (var padIndex in this._timeSelectOriginalColors) {
-            var color = this._timeSelectOriginalColors[padIndex];
-            if (color !== null) {
-                Pager.requestPaint(this.pageNumber, this.pads[padIndex], color);
-            }
-        }
         this._timeSelectActive = false;
         this._timeSelectStartPad = null;
         this._timeSelectOriginalColors = {};
+        this.refresh();  // Refresh to restore loop range highlighting
     },
 
     /**
@@ -638,8 +606,8 @@ var ProjectExplorer = {
      * Called by observers on arrangerLoopStart and arrangerLoopDuration.
      */
     refreshLoopHighlight: function() {
-        // Only refresh if we're on the ProjectExplorer page
         if (Pager.getActivePage() !== this.pageNumber) return;
+        if (this._timeSelectActive) return;  // Don't refresh while gesture is active
         this.refresh();
     },
 
@@ -649,7 +617,7 @@ var ProjectExplorer = {
      * @returns {boolean} True if pad is within loop range
      */
     isPadInLoopRange: function(padIndex) {
-        if (!this._highlightSelectionEnabled) return false;
+        if (this._timeSelectActive) return false;  // Hide while gesture active
         if (this._loopDuration <= 0) return false;
         if (this._sortedMarkers.length === 0) return false;
 
