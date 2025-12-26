@@ -606,6 +606,9 @@ var ProjectExplorer = {
 
             Bitwig.setTimeSelection(startBeat, endBeat);
 
+            // Reset click tracking so next gesture doesn't trigger double-click
+            Launchpad._resetClickTracking(this.modifiers.timeSelect);
+
             // Clear original colors so they won't be restored on modifier release
             // The loop observers will handle painting via refresh()
             this._timeSelectOriginalColors = {};
