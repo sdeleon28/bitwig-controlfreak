@@ -36,6 +36,7 @@ load('Page_MainControl.js');
 load('Page_ClipLauncher.js');
 load('Page_MarkerManager.js');
 load('Page_DebugActions.js');
+load('Page_ColorPalette.js');
 
 // Layer 6: Orchestrator
 load('Controller.js');
@@ -485,6 +486,8 @@ function init() {
     Pages.registerPage(Page_MarkerManager);   // Page 2: Detailed marker manager
     Pages.registerPage(Page_ClipLauncher);    // Page 3: Clip launcher
     Pages.registerPage(Page_DebugActions);    // Page 4: Debug actions for testing
+    Pages.registerPage(Page_ColorPalette);    // Page 5: Color palette (colors 0-63)
+    Pages.registerPage(Page_ColorPalette2);   // Page 6: Color palette (colors 64-127)
 
     // Initialize pagination system (after pages registered)
     Pages.init();
