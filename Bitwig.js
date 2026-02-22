@@ -495,6 +495,5 @@ class BitwigHW {
     }
 }
 
-var Bitwig = {};
 
 if (typeof module !== 'undefined') module.exports = BitwigHW;

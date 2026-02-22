@@ -172,6 +172,23 @@ function printTrackTree(tree) {
 function init() {
     transport = host.createTransport();
 
+    // Create main track bank to access all tracks (flat list including nested tracks)
+    // 64 tracks, 8 sends (for FX routing), 0 scenes
+    trackBank = host.createMainTrackBank(64, 8, 0);
+
+    // Create effect track bank to access FX/return tracks
+    // 8 effect tracks, 0 scenes
+    var effectTrackBank = host.createEffectTrackBank(8, 0);
+
+    // Initialize Bitwig with track bank and transport
+    Bitwig = new BitwigHW({
+        host: host,
+        bitwigActions: BitwigActions,
+        debug: debug,
+        println: println
+    });
+    Bitwig.init(trackBank, transport, effectTrackBank);
+
     // Launchpad on port 0
     launchpadOut = host.getMidiOutPort(0);
     launchpadOut.setShouldSendMidiBeatClock(true);  // Sync flashing/pulsing to project BPM
@@ -206,23 +223,6 @@ function init() {
     host.getMidiInPort(1).setMidiCallback(function(status, data1, data2) {
         Controller.onTwisterMidi(status, data1, data2);
     });
-
-    // Create main track bank to access all tracks (flat list including nested tracks)
-    // 64 tracks, 8 sends (for FX routing), 0 scenes
-    trackBank = host.createMainTrackBank(64, 8, 0);
-
-    // Create effect track bank to access FX/return tracks
-    // 8 effect tracks, 0 scenes
-    var effectTrackBank = host.createEffectTrackBank(8, 0);
-
-    // Initialize Bitwig with track bank and transport
-    Bitwig = new BitwigHW({
-        host: host,
-        bitwigActions: BitwigActions,
-        debug: debug,
-        println: println
-    });
-    Bitwig.init(trackBank, transport, effectTrackBank);
 
     // Create cursor track that follows selection (for select mode + remote controls)
     var cursorTrack = host.createCursorTrack("cursor", "Cursor", 0, 0, true);
