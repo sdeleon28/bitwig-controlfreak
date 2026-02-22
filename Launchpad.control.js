@@ -521,6 +521,11 @@ function init() {
     ClipLauncher.init();
 
     // Initialize Roland Piano transpose
+    RolandPiano = new RolandPianoHW({
+        host: host,
+        debug: debug,
+        println: println
+    });
     RolandPiano.init();
 
     // Initialize nanoKEY2 on port 3
@@ -549,7 +554,37 @@ function init() {
     });
 
     // Initialize Pager (reactive page state manager)
+    Pager = new PagerHW({
+        launchpad: Launchpad,
+        debug: debug,
+        println: println
+    });
     Pager.init();
+
+    // Initialize ProjectExplorer (after Pager, before Pages)
+    ProjectExplorer = new ProjectExplorerHW({
+        bitwig: Bitwig,
+        launchpad: Launchpad,
+        pager: Pager,
+        host: host,
+        debug: debug,
+        println: println
+    });
+
+    // Initialize Pages (after Pager + ProjectExplorer, before registerPage calls)
+    Pages = new PagesHW({
+        pager: Pager,
+        launchpad: Launchpad,
+        projectExplorer: ProjectExplorer,
+        debug: debug,
+        println: println
+    });
+
+    // Fix stale refs: LaunchpadLane and LaunchpadTopButtons were constructed before Pager/Pages/ProjectExplorer
+    LaunchpadLane.pager = Pager;
+    LaunchpadTopButtons.pager = Pager;
+    LaunchpadTopButtons.pages = Pages;
+    LaunchpadTopButtons.projectExplorer = ProjectExplorer;
 
     // Initialize Page_MainControl (before LaunchpadModeSwitcher which depends on it)
     Page_MainControl = new PageMainControlHW({

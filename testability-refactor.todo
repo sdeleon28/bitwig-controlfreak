@@ -64,10 +64,10 @@ list of files:
 [X] `Page_DebugActions.js`
 [X] `Page_MainControl.js`
 [X] `Page_MarkerManager.js`
-[ ] `Pager.js`
-[ ] `Pages.js`
-[ ] `ProjectExplorer.js`
-[ ] `RolandPiano.js`
+[X] `Pager.js`
+[X] `Pages.js`
+[X] `ProjectExplorer.js`
+[X] `RolandPiano.js`
 [ ] `ClipLauncher.js`
 [ ] `Bitwig.js`
 [ ] `BitwigActions.js`
