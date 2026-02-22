@@ -468,3 +468,5 @@ var BitwigActions = {
     NUDGE_ZONE_DOWN: "nudge_zone_down",
     NUDGE_ZONE_DOWN_COARSE: "coarse_nudge_zone_down"
 };
+
+if (typeof module !== 'undefined') module.exports = BitwigActions;

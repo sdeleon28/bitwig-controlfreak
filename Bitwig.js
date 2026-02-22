@@ -1,100 +1,52 @@
 /**
  * Bitwig API abstraction
- * @namespace
  */
-var Bitwig = {
-    /**
-     * Internal reference to track bank
-     * @private
-     */
-    _trackBank: null,
+class BitwigHW {
+    constructor(deps) {
+        this.host = deps.host;
+        this.bitwigActions = deps.bitwigActions;
+        this.debug = deps.debug;
+        this.println = deps.println;
 
-    /**
-     * Cached track tree structure
-     * @private
-     */
-    _trackTree: null,
-
-    /**
-     * Track depth information
-     * @private
-     */
-    _trackDepths: [],
-
-    /**
-     * Arranger for accessing markers
-     * @private
-     */
-    _arranger: null,
-
-    /**
-     * Marker bank for cue markers
-     * @private
-     */
-    _markerBank: null,
-
-    /**
-     * Transport for playback control
-     * @private
-     */
-    _transport: null,
-
-    /**
-     * Application object for invoking actions
-     * @private
-     */
-    _application: null,
-
-    /**
-     * Effect track bank for FX/return tracks
-     * @private
-     */
-    _effectTrackBank: null,
-
-    /**
-     * Cached FX tracks with [N] naming pattern
-     * @private
-     */
-    _fxTracks: [],
-
-    /**
-     * Cursor track that follows selection
-     * @private
-     */
-    _cursorTrack: null,
-
-    /**
-     * Cursor device that follows first device on selected track
-     * @private
-     */
-    _cursorDevice: null,
-
-    /**
-     * Remote controls page for cursor device (8 params)
-     * @private
-     */
-    _remoteControls: null,
+        this._trackBank = null;
+        this._trackTree = null;
+        this._trackDepths = [];
+        this._arranger = null;
+        this._markerBank = null;
+        this._transport = null;
+        this._application = null;
+        this._effectTrackBank = null;
+        this._fxTracks = [];
+        this._cursorTrack = null;
+        this._cursorDevice = null;
+        this._remoteControls = null;
+    }
 
     /**
      * Initialize Bitwig API
      * @param {Object} trackBank - Bitwig track bank object
      * @param {Object} transport - Bitwig transport object
+     * @param {Object} [effectTrackBank] - Bitwig effect track bank object
      */
-    init: function(trackBank, transport) {
+    init(trackBank, transport, effectTrackBank) {
         this._trackBank = trackBank;
         this._transport = transport;
         this._trackDepths = [];
         this._trackTree = null;
 
+        if (effectTrackBank) {
+            this._effectTrackBank = effectTrackBank;
+        }
+
         // Create arranger and marker bank
-        this._arranger = host.createArranger();
-        if (debug) println("Arranger created: " + this._arranger);
+        this._arranger = this.host.createArranger();
+        if (this.debug) this.println("Arranger created: " + this._arranger);
 
         if (this._arranger && this._arranger.createCueMarkerBank) {
             this._markerBank = this._arranger.createCueMarkerBank(32);
-            if (debug) println("Marker bank created with 32 markers");
+            if (this.debug) this.println("Marker bank created with 32 markers");
         } else {
-            println("WARNING: createCueMarkerBank not available on arranger object");
+            this.println("WARNING: createCueMarkerBank not available on arranger object");
             this._markerBank = null;
         }
 
@@ -122,31 +74,31 @@ var Bitwig = {
         }
 
         // Create application object for actions
-        this._application = host.createApplication();
-    },
+        this._application = this.host.createApplication();
+    }
 
     /**
      * Get marker bank
      * @returns {Object|null} Marker bank or null
      */
-    getMarkerBank: function() {
+    getMarkerBank() {
         return this._markerBank;
-    },
+    }
 
     /**
      * Get transport
      * @returns {Object|null} Transport or null
      */
-    getTransport: function() {
+    getTransport() {
         return this._transport;
-    },
+    }
 
     /**
      * Set time selection (loop range) in arrangement
      * @param {number} startBeats - Start position in beats
      * @param {number} endBeats - End position in beats
      */
-    setTimeSelection: function(startBeats, endBeats) {
+    setTimeSelection(startBeats, endBeats) {
         if (!this._transport) return;
 
         // Set loop start position
@@ -161,38 +113,38 @@ var Bitwig = {
             loopDuration.set(endBeats - startBeats);
         }
 
-        if (debug) {
-            println("Time selection set: " + startBeats + " to " + endBeats + " beats");
+        if (this.debug) {
+            this.println("Time selection set: " + startBeats + " to " + endBeats + " beats");
         }
-    },
+    }
 
     /**
      * Clear time selection using Unselect All action
      */
-    clearTimeSelection: function() {
-        this.invokeAction(BitwigActions.UNSELECT_ALL);
-        if (debug) println("Time selection cleared");
-    },
+    clearTimeSelection() {
+        this.invokeAction(this.bitwigActions.UNSELECT_ALL);
+        if (this.debug) this.println("Time selection cleared");
+    }
 
     /**
      * Move playhead to position
      * @param {number} beats - Position in beats
      */
-    setPlayheadPosition: function(beats) {
+    setPlayheadPosition(beats) {
         if (!this._transport) return;
 
         this._transport.setPosition(beats);
 
-        if (debug) {
-            println("Playhead set to: " + beats + " beats");
+        if (this.debug) {
+            this.println("Playhead set to: " + beats + " beats");
         }
-    },
+    }
 
     /**
      * Move playhead by a number of bars
      * @param {number} bars - Number of bars to move (positive = forward, negative = backward)
      */
-    movePlayheadByBars: function(bars) {
+    movePlayheadByBars(bars) {
         if (!this._transport) return;
 
         // Get current playhead position
@@ -215,16 +167,16 @@ var Bitwig = {
         // Set new position
         this._transport.setPosition(newBeats);
 
-        if (debug) {
-            println("Moved playhead by " + bars + " bars: " + currentBeats + " -> " + newBeats + " beats");
+        if (this.debug) {
+            this.println("Moved playhead by " + bars + " bars: " + currentBeats + " -> " + newBeats + " beats");
         }
-    },
+    }
 
     /**
      * Enable arrangement recording
      * @param {boolean} enabled - True to enable
      */
-    setArrangementRecord: function(enabled) {
+    setArrangementRecord(enabled) {
         if (!this._transport) return;
 
         var recordEnabled = this._transport.isArrangerRecordEnabled();
@@ -232,29 +184,29 @@ var Bitwig = {
             recordEnabled.set(enabled);
         }
 
-        if (debug) {
-            println("Arrangement record: " + enabled);
+        if (this.debug) {
+            this.println("Arrangement record: " + enabled);
         }
-    },
+    }
 
     /**
      * Get track by ID
      * @param {number} id - Track ID (0-63)
      * @returns {Object|null} Track object or null if not found
      */
-    getTrack: function(id) {
+    getTrack(id) {
         if (!this._trackBank || id === undefined || id === null || id < 0 || id >= 64) {
             return null;
         }
         var track = this._trackBank.getItemAt(id);
         return track.exists().get() ? track : null;
-    },
+    }
 
     /**
      * Get hierarchical track tree
      * @returns {BitwigTrack[]} Array of top-level tracks with nested children
      */
-    getTrackTree: function() {
+    getTrackTree() {
         if (this._trackTree) {
             return this._trackTree;
         }
@@ -288,14 +240,14 @@ var Bitwig = {
 
         this._trackTree = tree;
         return tree;
-    },
+    }
 
     /**
      * Get child tracks of a group
      * @param {number} id - Group track ID
      * @returns {BitwigTrack[]} Array of child tracks
      */
-    getTrackChildren: function(id) {
+    getTrackChildren(id) {
         var tree = this.getTrackTree();
 
         // Find track in tree
@@ -312,14 +264,14 @@ var Bitwig = {
 
         var track = findTrack(tree, id);
         return track ? track.children : [];
-    },
+    }
 
     /**
      * Get track color
      * @param {number} id - Track ID
      * @returns {BitwigColor|null} Color object or null
      */
-    getTrackColor: function(id) {
+    getTrackColor(id) {
         var track = this.getTrack(id);
         if (!track) return null;
 
@@ -329,38 +281,38 @@ var Bitwig = {
             green: color.green(),
             blue: color.blue()
         };
-    },
+    }
 
     /**
      * Get track volume
      * @param {number} id - Track ID
      * @returns {number} Volume value (0-1) or -1 if not found
      */
-    getTrackVolume: function(id) {
+    getTrackVolume(id) {
         var track = this.getTrack(id);
         if (!track) return -1;
 
         return track.volume().get();
-    },
+    }
 
     /**
      * Set track volume
      * @param {number} id - Track ID
      * @param {number} value - Volume value (0-1)
      */
-    setTrackVolume: function(id, value) {
+    setTrackVolume(id, value) {
         var track = this.getTrack(id);
         if (!track) return;
 
         track.volume().set(value);
-    },
+    }
 
     /**
      * Find track by name predicate
      * @param {Function} predicate - Function that tests track name
      * @returns {Object|null} First matching track or null
      */
-    findTrackByName: function(predicate) {
+    findTrackByName(predicate) {
         for (var i = 0; i < 64; i++) {
             var track = this.getTrack(i);
             if (track && predicate(track.name().get())) {
@@ -368,40 +320,40 @@ var Bitwig = {
             }
         }
         return null;
-    },
+    }
 
     /**
      * Update track depths (called after calculation)
      * @param {number[]} depths - Array of track depths
      */
-    setTrackDepths: function(depths) {
+    setTrackDepths(depths) {
         this._trackDepths = depths;
         this._trackTree = null; // Clear cache
-    },
+    }
 
     /**
      * Clear cached data
      */
-    clearCache: function() {
+    clearCache() {
         this._trackTree = null;
-    },
+    }
 
     /**
      * Get child tracks of a group
      * @param {number} groupTrackId - Group track ID
      * @returns {number[]} Array of child track IDs
      */
-    getGroupChildren: function(groupTrackId) {
+    getGroupChildren(groupTrackId) {
         var children = this.getTrackChildren(groupTrackId);
         return children.map(function(child) { return child.id; });
-    },
+    }
 
     /**
      * Find group track by group number (any depth)
      * @param {number} groupNumber - Group number (1-16)
      * @returns {number|null} Track ID or null
      */
-    findGroupByNumber: function(groupNumber) {
+    findGroupByNumber(groupNumber) {
         var searchString = "(" + groupNumber + ")";
 
         for (var i = 0; i < 64; i++) {
@@ -416,13 +368,13 @@ var Bitwig = {
             }
         }
         return null;
-    },
+    }
 
     /**
      * Get all top-level tracks (depth 0)
      * @returns {number[]} Array of top-level track IDs
      */
-    getTopLevelTracks: function() {
+    getTopLevelTracks() {
         var topLevel = [];
         for (var i = 0; i < 64; i++) {
             if (this._trackDepths[i] === 0) {
@@ -433,24 +385,23 @@ var Bitwig = {
             }
         }
         return topLevel;
-    },
+    }
 
     /**
      * Get cached FX tracks (from effect track bank)
      * @returns {Array} Array of {index, number, track} sorted by [N] number
      */
-    getFxTracks: function() {
+    getFxTracks() {
         return this._fxTracks;
-    },
+    }
 
     /**
      * Update FX track cache when effect track name changes
      * @param {number} effectIndex - Index in effect track bank (0-7)
      * @param {string} name - Track name
      * @param {Object} track - Track object
-     * @private
      */
-    _updateFxTrackCache: function(effectIndex, name, track) {
+    _updateFxTrackCache(effectIndex, name, track) {
         // Remove any existing entry for this effect index
         this._fxTracks = this._fxTracks.filter(function(fx) {
             return fx.index !== effectIndex;
@@ -470,7 +421,7 @@ var Bitwig = {
                 this._fxTracks.sort(function(a, b) { return a.number - b.number; });
             }
         }
-    },
+    }
 
     /**
      * Initialize cursor track/device for remote control linking
@@ -478,68 +429,72 @@ var Bitwig = {
      * @param {Object} cursorDevice - Cursor device object
      * @param {Object} remoteControls - Remote controls page object
      */
-    initCursor: function(cursorTrack, cursorDevice, remoteControls) {
+    initCursor(cursorTrack, cursorDevice, remoteControls) {
         this._cursorTrack = cursorTrack;
         this._cursorDevice = cursorDevice;
         this._remoteControls = remoteControls;
-        if (debug) println("Cursor track/device initialized");
-    },
+        if (this.debug) this.println("Cursor track/device initialized");
+    }
 
     /**
      * Get cursor track
      * @returns {Object|null} Cursor track or null
      */
-    getCursorTrack: function() {
+    getCursorTrack() {
         return this._cursorTrack;
-    },
+    }
 
     /**
      * Get cursor device
      * @returns {Object|null} Cursor device or null
      */
-    getCursorDevice: function() {
+    getCursorDevice() {
         return this._cursorDevice;
-    },
+    }
 
     /**
      * Get remote controls page
      * @returns {Object|null} Remote controls page or null
      */
-    getRemoteControls: function() {
+    getRemoteControls() {
         return this._remoteControls;
-    },
+    }
 
     /**
      * Select a track in mixer (XOR - deselects others)
      * @param {number} trackId - Track ID to select
      */
-    selectTrack: function(trackId) {
+    selectTrack(trackId) {
         var track = this.getTrack(trackId);
         if (track) {
             track.selectInMixer();
-            if (debug) println("Selected track " + trackId + ": " + track.name().get());
+            if (this.debug) this.println("Selected track " + trackId + ": " + track.name().get());
         }
-    },
+    }
 
     /**
      * Invoke a Bitwig action by ID
      * @param {string} actionId - Action ID from BitwigActions constants
      */
-    invokeAction: function(actionId) {
-        println("invokeAction called with: " + actionId);
+    invokeAction(actionId) {
+        this.println("invokeAction called with: " + actionId);
         if (!this._application) {
-            println("ERROR: Application not initialized");
+            this.println("ERROR: Application not initialized");
             return;
         }
-        println("Application exists, getting action...");
+        this.println("Application exists, getting action...");
         var action = this._application.getAction(actionId);
-        println("Action result: " + action);
+        this.println("Action result: " + action);
         if (action) {
-            println("Invoking action: " + actionId);
+            this.println("Invoking action: " + actionId);
             action.invoke();
-            println("Action invoked successfully");
+            this.println("Action invoked successfully");
         } else {
-            println("ERROR: Action not found: " + actionId);
+            this.println("ERROR: Action not found: " + actionId);
         }
     }
-};
+}
+
+var Bitwig = {};
+
+if (typeof module !== 'undefined') module.exports = BitwigHW;

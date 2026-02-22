@@ -19,3 +19,6 @@ test:
     node Pager.test.js
     node Pages.test.js
     node ProjectExplorer.test.js
+    node BitwigActions.test.js
+    node Bitwig.test.js
+    node TD17Remapper.test.js

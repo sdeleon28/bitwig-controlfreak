@@ -69,7 +69,7 @@ list of files:
 [X] `ProjectExplorer.js`
 [X] `RolandPiano.js`
 [X] `ClipLauncher.js`
-[ ] `Bitwig.js`
-[ ] `BitwigActions.js`
-[ ] `Launchpad.control.js`
-[ ] `TD17.control.js`
+[X] `Bitwig.js`
+[X] `BitwigActions.js`
+[X] `Launchpad.control.js`
+[X] `TD17.control.js`

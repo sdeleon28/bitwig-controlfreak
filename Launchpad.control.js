@@ -215,9 +215,14 @@ function init() {
     // 8 effect tracks, 0 scenes
     var effectTrackBank = host.createEffectTrackBank(8, 0);
 
-    // Initialize Bitwig namespace with track bank and transport
-    Bitwig.init(trackBank, transport);
-    Bitwig._effectTrackBank = effectTrackBank;
+    // Initialize Bitwig with track bank and transport
+    Bitwig = new BitwigHW({
+        host: host,
+        bitwigActions: BitwigActions,
+        debug: debug,
+        println: println
+    });
+    Bitwig.init(trackBank, transport, effectTrackBank);
 
     // Create cursor track that follows selection (for select mode + remote controls)
     var cursorTrack = host.createCursorTrack("cursor", "Cursor", 0, 0, true);
