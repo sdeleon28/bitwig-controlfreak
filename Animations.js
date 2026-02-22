@@ -1,17 +1,29 @@
 /**
  * Animation system for visual effects
- * @namespace
  */
-var Animations = {
+class Animations {
+    /**
+     * @param {Object} deps
+     * @param {Object} deps.launchpad - Launchpad instance (clearPad, setPadColor, colors)
+     * @param {Object} deps.host - Bitwig host (scheduleTask)
+     */
+    constructor(deps) {
+        this.launchpad = deps.launchpad;
+        this.host = deps.host;
+    }
+
     /**
      * Flash page number on pad grid
      * @param {number} pageNum - Page number to display
      * @param {Function} callback - Called when animation completes
      */
-    flashPageNumber: function(pageNum, callback) {
+    flashPageNumber(pageNum, callback) {
+        var launchpad = this.launchpad;
+        var host = this.host;
+
         // Clear all pads
         for (var i = 0; i < 128; i++) {
-            Launchpad.clearPad(i);
+            launchpad.clearPad(i);
         }
 
         // Define number patterns (using pad grid)
@@ -57,9 +69,9 @@ var Animations = {
             var isOn = flashCount % 2 === 0;
             for (var i = 0; i < pattern.length; i++) {
                 if (isOn) {
-                    Launchpad.setPadColor(pattern[i], Launchpad.colors.white);
+                    launchpad.setPadColor(pattern[i], launchpad.colors.white);
                 } else {
-                    Launchpad.clearPad(pattern[i]);
+                    launchpad.clearPad(pattern[i]);
                 }
             }
 
@@ -69,10 +81,6 @@ var Animations = {
 
         doFlash();
     }
-};
+}
 
-/**
- * @typedef {Object} LaunchpadColor
- * @property {number} value - MIDI color value for Launchpad
- */
-
+if (typeof module !== 'undefined') module.exports = Animations;

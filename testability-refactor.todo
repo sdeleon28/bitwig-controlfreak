@@ -1,0 +1,77 @@
+# Refactor the controllers for testability
+
+These Bitwig Controller Scripts are divided into smaller files that contain
+namespaces with functions. That is fine for code organization but quite lacking
+when it comes to instance / state management and most importantly testing.
+
+Without the ability to run tests, agents don't perform as well. We want to
+refactor this codebase so that agents can easily run the test-suite and have
+an immediate feedback loop for self-verification.
+
+In order to do that, we will perform a refactor that looks like this:
+
+pick up the next file from the list and do the following:
+
+* refactor namespaces into ES6
+* if the dependencies haven't been refactored to classes
+  * take the namespaces as an arguments instead of directly calling functions
+    on them
+  // keep the API of the namespace compatible with the API of the future
+  // class so that it can be drop-in replaced
+* wherever the namespace used to be used, pass in an instance instead
+* use dependency injection for all external dependencies, the file needs to 
+  be testable outside the bitwig runner
+* write meaningful unit tests for this module by providing fake test instances
+  of all dependencies. name the tests at the feature level, try to test for
+  features rather than testing implementation details (as much as possible)
+* mark the file as completed in this file by replacing `[ ]` with `[X]`
+* run all the tests and fix any tests and code we may have broken
+* prompt back for review 
+
+test conventions (established with Animations.js):
+
+* test files are named `Module.test.js` alongside the source file
+* run with `node Module.test.js` — no flags needed
+* use `require('./test-assert')` for assertions: `assert(condition, message)`
+* `test-assert.js` auto-detects caller file:line via stack traces
+* silent on pass, quickfix-compatible `./File.test.js:line: FAIL: message` on failure
+* end each test file with `process.exit(t.summary('ModuleName'))`
+* each test is an IIFE: `(function() { ... })();`
+* fake dependencies inline (factory functions like `fakeLaunchpad()`, `fakeHost()`)
+* append `node Module.test.js` to the `test` target in `justfile`
+
+design guidelines:
+
+* make code orthogonal
+* use dependency injection for all dependencies, no direct usages
+* top level module (controller) should basically be a glue file that assembles
+  dependencies together
+
+list of files:
+
+[X] `Animations.js`
+[ ] `Bitwig.js`
+[ ] `BitwigActions.js`
+[ ] `ClipGestures.js`
+[ ] `ClipLauncher.js`
+[ ] `Controller.js`
+[ ] `Launchpad.control.js`
+[ ] `Launchpad.js`
+[ ] `LaunchpadLane.js`
+[ ] `LaunchpadModeSwitcher.js`
+[ ] `LaunchpadQuadrant.js`
+[ ] `LaunchpadTopButtons.js`
+[ ] `NanoKey2.js`
+[ ] `Page_ClipLauncher.js`
+[ ] `Page_ColorPalette.js`
+[ ] `Page_DebugActions.js`
+[ ] `Page_MainControl.js`
+[ ] `Page_MarkerManager.js`
+[ ] `Pager.js`
+[ ] `Pages.js`
+[ ] `ProjectExplorer.js`
+[ ] `RolandPiano.js`
+[ ] `Spike_ClassTest.control.js`
+[ ] `Spike_DirectClass.control.js`
+[ ] `TD17.control.js`
+[ ] ``Twister.js``
