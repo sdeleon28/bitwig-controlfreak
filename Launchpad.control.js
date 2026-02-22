@@ -485,8 +485,11 @@ function init() {
     }
 
     // Initialize LaunchpadQuadrant
-    LaunchpadQuadrant.bottomRight.init();
-    LaunchpadQuadrant.bottomLeft.init();
+    LaunchpadQuadrant = new LaunchpadQuadrantHW({
+        launchpad: Launchpad,
+        debug: debug,
+        println: println
+    });
 
     // Initialize marker lane
     LaunchpadLane = new LaunchpadLaneHW({
@@ -501,6 +504,17 @@ function init() {
     });
 
     // Initialize control buttons
+    LaunchpadTopButtons = new LaunchpadTopButtonsHW({
+        launchpad: Launchpad,
+        pager: Pager,
+        pages: Pages,
+        bitwig: Bitwig,
+        clipGestures: ClipGestures,
+        clipLauncher: ClipLauncher,
+        projectExplorer: ProjectExplorer,
+        debug: debug,
+        println: println
+    });
     LaunchpadTopButtons.init();
 
     // Initialize clip launcher
@@ -536,20 +550,31 @@ function init() {
     Pages.registerPage(Page_ColorPalette);    // Page 5: Color palette (colors 0-63)
     Pages.registerPage(Page_ColorPalette2);   // Page 6: Color palette (colors 64-127)
 
-    // Initialize pagination system (after pages registered)
-    Pages.init();
-
     // Initialize Pager (reactive page state manager)
     Pager.init();
 
     // Set circular deps on Launchpad now that Pager exists
     Launchpad.pager = Pager;
 
-    // Initialize mode switcher
-    LaunchpadModeSwitcher.init();
+    // Initialize mode switcher (before Pages.init, which triggers Page_MainControl.show → refreshTrackGrid)
+    LaunchpadModeSwitcher = new LaunchpadModeSwitcherHW({
+        launchpad: Launchpad,
+        pager: Pager,
+        twister: Twister,
+        controller: Controller,
+        pageMainControl: Page_MainControl,
+        debug: debug,
+        println: println
+    });
 
     // Set LaunchpadModeSwitcher dep on Launchpad now that it's initialized
     Launchpad.launchpadModeSwitcher = LaunchpadModeSwitcher;
+
+    // Fix stale ref: Twister was constructed before LaunchpadModeSwitcher existed
+    Twister.launchpadModeSwitcher = LaunchpadModeSwitcher;
+
+    // Initialize pagination system (after pages registered, after mode switcher ready)
+    Pages.init();
 
     // Initialize controller logic
     Controller.init();

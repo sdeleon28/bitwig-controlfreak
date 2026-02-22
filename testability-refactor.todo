@@ -55,9 +55,9 @@ list of files:
 [X] `Launchpad.js`
 [X] `LaunchpadLane.js`
 [ ] `Controller.js`
-[ ] `LaunchpadModeSwitcher.js`
-[ ] `LaunchpadQuadrant.js`
-[ ] `LaunchpadTopButtons.js`
+[X] `LaunchpadModeSwitcher.js`
+[X] `LaunchpadQuadrant.js`
+[X] `LaunchpadTopButtons.js`
 [ ] `NanoKey2.js`
 [ ] `Page_ClipLauncher.js`
 [ ] `Page_ColorPalette.js`

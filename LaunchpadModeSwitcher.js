@@ -1,145 +1,122 @@
 /**
  * Launchpad mode switcher (right-side buttons)
- * @namespace
  */
-var LaunchpadModeSwitcher = {
+class LaunchpadModeSwitcherHW {
     /**
-     * Mode enum for type-safe mode references
+     * @param {Object} deps
+     * @param {Object} deps.launchpad - Launchpad instance
+     * @param {Object} deps.pager - Pager namespace
+     * @param {Object} deps.twister - Twister instance
+     * @param {Object} deps.controller - Controller namespace
+     * @param {Object} deps.pageMainControl - Page_MainControl namespace
+     * @param {boolean} deps.debug - Debug flag
+     * @param {Function} deps.println - Print function
      */
-    modeEnum: {
-        VOLUME: 'volume',
-        PAN: 'pan',
-        SEND_A: 'sendA',
-        SEND_B: 'sendB',
-        SELECT: 'select',
-        MUTE: 'mute',
-        SOLO: 'solo',
-        RECORD_ARM: 'recordArm'
-    },
+    constructor(deps) {
+        deps = deps || {};
+        this.launchpad = deps.launchpad || null;
+        this.pager = deps.pager || null;
+        this.twister = deps.twister || null;
+        this.controller = deps.controller || null;
+        this.pageMainControl = deps.pageMainControl || null;
+        this.debug = deps.debug || false;
+        this.println = deps.println || function() {};
 
-    /**
-     * Mode definitions with button note numbers and colors
-     */
-    modes: {
-        volume: { note: 89, color: Launchpad.colors.green },      // Top
-        pan: { note: 79, color: Launchpad.colors.pink },
-        sendA: { note: 69, color: Launchpad.colors.purple },
-        sendB: { note: 59, color: Launchpad.colors.purple },
-        select: { note: 49, color: Launchpad.colors.white },
-        mute: { note: 39, color: Launchpad.colors.amber },
-        solo: { note: 29, color: Launchpad.colors.yellow },
-        recordArm: { note: 19, color: Launchpad.colors.red }      // Bottom
-    },
+        var colors = this.launchpad ? this.launchpad.colors : {};
 
-    /**
-     * Mode categories
-     */
-    encoderModes: ['volume', 'pan'],
-    padModes: ['mute', 'solo', 'recordArm', 'sendA', 'select'],
+        // Mode definitions with button note numbers and colors
+        this.modes = {
+            volume:    { note: 89, color: colors.green },
+            pan:       { note: 79, color: colors.pink },
+            sendA:     { note: 69, color: colors.purple },
+            sendB:     { note: 59, color: colors.purple },
+            select:    { note: 49, color: colors.white },
+            mute:      { note: 39, color: colors.amber },
+            solo:      { note: 29, color: colors.yellow },
+            recordArm: { note: 19, color: colors.red }
+        };
 
-    /**
-     * Currently selected encoder mode (volume, pan)
-     * @private
-     */
-    currentEncoderMode: null,
+        // Mode categories
+        this.encoderModes = ['volume', 'pan'];
+        this.padModes = ['mute', 'solo', 'recordArm', 'sendA', 'select'];
 
-    /**
-     * Currently selected pad mode (mute, solo, recordArm, sendA)
-     * @private
-     */
-    currentPadMode: null,
+        // Default modes (replaces init())
+        this._currentEncoderMode = 'volume';
+        this._currentPadMode = 'recordArm';
 
-    /**
-     * Initialize mode switcher
-     */
-    init: function() {
-        this.currentEncoderMode = 'volume';
-        this.currentPadMode = 'recordArm';
-    },
+        if (this.debug) this.println("LaunchpadModeSwitcher initialized");
+    }
 
     /**
      * Select an encoder mode (volume, pan)
-     * @param {string} modeName - Name of the encoder mode
      */
-    selectEncoderMode: function(modeName) {
+    selectEncoderMode(modeName) {
         if (this.encoderModes.indexOf(modeName) === -1) {
-            if (debug) println("Warning: Unknown encoder mode '" + modeName + "'");
+            if (this.debug) this.println("Warning: Unknown encoder mode '" + modeName + "'");
             return;
         }
 
-        this.currentEncoderMode = modeName;
+        this._currentEncoderMode = modeName;
         this.refresh();
 
         // Refresh encoder LEDs based on mode
-        if (modeName === 'pan') {
-            Twister.refreshEncoderLEDsForPan();
-        } else if (modeName === 'volume') {
-            Twister.refreshEncoderLEDsForVolume();
+        if (this.twister) {
+            if (modeName === 'pan') {
+                this.twister.refreshEncoderLEDsForPan();
+            } else if (modeName === 'volume') {
+                this.twister.refreshEncoderLEDsForVolume();
+            }
         }
-    },
+    }
 
     /**
-     * Select a pad mode (mute, solo, recordArm, sendA)
-     * @param {string} modeName - Name of the pad mode
+     * Select a pad mode (mute, solo, recordArm, sendA, select)
      */
-    selectPadMode: function(modeName) {
+    selectPadMode(modeName) {
         if (this.padModes.indexOf(modeName) === -1) {
-            if (debug) println("Warning: Unknown pad mode '" + modeName + "'");
+            if (this.debug) this.println("Warning: Unknown pad mode '" + modeName + "'");
             return;
         }
 
-        this.currentPadMode = modeName;
+        this._currentPadMode = modeName;
         this.refresh();
-        Controller.refreshTrackGrid();
-    },
+        if (this.controller) this.controller.refreshTrackGrid();
+    }
 
-    /**
-     * Get current encoder mode
-     * @returns {string} Current encoder mode
-     */
-    getEncoderMode: function() {
-        return this.currentEncoderMode;
-    },
+    getEncoderMode() {
+        return this._currentEncoderMode;
+    }
 
-    /**
-     * Get current pad mode
-     * @returns {string} Current pad mode
-     */
-    getPadMode: function() {
-        return this.currentPadMode;
-    },
+    getPadMode() {
+        return this._currentPadMode;
+    }
 
     /**
      * Refresh all mode button colors (two lights active: encoder mode + pad mode)
-     * @param {number} pageNumber - Page number to paint to (default 1)
      */
-    refresh: function(pageNumber) {
+    refresh(pageNumber) {
         if (typeof pageNumber === 'undefined') pageNumber = 1;
+        if (!this.launchpad || !this.pager) return;
 
-        // Update all button colors
         for (var mode in this.modes) {
             if (this.modes.hasOwnProperty(mode)) {
                 var modeConfig = this.modes[mode];
-                var isActive = (mode === this.currentEncoderMode || mode === this.currentPadMode);
+                var isActive = (mode === this._currentEncoderMode || mode === this._currentPadMode);
 
                 if (isActive) {
-                    // Bright when active
-                    var brightColor = Launchpad.getBrightnessVariant(modeConfig.color, Launchpad.brightness.bright);
-                    Pager.requestPaint(pageNumber, modeConfig.note, brightColor);
+                    var brightColor = this.launchpad.getBrightnessVariant(modeConfig.color, this.launchpad.brightness.bright);
+                    this.pager.requestPaint(pageNumber, modeConfig.note, brightColor);
                 } else {
-                    // OFF when inactive
-                    Pager.requestClear(pageNumber, modeConfig.note);
+                    this.pager.requestClear(pageNumber, modeConfig.note);
                 }
             }
         }
-    },
+    }
 
     /**
      * Get mode name for a button note number
-     * @param {number} note - MIDI note number
-     * @returns {string|null} Mode name or null
      */
-    getModeForNote: function(note) {
+    getModeForNote(note) {
         for (var mode in this.modes) {
             if (this.modes.hasOwnProperty(mode)) {
                 if (this.modes[mode].note === note) {
@@ -148,53 +125,69 @@ var LaunchpadModeSwitcher = {
             }
         }
         return null;
-    },
+    }
 
     /**
      * Register click and hold behaviors for mode buttons (page 1 only)
      */
-    registerBehaviors: function() {
+    registerBehaviors() {
         var self = this;
         var modes = this.modes;
-        var page = Page_MainControl.pageNumber;
+        var page = this.pageMainControl ? this.pageMainControl.pageNumber : 1;
 
         // Encoder mode buttons (no hold behavior)
-        Launchpad.registerPadBehavior(modes.volume.note, function() {
+        this.launchpad.registerPadBehavior(modes.volume.note, function() {
             self.selectEncoderMode('volume');
         }, null, page);
 
-        Launchpad.registerPadBehavior(modes.pan.note, function() {
+        this.launchpad.registerPadBehavior(modes.pan.note, function() {
             self.selectEncoderMode('pan');
         }, null, page);
 
         // Pad mode buttons
-        Launchpad.registerPadBehavior(modes.mute.note, function() {
+        this.launchpad.registerPadBehavior(modes.mute.note, function() {
             self.selectPadMode('mute');
         }, function() {
-            Controller.clearAllMute();
+            if (self.controller) self.controller.clearAllMute();
         }, page);
 
-        Launchpad.registerPadBehavior(modes.solo.note, function() {
+        this.launchpad.registerPadBehavior(modes.solo.note, function() {
             self.selectPadMode('solo');
         }, function() {
-            Controller.clearAllSolo();
+            if (self.controller) self.controller.clearAllSolo();
         }, page);
 
-        Launchpad.registerPadBehavior(modes.recordArm.note, function() {
+        this.launchpad.registerPadBehavior(modes.recordArm.note, function() {
             self.selectPadMode('recordArm');
         }, function() {
-            Controller.clearAllArm();
+            if (self.controller) self.controller.clearAllArm();
         }, page);
 
-        Launchpad.registerPadBehavior(modes.sendA.note, function() {
+        this.launchpad.registerPadBehavior(modes.sendA.note, function() {
             self.selectPadMode('sendA');
         }, null, page);
 
         // Select mode button (select track + remote controls)
-        Launchpad.registerPadBehavior(modes.select.note, function() {
+        this.launchpad.registerPadBehavior(modes.select.note, function() {
             self.selectPadMode('select');
         }, null, page);
 
         // Placeholder: sendB has no behavior (stays off)
     }
+}
+
+LaunchpadModeSwitcherHW.MODE_ENUM = {
+    VOLUME: 'volume',
+    PAN: 'pan',
+    SEND_A: 'sendA',
+    SEND_B: 'sendB',
+    SELECT: 'select',
+    MUTE: 'mute',
+    SOLO: 'solo',
+    RECORD_ARM: 'recordArm'
 };
+
+var LaunchpadModeSwitcher = {
+    modeEnum: LaunchpadModeSwitcherHW.MODE_ENUM
+};
+if (typeof module !== 'undefined') module.exports = LaunchpadModeSwitcherHW;

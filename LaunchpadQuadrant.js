@@ -1,95 +1,84 @@
 /**
  * Launchpad quadrant configuration
- * @namespace
  */
-var LaunchpadQuadrant = {
+class LaunchpadQuadrantHW {
     /**
-     * Bottom-right 4x4 quadrant for group selection
+     * @param {Object} deps
+     * @param {Object} deps.launchpad - Launchpad instance
+     * @param {boolean} deps.debug - Debug flag
+     * @param {Function} deps.println - Print function
      */
-    bottomRight: {
-        /**
-         * Pad note numbers (bottom-left to top-right, groups 1-16)
-         */
-        pads: [
+    constructor(deps) {
+        deps = deps || {};
+        this.launchpad = deps.launchpad || null;
+        this.debug = deps.debug || false;
+        this.println = deps.println || function() {};
+
+        // Bottom-right 4x4 quadrant for group selection
+        this.bottomRight = this._buildBottomRight();
+
+        // Bottom-left 4x4 quadrant for track grid
+        this.bottomLeft = this._buildBottomLeft();
+
+        if (this.debug) this.println("LaunchpadQuadrant initialized");
+    }
+
+    _buildBottomRight() {
+        var launchpad = this.launchpad;
+
+        var pads = [
             15, 16, 17, 18,  // Row 0 (bottom): groups 1-4
             25, 26, 27, 28,  // Row 1: groups 5-8
             35, 36, 37, 38,  // Row 2: groups 9-12
             45, 46, 47, 48   // Row 3 (top): groups 13-16
-        ],
+        ];
 
-        /**
-         * Map pad note number → group number (1-16)
-         * @private
-         */
-        _padToGroup: null,
-
-        /**
-         * Initialize the quadrant
-         */
-        init: function() {
-            // Build pad to group mapping
-            this._padToGroup = {};
-            for (var i = 0; i < this.pads.length; i++) {
-                this._padToGroup[this.pads[i]] = i + 1;
-            }
-        },
-
-        /**
-         * Get group number for a pad
-         * @param {number} padNote - MIDI note number
-         * @returns {number|null} Group number (1-16) or null
-         */
-        getGroup: function(padNote) {
-            return this._padToGroup[padNote] || null;
-        },
-
-        /**
-         * Highlight a group on the Launchpad
-         * @param {number} groupNumber - Group number (1-16)
-         */
-        highlightGroup: function(groupNumber) {
-            // Clear all group selector pads
-            for (var i = 0; i < this.pads.length; i++) {
-                Launchpad.clearPad(this.pads[i]);
-            }
-
-            // Highlight selected group
-            if (groupNumber >= 1 && groupNumber <= 16) {
-                var padNote = this.pads[groupNumber - 1];
-                Launchpad.setPadColor(padNote, 'green');
-            }
+        // Build pad to group mapping
+        var padToGroup = {};
+        for (var i = 0; i < pads.length; i++) {
+            padToGroup[pads[i]] = i + 1;
         }
-    },
 
-    /**
-     * Bottom-left 4x4 quadrant for track grid
-     */
-    bottomLeft: {
-        /**
-         * Pad note numbers (bottom-left to top-right, tracks 1-16)
-         */
-        pads: [
+        return {
+            pads: pads,
+
+            getGroup: function(padNote) {
+                return padToGroup[padNote] || null;
+            },
+
+            highlightGroup: function(groupNumber) {
+                if (!launchpad) return;
+                // Clear all group selector pads
+                for (var i = 0; i < pads.length; i++) {
+                    launchpad.clearPad(pads[i]);
+                }
+                // Highlight selected group
+                if (groupNumber >= 1 && groupNumber <= 16) {
+                    var padNote = pads[groupNumber - 1];
+                    launchpad.setPadColor(padNote, 'green');
+                }
+            }
+        };
+    }
+
+    _buildBottomLeft() {
+        var pads = [
             11, 12, 13, 14,  // Row 0 (bottom): tracks 1-4
             21, 22, 23, 24,  // Row 1: tracks 5-8
             31, 32, 33, 34,  // Row 2: tracks 9-12
             41, 42, 43, 44   // Row 3 (top): tracks 13-16
-        ],
+        ];
 
-        /**
-         * Initialize the quadrant
-         */
-        init: function() {
-            // No special initialization needed
-        },
+        return {
+            pads: pads,
 
-        /**
-         * Get track number for a pad
-         * @param {number} padNote - MIDI note number
-         * @returns {number|null} Track number (1-16) or null
-         */
-        getTrackNumber: function(padNote) {
-            var index = this.pads.indexOf(padNote);
-            return index !== -1 ? index + 1 : null;
-        }
+            getTrackNumber: function(padNote) {
+                var index = pads.indexOf(padNote);
+                return index !== -1 ? index + 1 : null;
+            }
+        };
     }
-};
+}
+
+var LaunchpadQuadrant = {};
+if (typeof module !== 'undefined') module.exports = LaunchpadQuadrantHW;
