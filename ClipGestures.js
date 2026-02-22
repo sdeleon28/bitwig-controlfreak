@@ -1,97 +1,75 @@
 /**
  * Declarative gesture configuration for clip launcher
  * Fluent API for configuring click, hold, and modifier behaviors
- * @namespace
  */
-var ClipGestures = {
-    _clickFn: null,
-    _holdFn: null,
-    _modifiers: {},        // { cc: { name, color, click, hold } }
-    _activeModifier: null, // Currently held modifier CC
+class ClipGestures {
+    /**
+     * @param {Object} deps
+     * @param {Object} deps.launchpad - Launchpad instance (setTopButtonColor, colors, buttons)
+     * @param {Object} deps.clipLauncher - ClipLauncher instance (used as `this` in callbacks)
+     */
+    constructor(deps) {
+        this.launchpad = deps.launchpad;
+        this.clipLauncher = deps.clipLauncher;
+        this._clickFn = null;
+        this._holdFn = null;
+        this._modifiers = {};
+        this._activeModifier = null;
+    }
 
-    click: function(fn) {
+    click(fn) {
         this._clickFn = fn;
         return this;
-    },
+    }
 
-    hold: function(fn) {
+    hold(fn) {
         this._holdFn = fn;
         return this;
-    },
+    }
 
-    modifier: function(cc, config) {
+    modifier(cc, config) {
         this._modifiers[cc] = config;
         return this;
-    },
+    }
 
-    // Called by handleTopButtonCC
-    handleModifierPress: function(cc) {
+    handleModifierPress(cc) {
         var mod = this._modifiers[cc];
         if (mod) {
             this._activeModifier = cc;
-            Launchpad.setTopButtonColor(cc, mod.color);
+            this.launchpad.setTopButtonColor(cc, mod.color);
             return true;
         }
         return false;
-    },
+    }
 
-    handleModifierRelease: function(cc) {
+    handleModifierRelease(cc) {
         if (this._modifiers[cc]) {
             this._activeModifier = null;
-            Launchpad.setTopButtonColor(cc, Launchpad.colors.off);
-            // Reset any modifier-specific state
+            this.launchpad.setTopButtonColor(cc, this.launchpad.colors.off);
             var mod = this._modifiers[cc];
-            if (mod.onRelease) mod.onRelease.call(ClipLauncher);
+            if (mod.onRelease) mod.onRelease.call(this.clipLauncher);
             return true;
         }
         return false;
-    },
+    }
 
-    // Called by pad click/hold
-    executeClick: function(t, s, slot) {
+    executeClick(t, s, slot) {
         var fn = this._clickFn;
         if (this._activeModifier) {
             var mod = this._modifiers[this._activeModifier];
             if (mod && mod.click) fn = mod.click;
         }
-        if (fn) fn.call(ClipLauncher, t, s, slot);
-    },
+        if (fn) fn.call(this.clipLauncher, t, s, slot);
+    }
 
-    executeHold: function(t, s, slot) {
+    executeHold(t, s, slot) {
         var fn = this._holdFn;
         if (this._activeModifier) {
             var mod = this._modifiers[this._activeModifier];
             if (mod && mod.hold) fn = mod.hold;
         }
-        if (fn) fn.call(ClipLauncher, t, s, slot);
+        if (fn) fn.call(this.clipLauncher, t, s, slot);
     }
-};
+}
 
-// Configure clip launcher gestures
-ClipGestures
-    .click(function(t, s, slot) {
-        // Cancel recording if in progress
-        if (slot.isRecording().get() || slot.isRecordingQueued().get()) {
-            this._trackBank.getItemAt(t).stop();
-            return;
-        }
-        // Launch if has content, otherwise record
-        if (slot.hasContent().get()) {
-            this.launchClip(t, s);
-        } else {
-            this.recordClip(t, s);
-        }
-    })
-    .hold(function(t, s, slot) {
-        this.deleteClip(t, s);
-    })
-    .modifier(Launchpad.buttons.top6, {
-        name: 'duplicate',
-        color: Launchpad.colors.green,
-        click: function(t, s, slot) {
-            this.handleDuplicateClick(t, s);
-        },
-        onRelease: function() {
-            this.clearDuplicateSource();
-        }
-    });
+if (typeof module !== 'undefined') module.exports = ClipGestures;
