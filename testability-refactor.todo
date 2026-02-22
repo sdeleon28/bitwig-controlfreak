@@ -54,12 +54,12 @@ list of files:
 [X] `Twister.js`
 [X] `Launchpad.js`
 [X] `LaunchpadLane.js`
-[ ] `Controller.js`
+[X] `Controller.js`
 [X] `LaunchpadModeSwitcher.js`
 [X] `LaunchpadQuadrant.js`
 [X] `LaunchpadTopButtons.js`
-[ ] `NanoKey2.js`
-[ ] `Page_ClipLauncher.js`
+[X] `NanoKey2.js`
+[X] `Page_ClipLauncher.js`
 [ ] `Page_ColorPalette.js`
 [ ] `Page_DebugActions.js`
 [ ] `Page_MainControl.js`

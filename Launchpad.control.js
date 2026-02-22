@@ -524,6 +524,12 @@ function init() {
     RolandPiano.init();
 
     // Initialize nanoKEY2 on port 3
+    NanoKey2 = new NanoKey2HW({
+        rolandPiano: RolandPiano,
+        host: host,
+        debug: debug,
+        println: println
+    });
     NanoKey2.init();
     if (debug) println("nanoKEY2 initialized on port 3 - expecting nanoKEY2 to be configured as input port 3");
 
@@ -542,10 +548,9 @@ function init() {
         }
     });
 
-    // Register pages (order: page 1, page 2, page 3, page 4)
+    // Register pages (clip launcher registered below after LaunchpadModeSwitcher)
     Pages.registerPage(Page_MainControl);     // Page 1: Main control + markers
     Pages.registerPage(Page_MarkerManager);   // Page 2: Detailed marker manager
-    Pages.registerPage(Page_ClipLauncher);    // Page 3: Clip launcher
     Pages.registerPage(Page_DebugActions);    // Page 4: Debug actions for testing
     Pages.registerPage(Page_ColorPalette);    // Page 5: Color palette (colors 0-63)
     Pages.registerPage(Page_ColorPalette2);   // Page 6: Color palette (colors 64-127)
@@ -572,6 +577,39 @@ function init() {
 
     // Fix stale ref: Twister was constructed before LaunchpadModeSwitcher existed
     Twister.launchpadModeSwitcher = LaunchpadModeSwitcher;
+
+    // Initialize clip launcher page (after LaunchpadModeSwitcher is created)
+    Page_ClipLauncher = new PageClipLauncherHW({
+        clipLauncher: ClipLauncher,
+        pager: Pager,
+        launchpadModeSwitcher: LaunchpadModeSwitcher,
+        launchpad: Launchpad,
+        debug: debug,
+        println: println
+    });
+    Pages.registerPage(Page_ClipLauncher);    // Page 3: Clip launcher
+
+    // Initialize Controller (after all deps are ready)
+    Controller = new ControllerHW({
+        twister: Twister,
+        bitwig: Bitwig,
+        pager: Pager,
+        launchpad: Launchpad,
+        launchpadQuadrant: LaunchpadQuadrant,
+        launchpadModeSwitcher: LaunchpadModeSwitcher,
+        launchpadTopButtons: LaunchpadTopButtons,
+        pages: Pages,
+        pageMainControl: Page_MainControl,
+        host: host,
+        debug: debug,
+        println: println
+    });
+
+    // Fix stale ref: LaunchpadModeSwitcher was constructed before Controller existed
+    LaunchpadModeSwitcher.controller = Controller;
+
+    // Fix stale ref: LaunchpadLane was constructed before Controller existed
+    LaunchpadLane.controller = Controller;
 
     // Initialize pagination system (after pages registered, after mode switcher ready)
     Pages.init();

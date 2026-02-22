@@ -1,67 +1,96 @@
 /**
- * Demo page showing page switching works
- * TO MOVE THIS PAGE: Just change pageNumber property
- * @namespace
+ * Clip launcher page
  */
-var Page_ClipLauncher = {
-    id: "clip-launcher",
-    pageNumber: 3,  // Clip launcher on page 3
+class PageClipLauncherHW {
+    /**
+     * @param {Object} deps
+     * @param {Object} deps.clipLauncher - ClipLauncher namespace
+     * @param {Object} deps.pager - Pager namespace
+     * @param {Object} deps.launchpadModeSwitcher - LaunchpadModeSwitcher instance
+     * @param {Object} deps.launchpad - Launchpad instance
+     * @param {boolean} deps.debug - Debug flag
+     * @param {Function} deps.println - Print function
+     */
+    constructor(deps) {
+        deps = deps || {};
+        this.clipLauncher = deps.clipLauncher || null;
+        this.pager = deps.pager || null;
+        this.launchpadModeSwitcher = deps.launchpadModeSwitcher || null;
+        this.launchpad = deps.launchpad || null;
+        this.debug = deps.debug || false;
+        this.println = deps.println || function() {};
 
-    init: function() {
-        if (debug) println("Page_ClipLauncher initialized on page " + this.pageNumber);
-    },
+        this.id = "clip-launcher";
+        this.pageNumber = 3;
+    }
 
-    show: function() {
-        // Register pad behaviors for this page
-        ClipLauncher.registerPadBehaviors();
+    init() {
+        if (this.debug) this.println("Page_ClipLauncher initialized on page " + this.pageNumber);
+    }
 
-        // Clear this page's state using Pager
-        Pager.requestClearAll(this.pageNumber);
+    show() {
+        if (this.clipLauncher) {
+            this.clipLauncher.registerPadBehaviors();
+        }
+
+        if (this.pager) {
+            this.pager.requestClearAll(this.pageNumber);
+        }
 
         // Clear mode buttons (not used on this page)
-        for (var mode in LaunchpadModeSwitcher.modes) {
-            if (LaunchpadModeSwitcher.modes.hasOwnProperty(mode)) {
-                Pager.requestClear(this.pageNumber, LaunchpadModeSwitcher.modes[mode].note);
+        if (this.launchpadModeSwitcher && this.pager) {
+            var modes = this.launchpadModeSwitcher.modes;
+            for (var mode in modes) {
+                if (modes.hasOwnProperty(mode)) {
+                    this.pager.requestClear(this.pageNumber, modes[mode].note);
+                }
             }
         }
 
-        // Refresh all clip states (will use Pager internally)
-        ClipLauncher.refresh();
-    },
+        if (this.clipLauncher) {
+            this.clipLauncher.refresh();
+        }
+    }
 
-    hide: function() {
-        // Pager handles clearing on page switch - no action needed
-        if (debug) println("Hiding clip launcher page");
-    },
+    hide() {
+        if (this.debug) this.println("Hiding clip launcher page");
+    }
 
-    handlePadPress: function(padNote) {
-        // Convert pad note to row/column
+    handlePadPress(padNote) {
         var row = Math.floor(padNote / 10);
         var col = padNote % 10;
 
-        // Validate: columns 1-8, rows 1-8
         if (col < 1 || col > 8 || row < 1 || row > 8) {
             return false;
         }
 
-        // Row 8 = scene launch buttons (immediate, no hold)
+        // Row 8 = scene launch buttons
         if (row === 8) {
             var sceneIndex = col - 1;
-            ClipLauncher.launchScene(sceneIndex);
-            if (debug) println("Launch scene " + sceneIndex);
+            if (this.clipLauncher) {
+                this.clipLauncher.launchScene(sceneIndex);
+            }
+            if (this.debug) this.println("Launch scene " + sceneIndex);
             return true;
         }
 
         // Rows 1-7 = clip pads - delegate to Launchpad behavior system
-        return Launchpad.handlePadPress(padNote);
-    },
-
-    handlePadRelease: function(padNote) {
-        var row = Math.floor(padNote / 10);
-        // Rows 1-7 = clip pads - delegate to Launchpad behavior system
-        if (row >= 1 && row <= 7) {
-            return Launchpad.handlePadRelease(padNote);
+        if (this.launchpad) {
+            return this.launchpad.handlePadPress(padNote);
         }
         return false;
     }
-};
+
+    handlePadRelease(padNote) {
+        var row = Math.floor(padNote / 10);
+        if (row >= 1 && row <= 7) {
+            if (this.launchpad) {
+                return this.launchpad.handlePadRelease(padNote);
+            }
+        }
+        return false;
+    }
+}
+
+var Page_ClipLauncher = {};
+if (typeof module !== 'undefined') module.exports = PageClipLauncherHW;

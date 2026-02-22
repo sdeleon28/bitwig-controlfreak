@@ -7,3 +7,6 @@ test:
     node LaunchpadQuadrant.test.js
     node LaunchpadModeSwitcher.test.js
     node LaunchpadTopButtons.test.js
+    node NanoKey2.test.js
+    node Page_ClipLauncher.test.js
+    node Controller.test.js
