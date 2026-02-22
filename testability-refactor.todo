@@ -68,7 +68,7 @@ list of files:
 [X] `Pages.js`
 [X] `ProjectExplorer.js`
 [X] `RolandPiano.js`
-[ ] `ClipLauncher.js`
+[X] `ClipLauncher.js`
 [ ] `Bitwig.js`
 [ ] `BitwigActions.js`
 [ ] `Launchpad.control.js`

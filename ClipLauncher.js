@@ -1,19 +1,29 @@
 /**
  * Clip launcher control for Bitwig session view
- * @namespace
  */
-var ClipLauncher = {
-    pageNumber: 3,  // Clip launcher on page 3
-    _trackBank: null,
-    _sceneBank: null,
-    _numTracks: 7,   // Rows 1-7 for clips
-    _numScenes: 8,   // Columns 1-8 for scenes
-    _trackColors: [],  // Store track colors [{r, g, b}] per track
-    _duplicateSource: null, // {trackIndex, sceneIndex} of source clip for duplicate gesture
+class ClipLauncherHW {
+    constructor(deps) {
+        deps = deps || {};
+        this.host = deps.host || null;
+        this.launchpad = deps.launchpad || null;
+        this.pager = deps.pager || null;
+        this.clipGestures = deps.clipGestures || null;
+        this.debug = deps.debug || false;
+        this.println = deps.println || function() {};
 
-    init: function() {
+        this.pageNumber = 3;  // Clip launcher on page 3
+        this._trackBank = null;
+        this._sceneBank = null;
+        this._numTracks = 7;   // Rows 1-7 for clips
+        this._numScenes = 8;   // Columns 1-8 for scenes
+        this._trackColors = [];  // Store track colors [{r, g, b}] per track
+        this._duplicateSource = null; // {trackIndex, sceneIndex} of source clip for duplicate gesture
+    }
+
+    init() {
+        var self = this;
         // Create track bank: 7 tracks, 0 sends, 8 scenes
-        this._trackBank = host.createMainTrackBank(this._numTracks, 0, this._numScenes);
+        this._trackBank = this.host.createMainTrackBank(this._numTracks, 0, this._numScenes);
 
         // Get scene bank for scene launching
         this._sceneBank = this._trackBank.sceneBank();
@@ -29,10 +39,10 @@ var ClipLauncher = {
 
         // Note: registerPadBehaviors is called from Page_ClipLauncher.show()
 
-        if (debug) println("ClipLauncher initialized: " + this._numTracks + " tracks × " + this._numScenes + " scenes (Bitwig layout)");
-    },
+        if (this.debug) this.println("ClipLauncher initialized: " + this._numTracks + " tracks × " + this._numScenes + " scenes (Bitwig layout)");
+    }
 
-    setupClipObservers: function() {
+    setupClipObservers() {
         for (var t = 0; t < this._numTracks; t++) {
             for (var s = 0; s < this._numScenes; s++) {
                 this.setupSlotObserver(t, s);
@@ -41,9 +51,9 @@ var ClipLauncher = {
             // Set up track color observer
             this.setupTrackColorObserver(t);
         }
-    },
+    }
 
-    setupSlotObserver: function(trackIndex, sceneIndex) {
+    setupSlotObserver(trackIndex, sceneIndex) {
         var self = this;
         (function(t, s) {
             var track = self._trackBank.getItemAt(t);
@@ -84,9 +94,9 @@ var ClipLauncher = {
             });
 
         })(trackIndex, sceneIndex);
-    },
+    }
 
-    setupTrackColorObserver: function(trackIndex) {
+    setupTrackColorObserver(trackIndex) {
         var self = this;
         (function(t) {
             var track = self._trackBank.getItemAt(t);
@@ -99,9 +109,9 @@ var ClipLauncher = {
                 }
             });
         })(trackIndex);
-    },
+    }
 
-    setupSceneObservers: function() {
+    setupSceneObservers() {
         var self = this;
         for (var s = 0; s < this._numScenes; s++) {
             (function(sceneIndex) {
@@ -112,9 +122,9 @@ var ClipLauncher = {
                 });
             })(s);
         }
-    },
+    }
 
-    updateClipPad: function(trackIndex, sceneIndex) {
+    updateClipPad(trackIndex, sceneIndex) {
         var track = this._trackBank.getItemAt(trackIndex);
         var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
 
@@ -130,18 +140,18 @@ var ClipLauncher = {
 
         // Use appropriate LED mode based on state
         if (clipState.mode === 'flashing') {
-            Pager.requestPaintFlashing(this.pageNumber, padNote, clipState.color);
+            this.pager.requestPaintFlashing(this.pageNumber, padNote, clipState.color);
         } else if (clipState.mode === 'pulsing') {
-            Pager.requestPaintPulsing(this.pageNumber, padNote, clipState.color);
+            this.pager.requestPaintPulsing(this.pageNumber, padNote, clipState.color);
         } else {
-            Pager.requestPaint(this.pageNumber, padNote, clipState.color);
+            this.pager.requestPaint(this.pageNumber, padNote, clipState.color);
         }
 
         // Also update the scene pad since clip state affects scene display
         this.updateScenePad(sceneIndex);
-    },
+    }
 
-    updateScenePad: function(sceneIndex) {
+    updateScenePad(sceneIndex) {
         // Scene launch buttons on row 8, columns 1-8
         var padNote = 80 + sceneIndex + 1;
 
@@ -163,36 +173,36 @@ var ClipLauncher = {
         // Green if playing, dim green if has content, off otherwise
         var color;
         if (anyPlaying) {
-            color = Launchpad.colors.green;
+            color = this.launchpad.colors.green;
         } else if (hasContent) {
             color = 21;  // Dim green
         } else {
             color = 0;  // Off
         }
 
-        // Use Pager gatekeeper - only paints if page 2 is active
-        Pager.requestPaint(this.pageNumber, padNote, color);
-    },
+        // Use Pager gatekeeper - only paints if page is active
+        this.pager.requestPaint(this.pageNumber, padNote, color);
+    }
 
-    launchScene: function(sceneIndex) {
+    launchScene(sceneIndex) {
         var scene = this._sceneBank.getItemAt(sceneIndex);
         scene.launch();
-        if (debug) println("Launching scene " + sceneIndex);
-    },
+        if (this.debug) this.println("Launching scene " + sceneIndex);
+    }
 
     /**
      * Get clip state including color and LED mode
      * @returns {Object} {color: number, mode: 'static'|'flashing'|'pulsing'}
      */
-    getClipState: function(slot, trackColor) {
+    getClipState(slot, trackColor) {
         // Priority: recording queued > recording > playback queued > playing > has content > empty
 
         if (slot.isRecordingQueued().get()) {
-            return { color: Launchpad.colors.red, mode: 'flashing' };
+            return { color: this.launchpad.colors.red, mode: 'flashing' };
         }
 
         if (slot.isRecording().get()) {
-            return { color: Launchpad.colors.red, mode: 'static' };
+            return { color: this.launchpad.colors.red, mode: 'static' };
         }
 
         if (slot.isPlaybackQueued().get()) {
@@ -211,17 +221,17 @@ var ClipLauncher = {
 
         // Empty slot
         return { color: 0, mode: 'static' };
-    },
+    }
 
-    mixColor: function(c1, c2, ratio) {
+    mixColor(c1, c2, ratio) {
         return {
             r: c1.r * (1 - ratio) + c2.r * ratio,
             g: c1.g * (1 - ratio) + c2.g * ratio,
             b: c1.b * (1 - ratio) + c2.b * ratio
         };
-    },
+    }
 
-    rgbToLaunchpadColor: function(r, g, b) {
+    rgbToLaunchpadColor(r, g, b) {
         // Convert RGB (0-1) to closest Launchpad color
         // This is a simplified version - could be more sophisticated
 
@@ -233,34 +243,34 @@ var ClipLauncher = {
 
         if (r > g && r > b) {
             // Red dominant
-            return brightness > 0.7 ? Launchpad.colors.red : 1;
+            return brightness > 0.7 ? this.launchpad.colors.red : 1;
         } else if (g > r && g > b) {
             // Green dominant
-            return brightness > 0.7 ? Launchpad.colors.green : 21;
+            return brightness > 0.7 ? this.launchpad.colors.green : 21;
         } else if (b > r && b > g) {
             // Blue dominant
-            return brightness > 0.7 ? Launchpad.colors.blue : 41;
+            return brightness > 0.7 ? this.launchpad.colors.blue : 41;
         } else if (r > 0.5 && g > 0.5 && b < 0.3) {
             // Yellow
-            return brightness > 0.7 ? Launchpad.colors.yellow : 13;
+            return brightness > 0.7 ? this.launchpad.colors.yellow : 13;
         } else if (r > 0.5 && g < 0.3 && b > 0.5) {
             // Purple/Magenta
-            return brightness > 0.7 ? Launchpad.colors.purple : 53;
+            return brightness > 0.7 ? this.launchpad.colors.purple : 53;
         } else {
             // White/Gray
             return brightness > 0.7 ? 3 : 1;
         }
-    },
+    }
 
-    launchClip: function(trackIndex, sceneIndex) {
+    launchClip(trackIndex, sceneIndex) {
         var track = this._trackBank.getItemAt(trackIndex);
         var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
         slot.launch();
 
-        if (debug) println("Launch clip: track " + trackIndex + ", scene " + sceneIndex);
-    },
+        if (this.debug) this.println("Launch clip: track " + trackIndex + ", scene " + sceneIndex);
+    }
 
-    recordClip: function(trackIndex, sceneIndex) {
+    recordClip(trackIndex, sceneIndex) {
         var track = this._trackBank.getItemAt(trackIndex);
         var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
 
@@ -276,17 +286,17 @@ var ClipLauncher = {
 
         slot.record();
 
-        if (debug) println("Record clip: track " + trackIndex + ", scene " + sceneIndex);
-    },
+        if (this.debug) this.println("Record clip: track " + trackIndex + ", scene " + sceneIndex);
+    }
 
-    deleteClip: function(trackIndex, sceneIndex) {
+    deleteClip(trackIndex, sceneIndex) {
         var track = this._trackBank.getItemAt(trackIndex);
         var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
         slot.deleteObject();
-        if (debug) println("Delete clip: track " + trackIndex + ", scene " + sceneIndex);
-    },
+        if (this.debug) this.println("Delete clip: track " + trackIndex + ", scene " + sceneIndex);
+    }
 
-    registerPadBehaviors: function() {
+    registerPadBehaviors() {
         var self = this;
         // Rows 1-7 = clip pads (7 tracks × 8 scenes)
         for (var trackIndex = 0; trackIndex < this._numTracks; trackIndex++) {
@@ -296,35 +306,35 @@ var ClipLauncher = {
                     var col = s + 1;
                     var padNote = row * 10 + col;
 
-                    Launchpad.registerPadBehavior(padNote,
+                    self.launchpad.registerPadBehavior(padNote,
                         // Click callback - delegates to ClipGestures
                         function() {
                             var track = self._trackBank.getItemAt(t);
                             var slot = track.clipLauncherSlotBank().getItemAt(s);
-                            ClipGestures.executeClick(t, s, slot);
+                            self.clipGestures.executeClick(t, s, slot);
                         },
                         // Hold callback - delegates to ClipGestures
                         function() {
                             var track = self._trackBank.getItemAt(t);
                             var slot = track.clipLauncherSlotBank().getItemAt(s);
-                            ClipGestures.executeHold(t, s, slot);
+                            self.clipGestures.executeHold(t, s, slot);
                         },
-                        self.pageNumber  // Page 2 - clip launcher
+                        self.pageNumber  // Page 3 - clip launcher
                     );
                 })(trackIndex, sceneIndex);
             }
         }
-        if (debug) println("ClipLauncher pad behaviors registered");
-    },
+        if (this.debug) this.println("ClipLauncher pad behaviors registered");
+    }
 
-    stopTrack: function(trackIndex) {
+    stopTrack(trackIndex) {
         var track = this._trackBank.getItemAt(trackIndex);
         track.stop();
 
-        if (debug) println("Stop track: " + trackIndex);
-    },
+        if (this.debug) this.println("Stop track: " + trackIndex);
+    }
 
-    refresh: function() {
+    refresh() {
         // Refresh all clip pads
         for (var t = 0; t < this._numTracks; t++) {
             for (var s = 0; s < this._numScenes; s++) {
@@ -335,10 +345,10 @@ var ClipLauncher = {
         for (var s = 0; s < this._numScenes; s++) {
             this.updateScenePad(s);
         }
-    },
+    }
 
     // Duplicate gesture handler (used by ClipGestures modifier)
-    handleDuplicateClick: function(trackIndex, sceneIndex) {
+    handleDuplicateClick(trackIndex, sceneIndex) {
         var track = this._trackBank.getItemAt(trackIndex);
         var slot = track.clipLauncherSlotBank().getItemAt(sceneIndex);
 
@@ -348,8 +358,8 @@ var ClipLauncher = {
                 this._duplicateSource = { trackIndex: trackIndex, sceneIndex: sceneIndex };
                 // Highlight source pad pink
                 var padNote = (7 - trackIndex) * 10 + (sceneIndex + 1);
-                Pager.requestPaint(this.pageNumber, padNote, Launchpad.colors.pink);
-                if (debug) println("Duplicate source: track " + trackIndex + ", scene " + sceneIndex);
+                this.pager.requestPaint(this.pageNumber, padNote, this.launchpad.colors.pink);
+                if (this.debug) this.println("Duplicate source: track " + trackIndex + ", scene " + sceneIndex);
             }
         } else {
             // Second click - select destination and copy
@@ -361,20 +371,23 @@ var ClipLauncher = {
             );
             this.clearDuplicateSource();
         }
-    },
+    }
 
-    clearDuplicateSource: function() {
+    clearDuplicateSource() {
         if (this._duplicateSource) {
             // Restore original color by triggering update
             this.updateClipPad(this._duplicateSource.trackIndex, this._duplicateSource.sceneIndex);
         }
         this._duplicateSource = null;
-    },
+    }
 
-    duplicateClip: function(srcTrack, srcScene, dstTrack, dstScene) {
+    duplicateClip(srcTrack, srcScene, dstTrack, dstScene) {
         var srcSlot = this._trackBank.getItemAt(srcTrack).clipLauncherSlotBank().getItemAt(srcScene);
         var dstSlot = this._trackBank.getItemAt(dstTrack).clipLauncherSlotBank().getItemAt(dstScene);
         dstSlot.copyFrom(srcSlot);
-        if (debug) println("Duplicated clip from (" + srcTrack + "," + srcScene + ") to (" + dstTrack + "," + dstScene + ")");
+        if (this.debug) this.println("Duplicated clip from (" + srcTrack + "," + srcScene + ") to (" + dstTrack + "," + dstScene + ")");
     }
-};
+}
+
+var ClipLauncher = {};
+if (typeof module !== 'undefined') module.exports = ClipLauncherHW;

@@ -30,32 +30,6 @@ load('ProjectExplorer.js');
 load('LaunchpadTopButtons.js');
 load('ClipLauncher.js');
 load('ClipGestures.js');
-ClipGestures = new ClipGestures({ launchpad: Launchpad, clipLauncher: ClipLauncher });
-ClipGestures
-    .click(function(t, s, slot) {
-        if (slot.isRecording().get() || slot.isRecordingQueued().get()) {
-            this._trackBank.getItemAt(t).stop();
-            return;
-        }
-        if (slot.hasContent().get()) {
-            this.launchClip(t, s);
-        } else {
-            this.recordClip(t, s);
-        }
-    })
-    .hold(function(t, s, slot) {
-        this.deleteClip(t, s);
-    })
-    .modifier(Launchpad.buttons.top6, {
-        name: 'duplicate',
-        color: Launchpad.colors.green,
-        click: function(t, s, slot) {
-            this.handleDuplicateClick(t, s);
-        },
-        onRelease: function() {
-            this.clearDuplicateSource();
-        }
-    });
 
 // Layer 5: Page implementations
 load('Page_MainControl.js');
@@ -517,9 +491,6 @@ function init() {
     });
     LaunchpadTopButtons.init();
 
-    // Initialize clip launcher
-    ClipLauncher.init();
-
     // Initialize Roland Piano transpose
     RolandPiano = new RolandPianoHW({
         host: host,
@@ -561,6 +532,47 @@ function init() {
     });
     Pager.init();
 
+    // Initialize clip launcher (after Pager)
+    ClipLauncher = new ClipLauncherHW({
+        host: host,
+        launchpad: Launchpad,
+        pager: Pager,
+        debug: debug,
+        println: println
+    });
+    ClipLauncher.init();
+
+    // Initialize clip gestures (after ClipLauncher)
+    ClipGestures = new ClipGestures({ launchpad: Launchpad, clipLauncher: ClipLauncher });
+    ClipGestures
+        .click(function(t, s, slot) {
+            if (slot.isRecording().get() || slot.isRecordingQueued().get()) {
+                this._trackBank.getItemAt(t).stop();
+                return;
+            }
+            if (slot.hasContent().get()) {
+                this.launchClip(t, s);
+            } else {
+                this.recordClip(t, s);
+            }
+        })
+        .hold(function(t, s, slot) {
+            this.deleteClip(t, s);
+        })
+        .modifier(Launchpad.buttons.top6, {
+            name: 'duplicate',
+            color: Launchpad.colors.green,
+            click: function(t, s, slot) {
+                this.handleDuplicateClick(t, s);
+            },
+            onRelease: function() {
+                this.clearDuplicateSource();
+            }
+        });
+
+    // Fix circular dep: ClipLauncher needs ClipGestures for pad behavior callbacks
+    ClipLauncher.clipGestures = ClipGestures;
+
     // Initialize ProjectExplorer (after Pager, before Pages)
     ProjectExplorer = new ProjectExplorerHW({
         bitwig: Bitwig,
@@ -580,11 +592,13 @@ function init() {
         println: println
     });
 
-    // Fix stale refs: LaunchpadLane and LaunchpadTopButtons were constructed before Pager/Pages/ProjectExplorer
+    // Fix stale refs: LaunchpadLane and LaunchpadTopButtons were constructed before Pager/Pages/ProjectExplorer/ClipLauncher/ClipGestures
     LaunchpadLane.pager = Pager;
     LaunchpadTopButtons.pager = Pager;
     LaunchpadTopButtons.pages = Pages;
     LaunchpadTopButtons.projectExplorer = ProjectExplorer;
+    LaunchpadTopButtons.clipLauncher = ClipLauncher;
+    LaunchpadTopButtons.clipGestures = ClipGestures;
 
     // Initialize Page_MainControl (before LaunchpadModeSwitcher which depends on it)
     Page_MainControl = new PageMainControlHW({
