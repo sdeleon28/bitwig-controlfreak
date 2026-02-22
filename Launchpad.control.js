@@ -548,15 +548,18 @@ function init() {
         }
     });
 
-    // Register pages (clip launcher registered below after LaunchpadModeSwitcher)
-    Pages.registerPage(Page_MainControl);     // Page 1: Main control + markers
-    Pages.registerPage(Page_MarkerManager);   // Page 2: Detailed marker manager
-    Pages.registerPage(Page_DebugActions);    // Page 4: Debug actions for testing
-    Pages.registerPage(Page_ColorPalette);    // Page 5: Color palette (colors 0-63)
-    Pages.registerPage(Page_ColorPalette2);   // Page 6: Color palette (colors 64-127)
-
     // Initialize Pager (reactive page state manager)
     Pager.init();
+
+    // Initialize Page_MainControl (before LaunchpadModeSwitcher which depends on it)
+    Page_MainControl = new PageMainControlHW({
+        launchpadLane: LaunchpadLane,
+        launchpad: Launchpad,
+        launchpadQuadrant: LaunchpadQuadrant,
+        debug: debug,
+        println: println
+    });
+    Pages.registerPage(Page_MainControl);     // Page 1: Main control + markers
 
     // Set circular deps on Launchpad now that Pager exists
     Launchpad.pager = Pager;
@@ -589,6 +592,51 @@ function init() {
     });
     Pages.registerPage(Page_ClipLauncher);    // Page 3: Clip launcher
 
+    // Initialize remaining pages
+    Page_MarkerManager = new PageMarkerManagerHW({
+        pager: Pager,
+        launchpad: Launchpad,
+        projectExplorer: ProjectExplorer,
+        bitwig: Bitwig,
+        bitwigActions: BitwigActions,
+        host: host,
+        debug: debug,
+        println: println
+    });
+    Pages.registerPage(Page_MarkerManager);   // Page 2: Detailed marker manager
+
+    Page_DebugActions = new PageDebugActionsHW({
+        pager: Pager,
+        bitwig: Bitwig,
+        bitwigActions: BitwigActions,
+        host: host,
+        debug: debug,
+        println: println
+    });
+    Pages.registerPage(Page_DebugActions);    // Page 4: Debug actions for testing
+
+    Page_ColorPalette = new PageColorPaletteHW({
+        id: "color-palette-1",
+        pageNumber: 5,
+        colorOffset: 0,
+        pager: Pager,
+        host: host,
+        debug: debug,
+        println: println
+    });
+    Pages.registerPage(Page_ColorPalette);    // Page 5: Color palette (colors 0-63)
+
+    Page_ColorPalette2 = new PageColorPaletteHW({
+        id: "color-palette-2",
+        pageNumber: 6,
+        colorOffset: 64,
+        pager: Pager,
+        host: host,
+        debug: debug,
+        println: println
+    });
+    Pages.registerPage(Page_ColorPalette2);   // Page 6: Color palette (colors 64-127)
+
     // Initialize Controller (after all deps are ready)
     Controller = new ControllerHW({
         twister: Twister,
@@ -610,6 +658,10 @@ function init() {
 
     // Fix stale ref: LaunchpadLane was constructed before Controller existed
     LaunchpadLane.controller = Controller;
+
+    // Fix stale ref: Page_MainControl was constructed before Controller/LaunchpadModeSwitcher existed
+    Page_MainControl.controller = Controller;
+    Page_MainControl.launchpadModeSwitcher = LaunchpadModeSwitcher;
 
     // Initialize pagination system (after pages registered, after mode switcher ready)
     Pages.init();

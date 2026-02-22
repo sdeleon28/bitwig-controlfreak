@@ -60,10 +60,10 @@ list of files:
 [X] `LaunchpadTopButtons.js`
 [X] `NanoKey2.js`
 [X] `Page_ClipLauncher.js`
-[ ] `Page_ColorPalette.js`
-[ ] `Page_DebugActions.js`
-[ ] `Page_MainControl.js`
-[ ] `Page_MarkerManager.js`
+[X] `Page_ColorPalette.js`
+[X] `Page_DebugActions.js`
+[X] `Page_MainControl.js`
+[X] `Page_MarkerManager.js`
 [ ] `Pager.js`
 [ ] `Pages.js`
 [ ] `ProjectExplorer.js`

@@ -9,4 +9,8 @@ test:
     node LaunchpadTopButtons.test.js
     node NanoKey2.test.js
     node Page_ClipLauncher.test.js
+    node Page_ColorPalette.test.js
+    node Page_DebugActions.test.js
+    node Page_MainControl.test.js
+    node Page_MarkerManager.test.js
     node Controller.test.js

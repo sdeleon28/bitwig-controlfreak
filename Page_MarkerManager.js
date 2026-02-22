@@ -1,158 +1,188 @@
 /**
  * Page 2: Marker Manager (detailed marker view)
  * Same markers as page 1 but will have different behavior in future
- * @namespace
  */
-var Page_MarkerManager = {
-    id: "marker-manager",
-    pageNumber: 2,
-
+class PageMarkerManagerHW {
     /**
-     * Right side action buttons (vertical layout)
+     * @param {Object} deps
+     * @param {Object} deps.pager - Pager namespace
+     * @param {Object} deps.launchpad - Launchpad instance
+     * @param {Object} deps.projectExplorer - ProjectExplorer namespace
+     * @param {Object} deps.bitwig - Bitwig namespace
+     * @param {Object} deps.bitwigActions - BitwigActions constants
+     * @param {Object} deps.host - Bitwig host object
+     * @param {boolean} deps.debug - Debug flag
+     * @param {Function} deps.println - Print function
      */
-    actionButtons: {
-        toggleMode: 89,     // Volume button
-        insertSilence: 79,  // Pan button
-        copy: 69,           // Send A button
-        paste: 59,          // Send B button
-        colors: {
-            toggleMode: 53,    // Pink
-            insertSilence: 49, // Purple
-            copy: 37,          // Cyan
-            paste: 21          // Green
-        }
-    },
+    constructor(deps) {
+        deps = deps || {};
+        this.pager = deps.pager || null;
+        this.launchpad = deps.launchpad || null;
+        this.projectExplorer = deps.projectExplorer || null;
+        this.bitwig = deps.bitwig || null;
+        this.bitwigActions = deps.bitwigActions || null;
+        this.host = deps.host || null;
+        this.debug = deps.debug || false;
+        this.println = deps.println || function() {};
 
-    init: function() {
-        if (debug) println("Page_MarkerManager initialized on page " + this.pageNumber);
-    },
+        this.id = "marker-manager";
+        this.pageNumber = 2;
 
-    show: function() {
+        this.actionButtons = {
+            toggleMode: 89,     // Volume button
+            insertSilence: 79,  // Pan button
+            copy: 69,           // Send A button
+            paste: 59,          // Send B button
+            colors: {
+                toggleMode: 53,    // Pink
+                insertSilence: 49, // Purple
+                copy: 37,          // Cyan
+                paste: 21          // Green
+            }
+        };
+    }
+
+    init() {
+        if (this.debug) this.println("Page_MarkerManager initialized on page " + this.pageNumber);
+    }
+
+    show() {
         // Use ProjectExplorer for all page 2 behavior
-        ProjectExplorer.registerBehaviors();
-        ProjectExplorer.autoResolution();  // Auto-fit content to one page
-        ProjectExplorer.refresh();
+        if (this.projectExplorer) {
+            this.projectExplorer.registerBehaviors();
+            this.projectExplorer.autoResolution();
+            this.projectExplorer.refresh();
+        }
 
         // Register and paint action buttons
         this.registerActionBehaviors();
         this.refreshActionButtons();
-    },
+    }
 
-    /**
-     * Register action button behaviors for right side buttons
-     */
-    registerActionBehaviors: function() {
+    registerActionBehaviors() {
+        var self = this;
         var btns = this.actionButtons;
 
+        if (!this.launchpad) return;
+
         // Note 89 (Volume): Toggle Object/Time Selection
-        Launchpad.registerPadBehavior(btns.toggleMode, function() {
-            Bitwig.invokeAction(BitwigActions.TOGGLE_OBJECT_TIME_SELECTION);
-            host.showPopupNotification("Toggle Obj/Time Mode");
+        this.launchpad.registerPadBehavior(btns.toggleMode, function() {
+            self.bitwig.invokeAction(self.bitwigActions.TOGGLE_OBJECT_TIME_SELECTION);
+            self.host.showPopupNotification("Toggle Obj/Time Mode");
         }, null, this.pageNumber);
 
         // Note 79 (Pan): Insert Silence (hold: Remove Time)
-        Launchpad.registerPadBehavior(btns.insertSilence, function() {
-            Bitwig.invokeAction(BitwigActions.INSERT_SILENCE);
-            host.showPopupNotification("Insert Silence");
+        this.launchpad.registerPadBehavior(btns.insertSilence, function() {
+            self.bitwig.invokeAction(self.bitwigActions.INSERT_SILENCE);
+            self.host.showPopupNotification("Insert Silence");
         }, function() {
-            Bitwig.invokeAction(BitwigActions.REMOVE_TIME);
-            host.showPopupNotification("Remove Time");
+            self.bitwig.invokeAction(self.bitwigActions.REMOVE_TIME);
+            self.host.showPopupNotification("Remove Time");
         }, this.pageNumber);
 
         // Note 69 (Send A): Copy (hold: Cut Time)
-        Launchpad.registerPadBehavior(btns.copy, function() {
-            Bitwig._application.copy();
-            host.showPopupNotification("Copy");
+        this.launchpad.registerPadBehavior(btns.copy, function() {
+            self.bitwig._application.copy();
+            self.host.showPopupNotification("Copy");
         }, function() {
-            Bitwig.invokeAction(BitwigActions.CUT_TIME);
-            host.showPopupNotification("Cut Time");
+            self.bitwig.invokeAction(self.bitwigActions.CUT_TIME);
+            self.host.showPopupNotification("Cut Time");
         }, this.pageNumber);
 
         // Note 59 (Send B): Paste + insert cue marker
-        Launchpad.registerPadBehavior(btns.paste, function() {
-            Bitwig._application.paste();
-            Bitwig.invokeAction(BitwigActions.INSERT_CUE_MARKER);
-            host.showPopupNotification("Paste + Marker");
+        this.launchpad.registerPadBehavior(btns.paste, function() {
+            self.bitwig._application.paste();
+            self.bitwig.invokeAction(self.bitwigActions.INSERT_CUE_MARKER);
+            self.host.showPopupNotification("Paste + Marker");
         }, null, this.pageNumber);
 
-        if (debug) println("Action behaviors registered for right side buttons on page 2");
-    },
+        if (this.debug) this.println("Action behaviors registered for right side buttons on page 2");
+    }
 
-    /**
-     * Paint action buttons with their colors
-     */
-    refreshActionButtons: function() {
+    refreshActionButtons() {
+        if (!this.pager) return;
         var btns = this.actionButtons;
         var colors = btns.colors;
 
-        Pager.requestPaint(this.pageNumber, btns.toggleMode, colors.toggleMode);
-        Pager.requestPaint(this.pageNumber, btns.insertSilence, colors.insertSilence);
-        Pager.requestPaint(this.pageNumber, btns.copy, colors.copy);
-        Pager.requestPaint(this.pageNumber, btns.paste, colors.paste);
-    },
+        this.pager.requestPaint(this.pageNumber, btns.toggleMode, colors.toggleMode);
+        this.pager.requestPaint(this.pageNumber, btns.insertSilence, colors.insertSilence);
+        this.pager.requestPaint(this.pageNumber, btns.copy, colors.copy);
+        this.pager.requestPaint(this.pageNumber, btns.paste, colors.paste);
+    }
 
-    hide: function() {
+    hide() {
         // Clear pagination buttons when leaving this page
-        Launchpad.setTopButtonColor(ProjectExplorer.buttons.prevPage, 0);
-        Launchpad.setTopButtonColor(ProjectExplorer.buttons.nextPage, 0);
-        // Note: Time select gesture is NOT reset here to allow cross-page selection
-        // It will be reset by main page navigation (Pages.switchToPage)
-        if (debug) println("Hiding marker manager page");
-    },
+        if (this.launchpad && this.projectExplorer) {
+            this.launchpad.setTopButtonColor(this.projectExplorer.buttons.prevPage, 0);
+            this.launchpad.setTopButtonColor(this.projectExplorer.buttons.nextPage, 0);
+        }
+        if (this.debug) this.println("Hiding marker manager page");
+    }
 
-    handlePadPress: function(padNote) {
+    handlePadPress(padNote) {
+        if (!this.projectExplorer) {
+            return this.launchpad ? this.launchpad.handlePadPress(padNote) : false;
+        }
+
         // Check for time select modifier (Record Arm button)
-        if (padNote === ProjectExplorer.modifiers.timeSelect) {
-            ProjectExplorer.handleTimeSelectModifierPress();
+        if (padNote === this.projectExplorer.modifiers.timeSelect) {
+            this.projectExplorer.handleTimeSelectModifierPress();
             return true;
         }
 
         // Check for copy select modifier (Solo button)
-        if (padNote === ProjectExplorer.modifiers.copySelect) {
-            ProjectExplorer.handleCopySelectModifierPress();
+        if (padNote === this.projectExplorer.modifiers.copySelect) {
+            this.projectExplorer.handleCopySelectModifierPress();
             return true;
         }
 
         // If time select gesture is active, handle as gesture input
-        if (ProjectExplorer._timeSelectActive) {
-            ProjectExplorer.handleTimeSelectPadPress(padNote);
+        if (this.projectExplorer._timeSelectActive) {
+            this.projectExplorer.handleTimeSelectPadPress(padNote);
             return true;
         }
 
         // If copy select gesture is active, handle as gesture input
-        if (ProjectExplorer._copySelectActive) {
-            ProjectExplorer.handleCopySelectPadPress(padNote);
+        if (this.projectExplorer._copySelectActive) {
+            this.projectExplorer.handleCopySelectPadPress(padNote);
             return true;
         }
 
-        return Launchpad.handlePadPress(padNote);
-    },
+        return this.launchpad ? this.launchpad.handlePadPress(padNote) : false;
+    }
 
-    handlePadRelease: function(padNote) {
+    handlePadRelease(padNote) {
+        if (!this.projectExplorer) {
+            return this.launchpad ? this.launchpad.handlePadRelease(padNote) : false;
+        }
+
         // Check for time select modifier release
-        if (padNote === ProjectExplorer.modifiers.timeSelect) {
-            ProjectExplorer.handleTimeSelectModifierRelease();
+        if (padNote === this.projectExplorer.modifiers.timeSelect) {
+            this.projectExplorer.handleTimeSelectModifierRelease();
             return true;
         }
 
         // Check for copy select modifier release
-        if (padNote === ProjectExplorer.modifiers.copySelect) {
-            ProjectExplorer.handleCopySelectModifierRelease();
+        if (padNote === this.projectExplorer.modifiers.copySelect) {
+            this.projectExplorer.handleCopySelectModifierRelease();
             return true;
         }
 
-        // Block grid pad releases during time selection (prevents jumpToBar trigger)
-        if (ProjectExplorer._timeSelectActive) {
-            var padIndex = ProjectExplorer.pads.indexOf(padNote);
-            if (padIndex !== -1) return true;  // Consume release, don't trigger click
+        // Block grid pad releases during time selection
+        if (this.projectExplorer._timeSelectActive) {
+            var padIndex = this.projectExplorer.pads.indexOf(padNote);
+            if (padIndex !== -1) return true;
         }
 
         // Block grid pad releases during copy selection
-        if (ProjectExplorer._copySelectActive) {
-            var padIndex = ProjectExplorer.pads.indexOf(padNote);
-            if (padIndex !== -1) return true;  // Consume release, don't trigger click
+        if (this.projectExplorer._copySelectActive) {
+            var padIndex = this.projectExplorer.pads.indexOf(padNote);
+            if (padIndex !== -1) return true;
         }
 
-        return Launchpad.handlePadRelease(padNote);
+        return this.launchpad ? this.launchpad.handlePadRelease(padNote) : false;
     }
-};
+}
+
+var Page_MarkerManager = {};
+if (typeof module !== 'undefined') module.exports = PageMarkerManagerHW;
