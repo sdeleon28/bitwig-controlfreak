@@ -10,7 +10,7 @@ an immediate feedback loop for self-verification.
 
 In order to do that, we will perform a refactor that looks like this:
 
-pick up the next file from the list and do the following:
+pick up the next files marked `[-]` from the list and do the following:
 
 * refactor namespaces into ES6
 * if the dependencies haven't been refactored to classes
@@ -51,10 +51,10 @@ list of files:
 
 [X] `Animations.js`
 [X] `ClipGestures.js`
-[ ] `ClipLauncher.js`
+[X] `Twister.js`
+[X] `Launchpad.js`
+[X] `LaunchpadLane.js`
 [ ] `Controller.js`
-[ ] `Launchpad.js`
-[ ] `LaunchpadLane.js`
 [ ] `LaunchpadModeSwitcher.js`
 [ ] `LaunchpadQuadrant.js`
 [ ] `LaunchpadTopButtons.js`
@@ -68,7 +68,7 @@ list of files:
 [ ] `Pages.js`
 [ ] `ProjectExplorer.js`
 [ ] `RolandPiano.js`
-[ ] ``Twister.js``
+[ ] `ClipLauncher.js`
 [ ] `Bitwig.js`
 [ ] `BitwigActions.js`
 [ ] `Launchpad.control.js`

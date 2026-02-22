@@ -201,7 +201,13 @@ function init() {
     // Launchpad on port 0
     launchpadOut = host.getMidiOutPort(0);
     launchpadOut.setShouldSendMidiBeatClock(true);  // Sync flashing/pulsing to project BPM
-    Launchpad.init(launchpadOut);
+    Launchpad = new LaunchpadHW({
+        midiOutput: launchpadOut,
+        bitwig: Bitwig,
+        host: host,
+        debug: debug,
+        println: println
+    });
 
     noteIn = host.getMidiInPort(0).createNoteInput("Launchpad", "??????");
     noteIn.setShouldConsumeEvents(false);
@@ -214,7 +220,14 @@ function init() {
 
     // MIDI Fighter Twister on port 1
     twisterOut = host.getMidiOutPort(1);
-    Twister.init(twisterOut);
+    Twister = new TwisterHW({
+        midiOutput: twisterOut,
+        bitwig: Bitwig,
+        launchpadModeSwitcher: LaunchpadModeSwitcher,
+        host: host,
+        debug: debug,
+        println: println
+    });
 
     host.getMidiInPort(1).setMidiCallback(function(status, data1, data2) {
         Controller.onTwisterMidi(status, data1, data2);
@@ -274,7 +287,7 @@ function init() {
 
             // Add volume observer that checks for encoder links
             trackObj.volume().addValueObserver(128, function(value) {
-                var encoderNumber = Twister._trackToEncoder[trackId];
+                var encoderNumber = Twister.getEncoderForTrack(trackId);
                 if (encoderNumber && LaunchpadModeSwitcher.getEncoderMode() === 'volume') {
                     Twister.setEncoderLED(encoderNumber, value);
                 }
@@ -283,7 +296,7 @@ function init() {
             // Add pan observer that checks for encoder links
             trackObj.pan().markInterested();
             trackObj.pan().addValueObserver(128, function(value) {
-                var encoderNumber = Twister._trackToEncoder[trackId];
+                var encoderNumber = Twister.getEncoderForTrack(trackId);
                 if (encoderNumber && LaunchpadModeSwitcher.getEncoderMode() === 'pan') {
                     Twister.setEncoderLED(encoderNumber, value);
                 }
@@ -296,8 +309,7 @@ function init() {
                     var send = sendBank.getItemAt(sendIndex);
                     send.value().markInterested();
                     send.value().addValueObserver(128, function(value) {
-                        var key = tid + '_' + sendIndex;
-                        var encoderNum = Twister._sendToEncoder ? Twister._sendToEncoder[key] : null;
+                        var encoderNum = Twister.getEncoderForSend(tid, sendIndex);
                         if (encoderNum && LaunchpadModeSwitcher.getPadMode() === 'sendA') {
                             Twister.setEncoderLED(encoderNum, value);
                         }
@@ -308,7 +320,7 @@ function init() {
             // Add mute observer for track grid
             trackObj.mute().markInterested();
             trackObj.mute().addValueObserver(function(isMuted) {
-                var padNumber = Launchpad._padToTrack[trackId];
+                var padNumber = Launchpad.getPadForTrack(trackId);
                 if (padNumber) {
                     var color = Launchpad.getTrackGridPadColor(trackId);
                     Launchpad.setPadColor(padNumber, color);
@@ -318,7 +330,7 @@ function init() {
             // Add solo observer for track grid
             trackObj.solo().markInterested();
             trackObj.solo().addValueObserver(function(isSoloed) {
-                var padNumber = Launchpad._padToTrack[trackId];
+                var padNumber = Launchpad.getPadForTrack(trackId);
                 if (padNumber) {
                     var color = Launchpad.getTrackGridPadColor(trackId);
                     Launchpad.setPadColor(padNumber, color);
@@ -328,7 +340,7 @@ function init() {
             // Add record arm observer for track grid
             trackObj.arm().markInterested();
             trackObj.arm().addValueObserver(function(isArmed) {
-                var padNumber = Launchpad._padToTrack[trackId];
+                var padNumber = Launchpad.getPadForTrack(trackId);
                 if (padNumber) {
                     var color = Launchpad.getTrackGridPadColor(trackId);
                     Launchpad.setPadColor(padNumber, color);
@@ -338,7 +350,7 @@ function init() {
             // Add color observer that checks for encoder and pad links
             trackObj.color().addValueObserver(function(red, green, blue) {
                 // Update encoder colors
-                var encoderNumber = Twister._trackToEncoder[trackId];
+                var encoderNumber = Twister.getEncoderForTrack(trackId);
                 if (encoderNumber) {
                     var redMidi = Math.round(red * 255);
                     var greenMidi = Math.round(green * 255);
@@ -348,7 +360,7 @@ function init() {
 
                 // Update pad colors - only for group selector pads
                 // Track grid pads are handled by Controller.refreshTrackGrid (based on pad mode)
-                var padNumber = Launchpad._padToTrack[trackId];
+                var padNumber = Launchpad.getPadForTrack(trackId);
                 if (padNumber) {
                     // Check if this is a group selector pad
                     var isGroupSelector = LaunchpadQuadrant.bottomRight.getGroup(padNumber) !== null;
@@ -384,7 +396,7 @@ function init() {
             // Add volume observer for bi-directional sync
             effTrack.volume().addValueObserver(function(value) {
                 // Update encoder LED if this effect track is linked
-                var encoderNum = Twister._effectTrackToEncoder ? Twister._effectTrackToEncoder[effectIndex] : null;
+                var encoderNum = Twister.getEncoderForEffectTrack(effectIndex);
                 if (encoderNum) {
                     Twister.setEncoderLED(encoderNum, Math.round(value * 127));
                 }
@@ -397,7 +409,7 @@ function init() {
 
             // Update encoder color when effect track color changes
             effTrack.color().addValueObserver(function(red, green, blue) {
-                var encoderNum = Twister._effectTrackToEncoder ? Twister._effectTrackToEncoder[effectIndex] : null;
+                var encoderNum = Twister.getEncoderForEffectTrack(effectIndex);
                 if (encoderNum) {
                     Twister.setEncoderColor(encoderNum,
                         Math.round(red * 255),
@@ -477,7 +489,16 @@ function init() {
     LaunchpadQuadrant.bottomLeft.init();
 
     // Initialize marker lane
-    LaunchpadLane.init();
+    LaunchpadLane = new LaunchpadLaneHW({
+        bitwig: Bitwig,
+        bitwigActions: BitwigActions,
+        launchpad: Launchpad,
+        pager: Pager,
+        controller: Controller,
+        host: host,
+        debug: debug,
+        println: println
+    });
 
     // Initialize control buttons
     LaunchpadTopButtons.init();
@@ -521,8 +542,14 @@ function init() {
     // Initialize Pager (reactive page state manager)
     Pager.init();
 
+    // Set circular deps on Launchpad now that Pager exists
+    Launchpad.pager = Pager;
+
     // Initialize mode switcher
     LaunchpadModeSwitcher.init();
+
+    // Set LaunchpadModeSwitcher dep on Launchpad now that it's initialized
+    Launchpad.launchpadModeSwitcher = LaunchpadModeSwitcher;
 
     // Initialize controller logic
     Controller.init();

@@ -184,7 +184,7 @@ var Controller = {
         var padMode = LaunchpadModeSwitcher.getPadMode();
 
         for (var encoderNum = 1; encoderNum <= 16; encoderNum++) {
-            var link = Twister._encoderLinks[encoderNum];
+            var link = Twister.getEncoderLink(encoderNum);
             if (link) {
                 var padNote = LaunchpadQuadrant.bottomLeft.pads[encoderNum - 1];
                 var trackId = link.trackId;
@@ -291,14 +291,14 @@ var Controller = {
         var encoderMatch = newName.match(/\((\d+)\)/);
 
         // Find if this track was previously linked to any encoder
-        var previousEncoder = Twister._trackToEncoder[trackId];
+        var previousEncoder = Twister.getEncoderForTrack(trackId);
 
         if (encoderMatch) {
             var newEncoder = parseInt(encoderMatch[1]);
 
             if (newEncoder >= 1 && newEncoder <= 16) {
                 // Check if another track is using this encoder
-                var existingLink = Twister._encoderLinks[newEncoder];
+                var existingLink = Twister.getEncoderLink(newEncoder);
                 if (existingLink && existingLink.trackId !== trackId) {
                     // Another track has this encoder - unlink it
                     Twister.unlinkEncoder(newEncoder);
