@@ -245,6 +245,21 @@ function init() {
 
     Bitwig.initCursor(cursorTrack, cursorDevice, remoteControls);
 
+    // Register direct parameter observers (for devices without Remote Controls pages)
+    cursorDevice.addDirectParameterIdObserver(function(ids) {
+        Bitwig.setDirectParamIds(ids);
+    });
+
+    cursorDevice.addDirectParameterNameObserver(64, function(id, name) {
+        Bitwig.setDirectParamName(id, name);
+    });
+
+    // Observe cursor device name changes (for auto-remapping encoders)
+    cursorDevice.name().markInterested();
+    cursorDevice.name().addValueObserver(function(name) {
+        Controller.onDeviceChanged(name);
+    });
+
     // Subscribe to track properties for tree building
     for (var i = 0; i < 64; i++) {
         var track = trackBank.getItemAt(i);

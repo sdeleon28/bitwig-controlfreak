@@ -20,6 +20,8 @@ class BitwigHW {
         this._cursorTrack = null;
         this._cursorDevice = null;
         this._remoteControls = null;
+        this._directParamIds = [];
+        this._directParamNames = {};
     }
 
     /**
@@ -459,6 +461,41 @@ class BitwigHW {
     getRemoteControls() {
         return this._remoteControls;
     }
+
+    /**
+     * Store direct parameter IDs (from addDirectParameterIdObserver)
+     * @param {string[]} ids - Array of parameter ID strings
+     */
+    setDirectParamIds(ids) {
+        this._directParamIds = ids;
+        this._directParamNames = {};
+    }
+
+    /**
+     * Get direct parameter IDs
+     * @returns {string[]} Array of parameter ID strings
+     */
+    getDirectParamIds() { return this._directParamIds; }
+
+    /**
+     * Store a direct parameter name
+     * @param {string} id - Parameter ID
+     * @param {string} name - Parameter display name
+     */
+    setDirectParamName(id, name) { this._directParamNames[id] = name; }
+
+    /**
+     * Get a direct parameter name by ID
+     * @param {string} id - Parameter ID
+     * @returns {string|null} Parameter name or null
+     */
+    getDirectParamName(id) { return this._directParamNames[id] || null; }
+
+    /**
+     * Get all direct parameter names
+     * @returns {Object} Map of id -> name
+     */
+    getDirectParamNames() { return this._directParamNames; }
 
     /**
      * Select a track in mixer (XOR - deselects others)

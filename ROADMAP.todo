@@ -45,21 +45,42 @@
 [X] rewrite record arm
     [X] should default to XOR
     [X] hold clears
-[-] project explorer page
-    [-] show bar pads with surrounding marker colors
-    [ ] resolution - / + buttons
-        [ ] session -> - resolution
-        [ ] user 1 -> + resolution
-    [ ] page - / + buttons
-        [ ] user 2 -> - page
-        [ ] mixer -> + page
-        [ ] should light up in the same way as top page switcher
-[ ] mode selector -> only selected modes should light up (to bright color)
-[ ] remote control mode
-[ ] make page jumps immediate
-[ ] group actions -> top right
-    [ ] select
-    [ ] go into
-    [ ] go out of
-    [ ] group
-    [ ] ungroup
+[X] project explorer page
+    [X] show bar pads with surrounding marker colors
+    [X] resolution - / + buttons
+        [X] session -> - resolution
+        [X] user 1 -> + resolution
+    [X] page - / + buttons
+        [X] user 2 -> - page
+        [X] mixer -> + page
+        [X] should light up in the same way as top page switcher
+[X] mode selector -> only selected modes should light up (to bright color)
+[X] make page jumps immediate
+[-] device mode
+    [X] POC map param on detection
+    [X] print direct param names
+    [-] when Frequalizer is selected
+        [-] unbind all twister encoders
+        [-] bind them to parmeters on the plugin
+        [ ] mid / mid-solo / side-side solo buttons on the launchpad
+        [ ] exit device mode button
+        [ ] bypass device button
+    [ ] for generic devices
+        [ ] auto-map direct params
+        [ ] exit device mode button
+        [ ] bypass device button
+    [ ] remote control
+        [ ] if a device has remote controls, auto-map to those instead of direct params
+        [ ] exit device mode button
+        [ ] bypass device button
+    [ ] device change is triggered on start, make sure that one doesn't count
+[ ] refactor
+    [ ] can all the bindings that happen in Launchpad.control.js be moved to individual modules
+    [ ] something like an `onStartup` method that runs the observer mappings during init
+        [ ] but isn't spaghetti at the Launchpad.control.js level
+    [ ] properly encapsulate startup code in each module
+[ ] UX feedback
+    [ ] display growl on group select
+    [ ] display growl on track select (include current mode/s)
+    [ ] display growl on mode switch
+

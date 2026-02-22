@@ -70,7 +70,17 @@ function fakeBitwig(opts) {
         selectTrack: function(id) { result.selectedTracks.push(id); },
         setTimeSelection: function(start, end) { result._timeSelection = { start: start, end: end }; },
         setPlayheadPosition: function(pos) { result._playheadPos = pos; },
-        getMarkerBank: function() { return opts.markerBank || null; }
+        getMarkerBank: function() { return opts.markerBank || null; },
+        getRemoteControls: function() {
+            var params = {};
+            for (var i = 0; i < 8; i++) {
+                params[i] = {
+                    name: function() { return { get: function() { return "Param " + i; } }; },
+                    value: function() { return { set: function() {} }; }
+                };
+            }
+            return { getParameter: function(i) { return params[i]; } };
+        }
     };
     return result;
 }
@@ -723,6 +733,73 @@ function makeController(opts) {
     // We can't directly read _timeSelection from our fakeBitwig because it's local,
     // but the test verifies no errors are thrown
     assert(true, "prepareRecordingAtRegion should not throw");
+})();
+
+// onDeviceChanged: empty name is ignored
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl.onDeviceChanged("");
+    assert(tw.calls.length === 0, "empty device name should be ignored");
+})();
+
+// onDeviceChanged: Frequalizer Alt unlinks all, sets deviceMode, schedules param read, links encoder 1
+(function() {
+    var tw = fakeTwister();
+    var bw = fakeBitwig();
+    var directParamCalls = [];
+    var mockDevice = {
+        setDirectParameterValueNormalized: function(id, value, resolution) {
+            directParamCalls.push({ id: id, value: value, resolution: resolution });
+        }
+    };
+    bw.getDirectParamIds = function() { return ['bypass', 'q1_on', 'q1_freq', 'q1_gain']; };
+    bw.getDirectParamName = function(id) {
+        return { bypass: 'Bypass', q1_on: 'Q1: On', q1_freq: 'Q1: Frequency', q1_gain: 'Q1: Gain' }[id] || null;
+    };
+    bw.getCursorDevice = function() { return mockDevice; };
+    var h = fakeHost();
+    var ctrl = makeController({ twister: tw, bitwig: bw, host: h });
+    ctrl.onDeviceChanged("Frequalizer Alt");
+    assert(tw.calls.indexOf('unlinkAll') !== -1, "should call unlinkAll for Frequalizer Alt");
+    assert(ctrl.deviceMode === true, "deviceMode should be true after entering Frequalizer Alt");
+    assert(h.scheduled.length === 1, "should schedule a task for param reading");
+    h.scheduled[0].fn(); // execute scheduled task
+
+    // Verify encoder 1 was linked
+    assert(tw.behaviors[1] !== undefined, "encoder 1 should have a behavior after scheduled task");
+    assert(tw.behaviors[1].color.r === 80 && tw.behaviors[1].color.b === 255, "encoder 1 color should be blue");
+
+    // Simulate turning encoder 1 and verify it calls setDirectParameterValueNormalized
+    tw.behaviors[1].turn(64);
+    assert(directParamCalls.length === 1, "turning encoder should call setDirectParameterValueNormalized");
+    assert(directParamCalls[0].id === 'q1_freq', "should target Q1: Frequency param id");
+    assert(directParamCalls[0].value === 64, "value should be raw MIDI value (0-127 maps to resolution 128)");
+    assert(directParamCalls[0].resolution === 128, "resolution should be 128");
+})();
+
+// onDeviceChanged: non-FrequalizerAlt restores group when leaving device mode
+(function() {
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.selectedGroup = 16;
+    ctrl.deviceMode = true;
+    ctrl.onDeviceChanged("SomeOtherPlugin");
+    assert(tw.calls.indexOf('unlinkAll') !== -1, "should call unlinkAll via selectGroup");
+    assert(ctrl.selectedGroup === 16, "should restore group 16");
+    assert(ctrl.deviceMode === false, "deviceMode should be false after leaving device mode");
+})();
+
+// onDeviceChanged: stray name while not in device mode is ignored
+(function() {
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.selectedGroup = 16;
+    ctrl.deviceMode = false;
+    ctrl.onDeviceChanged("RandomPlugin");
+    assert(tw.calls.length === 0, "should not call any twister methods for stray device name");
 })();
 
 process.exit(t.summary('Controller'));
