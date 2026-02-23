@@ -86,7 +86,7 @@ var freqMapping = DeviceMappings["Frequalizer Alt"];
         totalButtons += freqMapping[i].buttons.length;
     }
     assert(totalEncoders === 16, "should have 16 encoder (turn) mappings, got " + totalEncoders);
-    assert(totalButtons === 6, "should have 6 button (press) mappings, got " + totalButtons);
+    assert(totalButtons === 12, "should have 12 button (press) mappings, got " + totalButtons);
 })();
 
 process.exit(t.summary('DeviceMappings'));

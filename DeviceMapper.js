@@ -53,6 +53,10 @@ class DeviceMapperHW {
                     assignments[btn.encoder] = { color: color };
                 }
                 assignments[btn.encoder].pressParamId = btn.paramId;
+                if (btn.value !== undefined) {
+                    assignments[btn.encoder].pressValue = btn.value;
+                    assignments[btn.encoder].pressResolution = btn.resolution;
+                }
             }
         }
 
@@ -74,15 +78,24 @@ class DeviceMapperHW {
 
             var pressCb = null;
             if (assignment.pressParamId) {
-                pressCb = (function(paramId) {
-                    return function(pressed) {
-                        if (!pressed) return;
-                        var current = self._paramValues[paramId] || 0;
-                        var newValue = current >= 0.5 ? 0 : 127;
-                        device.setDirectParameterValueNormalized(paramId, newValue, 128);
-                        self._paramValues[paramId] = newValue / 127;
-                    };
-                })(assignment.pressParamId);
+                if (assignment.pressValue !== undefined) {
+                    pressCb = (function(paramId, value, resolution) {
+                        return function(pressed) {
+                            if (!pressed) return;
+                            device.setDirectParameterValueNormalized(paramId, value, resolution);
+                        };
+                    })(assignment.pressParamId, assignment.pressValue, assignment.pressResolution);
+                } else {
+                    pressCb = (function(paramId) {
+                        return function(pressed) {
+                            if (!pressed) return;
+                            var current = self._paramValues[paramId] || 0;
+                            var newValue = current >= 0.5 ? 0 : 127;
+                            device.setDirectParameterValueNormalized(paramId, newValue, 128);
+                            self._paramValues[paramId] = newValue / 127;
+                        };
+                    })(assignment.pressParamId);
+                }
             }
 
             var num = parseInt(encoderNum);

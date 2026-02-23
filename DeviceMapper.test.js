@@ -55,6 +55,22 @@ function makeTwoBandMapping() {
                   { encoder: 2, paramId: 'CONTENTS/PIDddd' },
               ],
               buttons: []}
+        ],
+        "FixedValueDevice": [
+            { color: { r: 255, g: 0, b: 0 },
+              encoders: [
+                  { encoder: 1, paramId: 'CONTENTS/PIDfreq1' },
+              ],
+              buttons: [
+                  { encoder: 1, paramId: 'CONTENTS/PIDsolo', value: 0, resolution: 18 },
+              ]},
+            { color: { r: 0, g: 255, b: 0 },
+              encoders: [
+                  { encoder: 2, paramId: 'CONTENTS/PIDfreq2' },
+              ],
+              buttons: [
+                  { encoder: 2, paramId: 'CONTENTS/PIDsolo', value: 1, resolution: 18 },
+              ]}
         ]
     };
 }
@@ -257,6 +273,52 @@ function makeMapper(opts) {
     // After clearing, onParamValueChanged should not update LEDs
     mapper.onParamValueChanged('CONTENTS/PIDaaa', 0.5);
     assert(Object.keys(tw.ledValues).length === 0, "should not set LED after clearParamValues");
+})();
+
+// fixed-value button sends exact value and resolution on press
+(function() {
+    var directParamCalls = [];
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, directParamCalls: directParamCalls });
+    mapper.applyMapping("FixedValueDevice");
+    tw.behaviors[1].press(true);
+    assert(directParamCalls.length === 1, "press should send one call");
+    assert(directParamCalls[0].id === 'CONTENTS/PIDsolo', "should target solo paramId");
+    assert(directParamCalls[0].value === 0, "should send value 0 for band 1");
+    assert(directParamCalls[0].resolution === 18, "should send resolution 18");
+})();
+
+// fixed-value button for band 2 sends value 1
+(function() {
+    var directParamCalls = [];
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, directParamCalls: directParamCalls });
+    mapper.applyMapping("FixedValueDevice");
+    tw.behaviors[2].press(true);
+    assert(directParamCalls[0].value === 1, "should send value 1 for band 2");
+    assert(directParamCalls[0].resolution === 18, "should send resolution 18");
+})();
+
+// fixed-value button ignores release
+(function() {
+    var directParamCalls = [];
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, directParamCalls: directParamCalls });
+    mapper.applyMapping("FixedValueDevice");
+    tw.behaviors[1].press(false);
+    assert(directParamCalls.length === 0, "release should be ignored for fixed-value button");
+})();
+
+// fixed-value button always sends same value (no toggle)
+(function() {
+    var directParamCalls = [];
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, directParamCalls: directParamCalls });
+    mapper.applyMapping("FixedValueDevice");
+    tw.behaviors[1].press(true);
+    tw.behaviors[1].press(true);
+    assert(directParamCalls[0].value === 0, "first press sends value 0");
+    assert(directParamCalls[1].value === 0, "second press still sends value 0 (no toggle)");
 })();
 
 process.exit(t.summary('DeviceMapper'));

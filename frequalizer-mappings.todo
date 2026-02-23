@@ -170,5 +170,5 @@ mappings:
 
 ## MORE TODO (IMPORTANT)
 
-[ ] forgot to add band solo on hold Q param
-[ ] activate highest band should be encoder 15, not 16
+[x] forgot to add band solo on hold Q param (all bands)
+[x] activate highest band should be encoder 15, not 16
