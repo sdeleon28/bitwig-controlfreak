@@ -127,6 +127,40 @@ class DeviceMapperHW {
         }
     }
 
+    applyGenericMapping() {
+        var paramIds = this.bitwig.getDirectParamIds();
+        if (!paramIds || paramIds.length === 0) return;
+
+        this.twister.unlinkAll();
+        this._activeParamToEncoder = {};
+
+        var device = this.bitwig.getCursorDevice();
+        var self = this;
+        var color = { r: 255, g: 255, b: 255 };
+        var count = Math.min(paramIds.length, 16);
+
+        for (var i = 0; i < count; i++) {
+            var encoderNum = i + 1;
+            var paramId = paramIds[i];
+
+            var turnCb = (function(pid) {
+                return function(value) {
+                    device.setDirectParameterValueNormalized(pid, value, 128);
+                };
+            })(paramId);
+
+            this.twister.linkEncoderToBehavior(encoderNum, turnCb, null, color);
+
+            var currentValue = self._paramValues[paramId];
+            if (currentValue !== undefined) {
+                this.twister.setEncoderLED(encoderNum, Math.round(currentValue * 127));
+            }
+            self._activeParamToEncoder[paramId] = encoderNum;
+        }
+
+        if (this.debug) this.println("Applied generic device mapping: " + count + " params");
+    }
+
     clearParamValues() {
         this._paramValues = {};
         this._activeParamToEncoder = {};

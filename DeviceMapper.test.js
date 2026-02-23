@@ -27,7 +27,7 @@ function fakeTwister() {
     };
 }
 
-function fakeBitwig(directParamCalls) {
+function fakeBitwig(directParamCalls, directParamIds) {
     return {
         getCursorDevice: function() {
             return {
@@ -35,7 +35,8 @@ function fakeBitwig(directParamCalls) {
                     directParamCalls.push({ id: id, value: value, resolution: resolution });
                 }
             };
-        }
+        },
+        getDirectParamIds: function() { return directParamIds || []; }
     };
 }
 
@@ -323,6 +324,91 @@ function makeMapper(opts) {
     tw.behaviors[1].press(true);
     assert(directParamCalls[0].value === 1, "first press sends value 1");
     assert(directParamCalls[2].value === 1, "second press still sends value 1 (no toggle)");
+})();
+
+// applyGenericMapping calls unlinkAll and links params sequentially
+(function() {
+    var tw = fakeTwister();
+    var paramIds = ['PARAM/A', 'PARAM/B', 'PARAM/C'];
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], paramIds) });
+    mapper.applyGenericMapping();
+    assert(tw.calls[0] === 'unlinkAll', "first call should be unlinkAll");
+    var linkCalls = tw.calls.filter(function(c) { return c.method === 'linkEncoderToBehavior'; });
+    assert(linkCalls.length === 3, "should link 3 encoders for 3 params, got " + linkCalls.length);
+    assert(linkCalls[0].encoder === 1, "first param should map to encoder 1");
+    assert(linkCalls[1].encoder === 2, "second param should map to encoder 2");
+    assert(linkCalls[2].encoder === 3, "third param should map to encoder 3");
+})();
+
+// applyGenericMapping does nothing when no params available
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], []) });
+    mapper.applyGenericMapping();
+    assert(tw.calls.length === 0, "should not call anything with empty params");
+})();
+
+// applyGenericMapping limits to 16 encoders
+(function() {
+    var tw = fakeTwister();
+    var paramIds = [];
+    for (var i = 0; i < 20; i++) paramIds.push('PARAM/' + i);
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], paramIds) });
+    mapper.applyGenericMapping();
+    var linkCalls = tw.calls.filter(function(c) { return c.method === 'linkEncoderToBehavior'; });
+    assert(linkCalls.length === 16, "should only link 16 encoders max, got " + linkCalls.length);
+})();
+
+// applyGenericMapping turn callback sends correct paramId
+(function() {
+    var directParamCalls = [];
+    var tw = fakeTwister();
+    var paramIds = ['PARAM/Freq', 'PARAM/Gain'];
+    var mapper = makeMapper({ twister: tw, directParamCalls: directParamCalls, bitwig: fakeBitwig(directParamCalls, paramIds) });
+    mapper.applyGenericMapping();
+    tw.behaviors[1].turn(100);
+    assert(directParamCalls.length === 1, "should call setDirectParameterValueNormalized");
+    assert(directParamCalls[0].id === 'PARAM/Freq', "should target first param");
+    assert(directParamCalls[0].value === 100, "should pass value");
+    assert(directParamCalls[0].resolution === 128, "should use resolution 128");
+    tw.behaviors[2].turn(50);
+    assert(directParamCalls[1].id === 'PARAM/Gain', "should target second param");
+})();
+
+// applyGenericMapping uses white color
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A']) });
+    mapper.applyGenericMapping();
+    assert(tw.behaviors[1].color.r === 255 && tw.behaviors[1].color.g === 255 && tw.behaviors[1].color.b === 255,
+        "generic mapping should use white color");
+})();
+
+// applyGenericMapping sets initial LEDs from tracked param values
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A', 'PARAM/B']) });
+    mapper.onParamValueChanged('PARAM/A', 0.5);
+    mapper.applyGenericMapping();
+    assert(tw.ledValues[1] === 64, "encoder 1 LED should reflect tracked value, got " + tw.ledValues[1]);
+    assert(tw.ledValues[2] === undefined, "encoder 2 LED should not be set (no prior value)");
+})();
+
+// applyGenericMapping LED feedback works via onParamValueChanged
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A', 'PARAM/B']) });
+    mapper.applyGenericMapping();
+    mapper.onParamValueChanged('PARAM/A', 0.75);
+    assert(tw.ledValues[1] === 95, "encoder 1 LED should update to 95, got " + tw.ledValues[1]);
+})();
+
+// applyGenericMapping does not set press callbacks
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A']) });
+    mapper.applyGenericMapping();
+    assert(tw.behaviors[1].press === null, "generic mapping should not set press callback");
 })();
 
 process.exit(t.summary('DeviceMapper'));

@@ -759,42 +759,39 @@ function makeController(opts) {
     assert(applyCalls[0] === "Frequalizer Alt", "should pass device name to applyMapping");
 })();
 
-// onDeviceChanged: leaving device mode calls clearParamValues and restores group
+// onDeviceChanged: non-mapped device applies generic mapping
 (function() {
-    var tw = fakeTwister();
-    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
-    var cleared = false;
+    var genericCalls = [];
     var fakeDeviceMapper = {
         hasMapping: function() { return false; },
         applyMapping: function() {},
-        clearParamValues: function() { cleared = true; }
-    };
-    var ctrl = makeController({ twister: tw, bitwig: bw });
-    ctrl.deviceMapper = fakeDeviceMapper;
-    ctrl.selectedGroup = 16;
-    ctrl.deviceMode = true;
-    ctrl.onDeviceChanged("SomeOtherPlugin");
-    assert(cleared === true, "should call clearParamValues when leaving device mode");
-    assert(tw.calls.indexOf('unlinkAll') !== -1, "should call unlinkAll via selectGroup");
-    assert(ctrl.selectedGroup === 16, "should restore group 16");
-    assert(ctrl.deviceMode === false, "deviceMode should be false after leaving device mode");
-})();
-
-// onDeviceChanged: non-mapped device while not in device mode is ignored
-(function() {
-    var tw = fakeTwister();
-    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
-    var fakeDeviceMapper = {
-        hasMapping: function() { return false; },
-        applyMapping: function() {},
+        applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
         clearParamValues: function() {}
     };
-    var ctrl = makeController({ twister: tw, bitwig: bw });
+    var ctrl = makeController({});
     ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.selectedGroup = 16;
     ctrl.deviceMode = false;
-    ctrl.onDeviceChanged("RandomPlugin");
-    assert(tw.calls.length === 0, "should not call any twister methods for stray device name");
+    ctrl.onDeviceChanged("SomeOtherPlugin");
+    assert(genericCalls.length === 1, "should call applyGenericMapping for non-mapped device");
+    assert(ctrl.deviceMode === true, "deviceMode should be true after generic mapping");
+})();
+
+// onDeviceChanged: switching from mapped device to non-mapped applies generic mapping
+(function() {
+    var genericCalls = [];
+    var fakeDeviceMapper = {
+        hasMapping: function(name) { return name === "Frequalizer Alt"; },
+        applyMapping: function() {},
+        applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
+        clearParamValues: function() {}
+    };
+    var ctrl = makeController({});
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.deviceMode = true; // was in Frequalizer mode
+    ctrl.onDeviceChanged("SomeOtherPlugin");
+    assert(genericCalls.length === 1, "should call applyGenericMapping when leaving mapped device");
+    assert(ctrl.deviceMode === true, "deviceMode should remain true");
 })();
 
 process.exit(t.summary('Controller'));

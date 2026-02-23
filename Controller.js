@@ -508,9 +508,9 @@ class ControllerHW {
         if (this.deviceMapper && this.deviceMapper.hasMapping(deviceName)) {
             this.deviceMode = true;
             this.deviceMapper.applyMapping(deviceName);
-        } else if (this.deviceMode) {
-            this.deviceMapper.clearParamValues();
-            this.selectGroup(this.selectedGroup || 16);
+        } else if (this.deviceMapper) {
+            this.deviceMode = true;
+            this.deviceMapper.applyGenericMapping();
         }
     }
 
