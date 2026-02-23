@@ -276,6 +276,7 @@ function init() {
     masterDeviceCursor.exists().markInterested();
 
     var foundL1 = false;
+    masterDeviceCursor.addDirectParameterIdObserver(function(ids) {});
     masterDeviceCursor.addDirectParameterNameObserver(64, function(id, name) {
         if (foundL1 && name === 'Threshold') {
             Bitwig.setMasterLimiterThresholdId(id);
