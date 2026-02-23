@@ -27,9 +27,17 @@ class DeviceMapperHW {
         return !!this.deviceMappings[deviceName];
     }
 
+    getPadConfig(deviceName) {
+        var mapping = this.deviceMappings[deviceName];
+        if (!mapping) return null;
+        return mapping.pads || null;
+    }
+
     applyMapping(deviceName) {
         var mapping = this.deviceMappings[deviceName];
         if (!mapping) return;
+
+        var bands = mapping.bands || mapping;
 
         this._genericMode = false;
         this.twister.unlinkAll();
@@ -37,8 +45,8 @@ class DeviceMapperHW {
         // Build assignments: merge turn + press for shared encoders
         var assignments = {};
 
-        for (var b = 0; b < mapping.length; b++) {
-            var band = mapping[b];
+        for (var b = 0; b < bands.length; b++) {
+            var band = bands[b];
             var color = band.color;
 
             for (var e = 0; e < band.encoders.length; e++) {

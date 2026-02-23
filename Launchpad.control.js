@@ -262,6 +262,7 @@ function init() {
 
     cursorDevice.addDirectParameterNormalizedValueObserver(function(id, value) {
         DeviceMapper.onParamValueChanged(id, value);
+        DeviceQuadrant.onParamValueChanged(id, value);
     });
 
     // Observe cursor device name changes (for auto-remapping encoders)

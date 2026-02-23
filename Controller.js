@@ -543,9 +543,11 @@ class ControllerHW {
     onDeviceChanged(deviceName) {
         if (!deviceName) return;
 
+        var padConfig = null;
         if (this.deviceMapper && this.deviceMapper.hasMapping(deviceName)) {
             this.deviceMode = true;
             this.deviceMapper.applyMapping(deviceName);
+            padConfig = this.deviceMapper.getPadConfig(deviceName);
         } else if (this._deviceHasRemoteControls()) {
             this.deviceMode = true;
             this.twister.linkEncodersToRemoteControls();
@@ -558,8 +560,9 @@ class ControllerHW {
             var self = this;
             this.deviceQuadrant.activate(function() {
                 self.deviceMode = false;
+                self.bitwig.getCursorDevice().selectNone();
                 self.selectGroup(self.selectedGroup);
-            });
+            }, padConfig);
         }
     }
 

@@ -72,6 +72,11 @@ function fakeBitwig(opts) {
         getMasterLimiterThresholdId: function() { return opts.masterLimiterThresholdId || null; },
         getMasterLimiterThresholdValue: function() { return opts.masterLimiterThresholdValue || 0; },
         setMasterLimiterThresholdValue: function(v) { opts.masterLimiterThresholdValue = v; },
+        getCursorDevice: function() {
+            return {
+                selectNone: function() { result._selectNoneCalls = (result._selectNoneCalls || 0) + 1; }
+            };
+        },
         selectTrack: function(id) { result.selectedTracks.push(id); },
         setTimeSelection: function(start, end) { result._timeSelection = { start: start, end: end }; },
         setPlayheadPosition: function(pos) { result._playheadPos = pos; },
@@ -247,7 +252,8 @@ function fakeDeviceQuadrant() {
     return {
         calls: calls,
         _exitCallback: null,
-        activate: function(cb) { _active = true; this._exitCallback = cb; calls.push('activate'); },
+        _lastPadConfig: null,
+        activate: function(cb, padConfig) { _active = true; this._exitCallback = cb; this._lastPadConfig = padConfig || null; calls.push('activate'); },
         deactivate: function() { _active = false; calls.push('deactivate'); },
         isActive: function() { return _active; }
     };
@@ -770,6 +776,7 @@ function makeController(opts) {
     var fakeDeviceMapper = {
         hasMapping: function(name) { return name === "Frequalizer Alt"; },
         applyMapping: function(name) { applyCalls.push(name); },
+        getPadConfig: function() { return null; },
         clearParamValues: function() {}
     };
     var ctrl = makeController({});
@@ -787,6 +794,7 @@ function makeController(opts) {
         hasMapping: function() { return false; },
         applyMapping: function() {},
         applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
+        getPadConfig: function() { return null; },
         clearParamValues: function() {}
     };
     var ctrl = makeController({});
@@ -805,6 +813,7 @@ function makeController(opts) {
         hasMapping: function(name) { return name === "Frequalizer Alt"; },
         applyMapping: function() {},
         applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
+        getPadConfig: function() { return null; },
         clearParamValues: function() {}
     };
     var ctrl = makeController({});
@@ -914,7 +923,8 @@ function makeController(opts) {
     var dq = fakeDeviceQuadrant();
     var fakeDeviceMapper = {
         hasMapping: function() { return false; },
-        applyGenericMapping: function() {}
+        applyGenericMapping: function() {},
+        getPadConfig: function() { return null; }
     };
     var ctrl = makeController({ deviceQuadrant: dq });
     ctrl.deviceMapper = fakeDeviceMapper;
@@ -927,7 +937,8 @@ function makeController(opts) {
     var dq = fakeDeviceQuadrant();
     var fakeDeviceMapper = {
         hasMapping: function() { return false; },
-        applyGenericMapping: function() {}
+        applyGenericMapping: function() {},
+        getPadConfig: function() { return null; }
     };
     var ctrl = makeController({ deviceQuadrant: dq });
     ctrl.deviceMapper = fakeDeviceMapper;
@@ -963,7 +974,8 @@ function makeController(opts) {
     var dq = fakeDeviceQuadrant();
     var fakeDeviceMapper = {
         hasMapping: function() { return false; },
-        applyGenericMapping: function() {}
+        applyGenericMapping: function() {},
+        getPadConfig: function() { return null; }
     };
     var tw = fakeTwister();
     var bw = fakeBitwig({
@@ -1019,7 +1031,8 @@ function makeController(opts) {
     var genericCalls = [];
     var fakeDeviceMapper = {
         hasMapping: function() { return false; },
-        applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); }
+        applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
+        getPadConfig: function() { return null; }
     };
     var ctrl = makeController({ twister: tw, bitwig: bw });
     ctrl.deviceMapper = fakeDeviceMapper;
@@ -1037,7 +1050,8 @@ function makeController(opts) {
     var bw = fakeBitwig({ remoteControlNames: ['Cutoff', 'Resonance', '', '', '', '', '', ''] });
     var fakeDeviceMapper = {
         hasMapping: function(name) { return name === "Frequalizer Alt"; },
-        applyMapping: function(name) { applyCalls.push(name); }
+        applyMapping: function(name) { applyCalls.push(name); },
+        getPadConfig: function() { return null; }
     };
     var ctrl = makeController({ twister: tw, bitwig: bw });
     ctrl.deviceMapper = fakeDeviceMapper;
@@ -1045,6 +1059,56 @@ function makeController(opts) {
     assert(applyCalls.length === 1, "should use declarative mapping even when remote controls exist");
     var rcCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToRemoteControls'; });
     assert(rcCalls.length === 0, "should NOT call linkEncodersToRemoteControls when declarative mapping exists");
+})();
+
+// exit callback calls selectNone on cursor device
+(function() {
+    var dq = fakeDeviceQuadrant();
+    var fakeDeviceMapper = {
+        hasMapping: function() { return false; },
+        applyGenericMapping: function() {},
+        getPadConfig: function() { return null; }
+    };
+    var bw = fakeBitwig({
+        groups: { 5: 10 },
+        groupChildren: { 10: [11] },
+        tracks: { 10: fakeTrack("Guitars (5)", { isGroup: true }), 11: fakeTrack("Clean (1)") }
+    });
+    var ctrl = makeController({ deviceQuadrant: dq, bitwig: bw });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.selectedGroup = 5;
+    ctrl.onDeviceChanged("SomePlugin");
+    dq._exitCallback();
+    assert(bw._selectNoneCalls === 1, "exit callback should call selectNone on cursor device");
+})();
+
+// onDeviceChanged passes pad config from mapped device to device quadrant
+(function() {
+    var dq = fakeDeviceQuadrant();
+    var testPads = [{ pad: 1, paramName: 'Mode', value: 0, resolution: 5, color: 'white' }];
+    var fakeDeviceMapper = {
+        hasMapping: function(name) { return name === "TestDevice"; },
+        applyMapping: function() {},
+        getPadConfig: function(name) { return name === "TestDevice" ? testPads : null; }
+    };
+    var ctrl = makeController({ deviceQuadrant: dq });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged("TestDevice");
+    assert(dq._lastPadConfig === testPads, "should pass pad config to device quadrant activate");
+})();
+
+// onDeviceChanged passes null pad config for non-mapped device
+(function() {
+    var dq = fakeDeviceQuadrant();
+    var fakeDeviceMapper = {
+        hasMapping: function() { return false; },
+        applyGenericMapping: function() {},
+        getPadConfig: function() { return null; }
+    };
+    var ctrl = makeController({ deviceQuadrant: dq });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged("SomePlugin");
+    assert(dq._lastPadConfig === null, "should pass null pad config for non-mapped device");
 })();
 
 process.exit(t.summary('Controller'));

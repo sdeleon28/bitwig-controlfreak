@@ -69,13 +69,10 @@
 [-] device mode
     [X] POC map param on detection
     [X] print direct param names
-    [-] when Frequalizer is selected
-        [-] unbind all twister encoders
-        [-] bind them to parmeters on the plugin
-        [ ] mid / mid-solo / side-side solo buttons on the launchpad
-        [ ] exit device mode button
-        [ ] bypass device button
-        [ ] solo current track button
+    [X] when Frequalizer is selected
+        [X] unbind all twister encoders
+        [X] bind them to parmeters on the plugin
+        [-] mid / mid-solo / side-side solo buttons on the launchpad
     [ ] for generic devices
         [ ] auto-map direct params
         [ ] exit device mode button

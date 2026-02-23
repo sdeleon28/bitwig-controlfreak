@@ -10,7 +10,7 @@ function fakeLaunchpad() {
     var padLinks = {};
     var calls = [];
     return {
-        colors: { off: 0, green: 21, red: 5, yellow: 13, white: 3 },
+        colors: { off: 0, green: 21, red: 5, yellow: 13, white: 3, blue: 45, purple: 53 },
         brightness: { dim: 'dim', bright: 'bright' },
         calls: calls,
         behaviors: behaviors,
@@ -44,9 +44,12 @@ function fakePager(activePage) {
     };
 }
 
-function fakeBitwig() {
+function fakeBitwig(opts) {
+    opts = opts || {};
     var _soloed = false;
     var _enabled = true;
+    var _paramNames = opts.paramNames || {};
+    var _paramCalls = [];
     return {
         getCursorTrack: function() {
             return {
@@ -65,11 +68,16 @@ function fakeBitwig() {
                         get: function() { return _enabled; },
                         toggle: function() { _enabled = !_enabled; }
                     };
+                },
+                setDirectParameterValueNormalized: function(id, value, resolution) {
+                    _paramCalls.push({ id: id, value: value, resolution: resolution });
                 }
             };
         },
+        getDirectParamNames: function() { return _paramNames; },
         _soloed: function() { return _soloed; },
-        _enabled: function() { return _enabled; }
+        _enabled: function() { return _enabled; },
+        _paramCalls: _paramCalls
     };
 }
 
@@ -270,6 +278,130 @@ function makeSubject(opts) {
     assert(lp.behaviors[42].page === 7, 'solo pad behavior should use correct page number');
     assert(lp.behaviors[43].page === 7, 'bypass pad behavior should use correct page number');
     assert(lp.behaviors[44].page === 7, 'exit pad behavior should use correct page number');
+})();
+
+// ---- pad config tests ----
+
+function makePadConfig() {
+    return [
+        { pad: 9, paramName: 'Mode', value: 0, resolution: 5, color: 'white' },
+        { pad: 5, paramName: 'Mode', value: 1, resolution: 5, color: 'blue' },
+        { pad: 6, paramName: 'Mode', value: 2, resolution: 5, color: 'purple' },
+    ];
+}
+
+function fakeBitwigWithMode() {
+    return fakeBitwig({ paramNames: { 'CONTENTS/PIDmode123': 'Mode' } });
+}
+
+// activate with padConfig resolves param names and registers behaviors
+(function() {
+    var lp = fakeLaunchpad();
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ launchpad: lp, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    var pads = fakeQuadrant().bottomLeft.pads;
+    // pad 9 = index 8 = note 31, pad 5 = index 4 = note 21, pad 6 = index 5 = note 22
+    assert(lp.behaviors[31], 'pad 9 should have behavior registered');
+    assert(lp.behaviors[21], 'pad 5 should have behavior registered');
+    assert(lp.behaviors[22], 'pad 6 should have behavior registered');
+})();
+
+// pad config click sets the correct normalized value on the device
+(function() {
+    var lp = fakeLaunchpad();
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ launchpad: lp, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    // Click pad 5 (value=1, resolution=5 → normalized=0.25)
+    lp.behaviors[21].click();
+    assert(bw._paramCalls.length === 1, 'should call setDirectParameterValueNormalized');
+    assert(bw._paramCalls[0].id === 'CONTENTS/PIDmode123', 'should use resolved param ID');
+    assert(bw._paramCalls[0].value === 0.25, 'should set normalized value 1/4=0.25');
+    assert(bw._paramCalls[0].resolution === 5, 'should pass resolution');
+})();
+
+// pad config paints pads with dim brightness initially
+(function() {
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ pager: pager, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    // pad 9 (index 8 = note 31) should be painted dim white
+    var pad9Paint = pager.paints.filter(function(p) { return p.pad === 31 && p.color === '3_dim'; });
+    assert(pad9Paint.length > 0, 'pad 9 should be painted dim white');
+    // pad 5 (index 4 = note 21) should be painted dim blue
+    var pad5Paint = pager.paints.filter(function(p) { return p.pad === 21 && p.color === '45_dim'; });
+    assert(pad5Paint.length > 0, 'pad 5 should be painted dim blue');
+})();
+
+// onParamValueChanged highlights the active mode pad bright, others dim
+(function() {
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ pager: pager, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    var paintsBefore = pager.paints.length;
+    // Simulate mode changed to value 1 (normalized 0.25 = Mid)
+    dq.onParamValueChanged('CONTENTS/PIDmode123', 0.25);
+    var newPaints = pager.paints.slice(paintsBefore);
+    // pad 5 (value=1, norm=0.25) should be bright blue
+    var pad5 = newPaints.filter(function(p) { return p.pad === 21; });
+    assert(pad5.length > 0, 'pad 5 should be repainted');
+    assert(pad5[0].color === '45_bright', 'active mode pad should be bright');
+    // pad 9 (value=0, norm=0) should be dim white
+    var pad9 = newPaints.filter(function(p) { return p.pad === 31; });
+    assert(pad9.length > 0, 'pad 9 should be repainted');
+    assert(pad9[0].color === '3_dim', 'inactive mode pad should be dim');
+})();
+
+// onParamValueChanged is no-op when inactive
+(function() {
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ pager: pager, bitwig: bw });
+    var paintsBefore = pager.paints.length;
+    dq.onParamValueChanged('CONTENTS/PIDmode123', 0.25);
+    assert(pager.paints.length === paintsBefore, 'should not paint when inactive');
+})();
+
+// onParamValueChanged ignores unrelated param IDs
+(function() {
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ pager: pager, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    var paintsBefore = pager.paints.length;
+    dq.onParamValueChanged('CONTENTS/PIDother', 0.5);
+    assert(pager.paints.length === paintsBefore, 'should not repaint for unrelated param');
+})();
+
+// deactivate clears pad config state
+(function() {
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ bitwig: bw });
+    dq.activate(null, makePadConfig());
+    dq.deactivate();
+    assert(dq._padEntries.length === 0, 'pad entries should be cleared on deactivate');
+    assert(dq._modeParamId === null, 'mode param ID should be cleared on deactivate');
+})();
+
+// activate without padConfig does not set up pad entries
+(function() {
+    var dq = makeSubject();
+    dq.activate();
+    assert(dq._padEntries.length === 0, 'should have no pad entries without config');
+    assert(dq._modeParamId === null, 'should have no mode param without config');
+})();
+
+// unresolvable param name is skipped gracefully
+(function() {
+    var lp = fakeLaunchpad();
+    var bw = fakeBitwig({ paramNames: {} }); // no params registered
+    var dq = makeSubject({ launchpad: lp, bitwig: bw });
+    dq.activate(null, [{ pad: 1, paramName: 'Missing', value: 0, resolution: 5, color: 'white' }]);
+    assert(dq._padEntries.length === 0, 'should skip unresolvable params');
+    assert(!lp.behaviors[11], 'should not register behavior for unresolvable param');
 })();
 
 process.exit(t.summary('DeviceQuadrant'));
