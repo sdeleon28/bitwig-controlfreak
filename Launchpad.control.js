@@ -258,6 +258,7 @@ function init() {
 
     cursorDevice.addDirectParameterNameObserver(64, function(id, name) {
         Bitwig.setDirectParamName(id, name);
+        DeviceQuadrant.onDirectParamNameChanged(id, name);
     });
 
     cursorDevice.addDirectParameterNormalizedValueObserver(function(id, value) {

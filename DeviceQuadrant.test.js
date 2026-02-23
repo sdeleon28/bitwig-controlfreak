@@ -314,11 +314,11 @@ function fakeBitwigWithMode() {
     var bw = fakeBitwigWithMode();
     var dq = makeSubject({ launchpad: lp, bitwig: bw });
     dq.activate(null, makePadConfig());
-    // Click pad 5 (value=1, resolution=5 → normalized=0.25)
+    // Click pad 5 (value=1, resolution=5 → raw value=1)
     lp.behaviors[21].click();
     assert(bw._paramCalls.length === 1, 'should call setDirectParameterValueNormalized');
     assert(bw._paramCalls[0].id === 'CONTENTS/PIDmode123', 'should use resolved param ID');
-    assert(bw._paramCalls[0].value === 0.25, 'should set normalized value 1/4=0.25');
+    assert(bw._paramCalls[0].value === 1, 'should set raw value 1');
     assert(bw._paramCalls[0].resolution === 5, 'should pass resolution');
 })();
 
@@ -470,6 +470,103 @@ function fakeBitwigWithMode() {
     var dq = makeSubject({ launchpad: lp });
     dq.applyPadConfig(makePadConfig());
     assert(dq._padEntries.length === 0, 'should not apply config when inactive');
+})();
+
+// ---- deferred resolution tests ----
+
+// unresolvable param names are stashed as pending entries
+(function() {
+    var lp = fakeLaunchpad();
+    var bw = fakeBitwig({ paramNames: {} }); // no params registered yet
+    var dq = makeSubject({ launchpad: lp, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    assert(dq._padEntries.length === 0, 'no entries should be resolved yet');
+    assert(dq._pendingPadEntries.length === 3, 'all 3 entries should be pending');
+})();
+
+// onDirectParamNameChanged resolves pending entries
+(function() {
+    var lp = fakeLaunchpad();
+    var pager = fakePager(1);
+    var bw = fakeBitwig({ paramNames: {} });
+    var dq = makeSubject({ launchpad: lp, pager: pager, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    assert(dq._pendingPadEntries.length === 3, 'precondition: 3 pending');
+    // Simulate name observer firing
+    dq.onDirectParamNameChanged('CONTENTS/PIDmode123', 'Mode');
+    assert(dq._padEntries.length === 3, 'all 3 entries should now be resolved');
+    assert(dq._pendingPadEntries.length === 0, 'no entries should remain pending');
+    assert(dq._modeParamId === 'CONTENTS/PIDmode123', 'mode param should be tracked');
+    // Behaviors should be registered
+    assert(lp.behaviors[31], 'pad 9 should have behavior after deferred resolve');
+    assert(lp.behaviors[21], 'pad 5 should have behavior after deferred resolve');
+    assert(lp.behaviors[22], 'pad 6 should have behavior after deferred resolve');
+})();
+
+// deferred resolution click sends raw value (not normalized)
+(function() {
+    var lp = fakeLaunchpad();
+    var bw = fakeBitwig({ paramNames: {} });
+    var dq = makeSubject({ launchpad: lp, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    dq.onDirectParamNameChanged('PID_MODE', 'Mode');
+    // Click pad 5 (value=1, resolution=5)
+    lp.behaviors[21].click();
+    assert(bw._paramCalls[0].value === 1, 'deferred click should send raw value');
+    assert(bw._paramCalls[0].resolution === 5, 'deferred click should pass resolution');
+})();
+
+// onDirectParamNameChanged is no-op when inactive
+(function() {
+    var lp = fakeLaunchpad();
+    var bw = fakeBitwig({ paramNames: {} });
+    var dq = makeSubject({ launchpad: lp, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    dq.deactivate();
+    dq.onDirectParamNameChanged('CONTENTS/PIDmode123', 'Mode');
+    assert(dq._padEntries.length === 0, 'should not resolve when inactive');
+})();
+
+// onDirectParamNameChanged is no-op when no pending entries
+(function() {
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ pager: pager, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    var entriesBefore = dq._padEntries.length;
+    // All already resolved, no pending
+    dq.onDirectParamNameChanged('CONTENTS/PIDmode123', 'Mode');
+    assert(dq._padEntries.length === entriesBefore, 'should not add duplicate entries');
+})();
+
+// deactivate clears pending entries
+(function() {
+    var bw = fakeBitwig({ paramNames: {} });
+    var dq = makeSubject({ bitwig: bw });
+    dq.activate(null, makePadConfig());
+    assert(dq._pendingPadEntries.length === 3, 'precondition: 3 pending');
+    dq.deactivate();
+    assert(dq._pendingPadEntries.length === 0, 'pending entries should be cleared on deactivate');
+})();
+
+// applyPadConfig(null) clears pending entries
+(function() {
+    var bw = fakeBitwig({ paramNames: {} });
+    var dq = makeSubject({ bitwig: bw });
+    dq.activate(null, makePadConfig());
+    assert(dq._pendingPadEntries.length === 3, 'precondition: 3 pending');
+    dq.applyPadConfig(null);
+    assert(dq._pendingPadEntries.length === 0, 'pending entries should be cleared on applyPadConfig(null)');
+})();
+
+// onDirectParamNameChanged ignores unrelated param names
+(function() {
+    var bw = fakeBitwig({ paramNames: {} });
+    var dq = makeSubject({ bitwig: bw });
+    dq.activate(null, makePadConfig());
+    dq.onDirectParamNameChanged('PID_OTHER', 'Frequency');
+    assert(dq._pendingPadEntries.length === 3, 'unrelated name should not resolve pending entries');
+    assert(dq._padEntries.length === 0, 'no entries should be resolved');
 })();
 
 process.exit(t.summary('DeviceQuadrant'));

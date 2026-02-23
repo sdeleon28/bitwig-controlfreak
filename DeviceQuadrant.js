@@ -29,6 +29,7 @@ class DeviceQuadrantHW {
         this._deviceEnabled = true;
         this._cursorTrackSoloed = false;
         this._padEntries = [];       // resolved pad config entries [{padNote, paramId, value, resolution, color}]
+        this._pendingPadEntries = []; // unresolved entries awaiting param name resolution
         this._modeParamId = null;    // tracked param ID for mode highlight
         this._currentModeValue = -1; // current normalized mode value
     }
@@ -95,6 +96,7 @@ class DeviceQuadrantHW {
         this._active = false;
         this._onExitCallback = null;
         this._padEntries = [];
+        this._pendingPadEntries = [];
         this._modeParamId = null;
         this._currentModeValue = -1;
 
@@ -133,6 +135,7 @@ class DeviceQuadrantHW {
             this.pager.requestPaint(page, pads[i], this.launchpad.colors.off);
         }
         this._padEntries = [];
+        this._pendingPadEntries = [];
         this._modeParamId = null;
         this._currentModeValue = -1;
 
@@ -189,56 +192,89 @@ class DeviceQuadrantHW {
     }
 
     /**
+     * Called by Bitwig observer when a direct parameter name is resolved.
+     * Registers any pending pad entries that match this name.
+     * @param {string} id - Parameter ID
+     * @param {string} name - Parameter display name
+     */
+    onDirectParamNameChanged(id, name) {
+        if (!this._active || this._pendingPadEntries.length === 0) return;
+
+        var remaining = [];
+        for (var i = 0; i < this._pendingPadEntries.length; i++) {
+            var entry = this._pendingPadEntries[i];
+            if (entry.paramName === name) {
+                this._registerPadEntry(entry, id);
+            } else {
+                remaining.push(entry);
+            }
+        }
+        this._pendingPadEntries = remaining;
+    }
+
+    /**
      * Apply device-specific pad configuration.
      * Registers click behaviors for each pad and paints them.
+     * Entries whose param name can't be resolved yet are stashed in _pendingPadEntries.
      * @param {Array} padConfig - Array of {pad, paramName, value, resolution, color}
      */
     _applyPadConfig(padConfig) {
-        var pads = this.launchpadQuadrant.bottomLeft.pads;
-        var page = this.pager.getActivePage();
-        var device = this.bitwig.getCursorDevice();
-        var self = this;
-
         this._padEntries = [];
+        this._pendingPadEntries = [];
         this._modeParamId = null;
 
         for (var i = 0; i < padConfig.length; i++) {
             var entry = padConfig[i];
             var paramId = this._resolveParamName(entry.paramName);
             if (!paramId) {
-                if (this.debug) this.println("DeviceQuadrant: could not resolve param '" + entry.paramName + "'");
+                if (this.debug) this.println("DeviceQuadrant: deferring param '" + entry.paramName + "'");
+                this._pendingPadEntries.push(entry);
                 continue;
             }
 
-            var padIndex = entry.pad - 1;
-            var padNote = pads[padIndex];
-            var normalizedValue = entry.value / (entry.resolution - 1);
-            var colorKey = entry.color || 'white';
-            var baseColor = this.launchpad.colors[colorKey] || this.launchpad.colors.white;
-
-            this._padEntries.push({
-                padNote: padNote,
-                paramId: paramId,
-                normalizedValue: normalizedValue,
-                baseColor: baseColor
-            });
-
-            // Track the mode param (all entries share the same param)
-            if (!this._modeParamId) {
-                this._modeParamId = paramId;
-            }
-
-            // Register click: set the parameter to this pad's value
-            (function(pid, nv, res) {
-                self.launchpad.registerPadBehavior(padNote, function() {
-                    device.setDirectParameterValueNormalized(pid, nv, res);
-                }, null, self.pageNumber);
-            })(paramId, normalizedValue, entry.resolution);
-
-            // Paint dim initially
-            this.pager.requestPaint(page, padNote,
-                this.launchpad.getBrightnessVariant(baseColor, this.launchpad.brightness.dim));
+            this._registerPadEntry(entry, paramId);
         }
+    }
+
+    /**
+     * Register a single pad entry: store state, register click behavior, paint dim.
+     * @param {Object} entry - {pad, paramName, value, resolution, color}
+     * @param {string} paramId - Resolved parameter ID
+     */
+    _registerPadEntry(entry, paramId) {
+        var pads = this.launchpadQuadrant.bottomLeft.pads;
+        var page = this.pager.getActivePage();
+        var device = this.bitwig.getCursorDevice();
+
+        var padIndex = entry.pad - 1;
+        var padNote = pads[padIndex];
+        var normalizedValue = entry.value / (entry.resolution - 1);
+        var colorKey = entry.color || 'white';
+        var baseColor = this.launchpad.colors[colorKey] || this.launchpad.colors.white;
+
+        this._padEntries.push({
+            padNote: padNote,
+            paramId: paramId,
+            normalizedValue: normalizedValue,
+            baseColor: baseColor
+        });
+
+        // Track the mode param (all entries share the same param)
+        if (!this._modeParamId) {
+            this._modeParamId = paramId;
+        }
+
+        // Register click: set the parameter to this pad's raw value
+        var self = this;
+        (function(pid, rawValue, res) {
+            self.launchpad.registerPadBehavior(padNote, function() {
+                device.setDirectParameterValueNormalized(pid, rawValue, res);
+            }, null, self.pageNumber);
+        })(paramId, entry.value, entry.resolution);
+
+        // Paint dim initially
+        this.pager.requestPaint(page, padNote,
+            this.launchpad.getBrightnessVariant(baseColor, this.launchpad.brightness.dim));
     }
 
     /**
