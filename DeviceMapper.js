@@ -1,0 +1,118 @@
+/**
+ * Maps device parameters to Twister encoders based on declarative config.
+ */
+class DeviceMapperHW {
+    /**
+     * @param {Object} deps
+     * @param {Object} deps.twister - Twister instance
+     * @param {Object} deps.bitwig - Bitwig namespace
+     * @param {Object} deps.deviceMappings - DeviceMappings data
+     * @param {boolean} deps.debug - Debug flag
+     * @param {Function} deps.println - Print function
+     */
+    constructor(deps) {
+        deps = deps || {};
+        this.twister = deps.twister || null;
+        this.bitwig = deps.bitwig || null;
+        this.deviceMappings = deps.deviceMappings || {};
+        this.debug = deps.debug || false;
+        this.println = deps.println || function() {};
+
+        this._paramValues = {};
+        this._activeParamToEncoder = {};
+    }
+
+    hasMapping(deviceName) {
+        return !!this.deviceMappings[deviceName];
+    }
+
+    applyMapping(deviceName) {
+        var mapping = this.deviceMappings[deviceName];
+        if (!mapping) return;
+
+        this.twister.unlinkAll();
+
+        // Build assignments: merge turn + press for shared encoders
+        var assignments = {};
+
+        for (var b = 0; b < mapping.length; b++) {
+            var band = mapping[b];
+            var color = band.color;
+
+            for (var e = 0; e < band.encoders.length; e++) {
+                var enc = band.encoders[e];
+                if (!assignments[enc.encoder]) {
+                    assignments[enc.encoder] = { color: color };
+                }
+                assignments[enc.encoder].turnParamId = enc.paramId;
+            }
+
+            for (var bt = 0; bt < band.buttons.length; bt++) {
+                var btn = band.buttons[bt];
+                if (!assignments[btn.encoder]) {
+                    assignments[btn.encoder] = { color: color };
+                }
+                assignments[btn.encoder].pressParamId = btn.paramId;
+            }
+        }
+
+        // Apply all assignments
+        var device = this.bitwig.getCursorDevice();
+        var self = this;
+
+        for (var encoderNum in assignments) {
+            var assignment = assignments[encoderNum];
+
+            var turnCb = null;
+            if (assignment.turnParamId) {
+                turnCb = (function(paramId) {
+                    return function(value) {
+                        device.setDirectParameterValueNormalized(paramId, value, 128);
+                    };
+                })(assignment.turnParamId);
+            }
+
+            var pressCb = null;
+            if (assignment.pressParamId) {
+                pressCb = (function(paramId) {
+                    return function(pressed) {
+                        if (!pressed) return;
+                        var current = self._paramValues[paramId] || 0;
+                        var newValue = current >= 0.5 ? 0 : 127;
+                        device.setDirectParameterValueNormalized(paramId, newValue, 128);
+                        self._paramValues[paramId] = newValue / 127;
+                    };
+                })(assignment.pressParamId);
+            }
+
+            var num = parseInt(encoderNum);
+            this.twister.linkEncoderToBehavior(num, turnCb, pressCb, assignment.color);
+
+            if (assignment.turnParamId) {
+                var currentValue = self._paramValues[assignment.turnParamId];
+                if (currentValue !== undefined) {
+                    this.twister.setEncoderLED(num, Math.round(currentValue * 127));
+                }
+                self._activeParamToEncoder[assignment.turnParamId] = num;
+            }
+        }
+
+        if (this.debug) this.println("Applied device mapping: " + deviceName);
+    }
+
+    onParamValueChanged(id, value) {
+        this._paramValues[id] = value;
+        var encoderNum = this._activeParamToEncoder[id];
+        if (encoderNum !== undefined) {
+            this.twister.setEncoderLED(encoderNum, Math.round(value * 127));
+        }
+    }
+
+    clearParamValues() {
+        this._paramValues = {};
+        this._activeParamToEncoder = {};
+    }
+}
+
+var DeviceMapper = {};
+if (typeof module !== 'undefined') module.exports = DeviceMapperHW;

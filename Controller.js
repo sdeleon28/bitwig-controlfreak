@@ -14,6 +14,7 @@ class ControllerHW {
      * @param {Object} deps.pages - Pages namespace
      * @param {Object} deps.pageMainControl - Page_MainControl namespace
      * @param {Object} deps.host - Bitwig host
+     * @param {Object} deps.deviceMapper - DeviceMapper instance
      * @param {boolean} deps.debug - Debug flag
      * @param {Function} deps.println - Print function
      */
@@ -29,6 +30,7 @@ class ControllerHW {
         this.pages = deps.pages || null;
         this.pageMainControl = deps.pageMainControl || null;
         this.host = deps.host || null;
+        this.deviceMapper = deps.deviceMapper || null;
         this.debug = deps.debug || false;
         this.println = deps.println || function() {};
 
@@ -502,33 +504,12 @@ class ControllerHW {
      */
     onDeviceChanged(deviceName) {
         if (!deviceName) return;
-        this.println("Device changed: " + deviceName);
 
-        if (deviceName === "Frequalizer Alt") {
+        if (this.deviceMapper && this.deviceMapper.hasMapping(deviceName)) {
             this.deviceMode = true;
-            this.twister.unlinkAll();
-
-            var self = this;
-            this.host.scheduleTask(function() {
-                var ids = self.bitwig.getDirectParamIds();
-                self.println("FreqAlt direct param IDs (" + ids.length + "):");
-                for (var i = 0; i < ids.length; i++) {
-                    var name = self.bitwig.getDirectParamName(ids[i]);
-                    self.println("  [" + i + "] " + ids[i] + " => " + name);
-                }
-
-                // Link Q1: Frequency (index 2) to encoder 1
-                if (ids.length > 2) {
-                    var freqId = ids[2];
-                    var device = self.bitwig.getCursorDevice();
-                    self.twister.linkEncoderToBehavior(1, function(value) {
-                        device.setDirectParameterValueNormalized(freqId, value, 128);
-                    }, null, { r: 80, g: 80, b: 255 });
-                    self.println("Linked encoder 1 => " + self.bitwig.getDirectParamName(freqId));
-                }
-            }, null, 50);
+            this.deviceMapper.applyMapping(deviceName);
         } else if (this.deviceMode) {
-            // Leaving device mode — restore normal encoder mapping
+            this.deviceMapper.clearParamValues();
             this.selectGroup(this.selectedGroup || 16);
         }
     }

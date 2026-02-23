@@ -54,6 +54,16 @@
         [X] user 2 -> - page
         [X] mixer -> + page
         [X] should light up in the same way as top page switcher
+    [ ] toggle loop button
+        [ ] proper on / off feedback
+        [ ] growl indicating what you just did
+    [ ] toggle metronome button
+        [ ] proper on / off feedback
+        [ ] growl indicating what you just did
+    [ ] stop button
+        [ ] proper playing / stopped feedback
+        [ ] growl indicating what you just did
+    [ ] auto-stop at the end of the project
 [X] mode selector -> only selected modes should light up (to bright color)
 [X] make page jumps immediate
 [-] device mode
@@ -65,14 +75,18 @@
         [ ] mid / mid-solo / side-side solo buttons on the launchpad
         [ ] exit device mode button
         [ ] bypass device button
+        [ ] solo current track button
     [ ] for generic devices
         [ ] auto-map direct params
         [ ] exit device mode button
         [ ] bypass device button
+        [ ] solo current track button
     [ ] remote control
         [ ] if a device has remote controls, auto-map to those instead of direct params
         [ ] exit device mode button
         [ ] bypass device button
+        [ ] solo current track button
+        [ ] remote control mode (mapped to "Stop") doesn't have pad feedback like rec does
     [ ] device change is triggered on start, make sure that one doesn't count
 [ ] refactor
     [ ] can all the bindings that happen in Launchpad.control.js be moved to individual modules

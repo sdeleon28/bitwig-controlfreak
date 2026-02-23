@@ -743,59 +743,54 @@ function makeController(opts) {
     assert(tw.calls.length === 0, "empty device name should be ignored");
 })();
 
-// onDeviceChanged: Frequalizer Alt unlinks all, sets deviceMode, schedules param read, links encoder 1
+// onDeviceChanged: mapped device delegates to deviceMapper.applyMapping, sets deviceMode
 (function() {
-    var tw = fakeTwister();
-    var bw = fakeBitwig();
-    var directParamCalls = [];
-    var mockDevice = {
-        setDirectParameterValueNormalized: function(id, value, resolution) {
-            directParamCalls.push({ id: id, value: value, resolution: resolution });
-        }
+    var applyCalls = [];
+    var fakeDeviceMapper = {
+        hasMapping: function(name) { return name === "Frequalizer Alt"; },
+        applyMapping: function(name) { applyCalls.push(name); },
+        clearParamValues: function() {}
     };
-    bw.getDirectParamIds = function() { return ['bypass', 'q1_on', 'q1_freq', 'q1_gain']; };
-    bw.getDirectParamName = function(id) {
-        return { bypass: 'Bypass', q1_on: 'Q1: On', q1_freq: 'Q1: Frequency', q1_gain: 'Q1: Gain' }[id] || null;
-    };
-    bw.getCursorDevice = function() { return mockDevice; };
-    var h = fakeHost();
-    var ctrl = makeController({ twister: tw, bitwig: bw, host: h });
+    var ctrl = makeController({});
+    ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.onDeviceChanged("Frequalizer Alt");
-    assert(tw.calls.indexOf('unlinkAll') !== -1, "should call unlinkAll for Frequalizer Alt");
-    assert(ctrl.deviceMode === true, "deviceMode should be true after entering Frequalizer Alt");
-    assert(h.scheduled.length === 1, "should schedule a task for param reading");
-    h.scheduled[0].fn(); // execute scheduled task
-
-    // Verify encoder 1 was linked
-    assert(tw.behaviors[1] !== undefined, "encoder 1 should have a behavior after scheduled task");
-    assert(tw.behaviors[1].color.r === 80 && tw.behaviors[1].color.b === 255, "encoder 1 color should be blue");
-
-    // Simulate turning encoder 1 and verify it calls setDirectParameterValueNormalized
-    tw.behaviors[1].turn(64);
-    assert(directParamCalls.length === 1, "turning encoder should call setDirectParameterValueNormalized");
-    assert(directParamCalls[0].id === 'q1_freq', "should target Q1: Frequency param id");
-    assert(directParamCalls[0].value === 64, "value should be raw MIDI value (0-127 maps to resolution 128)");
-    assert(directParamCalls[0].resolution === 128, "resolution should be 128");
+    assert(ctrl.deviceMode === true, "deviceMode should be true after entering mapped device");
+    assert(applyCalls.length === 1, "should call applyMapping once");
+    assert(applyCalls[0] === "Frequalizer Alt", "should pass device name to applyMapping");
 })();
 
-// onDeviceChanged: non-FrequalizerAlt restores group when leaving device mode
+// onDeviceChanged: leaving device mode calls clearParamValues and restores group
 (function() {
     var tw = fakeTwister();
     var bw = fakeBitwig({ topLevel: [], bpm: 120 });
+    var cleared = false;
+    var fakeDeviceMapper = {
+        hasMapping: function() { return false; },
+        applyMapping: function() {},
+        clearParamValues: function() { cleared = true; }
+    };
     var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.selectedGroup = 16;
     ctrl.deviceMode = true;
     ctrl.onDeviceChanged("SomeOtherPlugin");
+    assert(cleared === true, "should call clearParamValues when leaving device mode");
     assert(tw.calls.indexOf('unlinkAll') !== -1, "should call unlinkAll via selectGroup");
     assert(ctrl.selectedGroup === 16, "should restore group 16");
     assert(ctrl.deviceMode === false, "deviceMode should be false after leaving device mode");
 })();
 
-// onDeviceChanged: stray name while not in device mode is ignored
+// onDeviceChanged: non-mapped device while not in device mode is ignored
 (function() {
     var tw = fakeTwister();
     var bw = fakeBitwig({ topLevel: [], bpm: 120 });
+    var fakeDeviceMapper = {
+        hasMapping: function() { return false; },
+        applyMapping: function() {},
+        clearParamValues: function() {}
+    };
     var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.selectedGroup = 16;
     ctrl.deviceMode = false;
     ctrl.onDeviceChanged("RandomPlugin");

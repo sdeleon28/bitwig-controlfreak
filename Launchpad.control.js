@@ -10,6 +10,7 @@ var debug = false;
 // Layer 1: Foundation
 load('Bitwig.js');
 load('BitwigActions.js');
+load('DeviceMappings.js');
 load('Pages.js');
 
 // Layer 2: Hardware abstraction
@@ -21,6 +22,9 @@ load('NanoKey2.js');
 // Layer 3: Isolation
 load('Pager.js');
 load('Animations.js');
+
+// Layer 3.5: Device mapping behavior
+load('DeviceMapper.js');
 
 // Layer 4: UI components
 load('LaunchpadQuadrant.js');
@@ -252,6 +256,10 @@ function init() {
 
     cursorDevice.addDirectParameterNameObserver(64, function(id, name) {
         Bitwig.setDirectParamName(id, name);
+    });
+
+    cursorDevice.addDirectParameterNormalizedValueObserver(function(id, value) {
+        DeviceMapper.onParamValueChanged(id, value);
     });
 
     // Observe cursor device name changes (for auto-remapping encoders)
@@ -706,6 +714,15 @@ function init() {
     });
     Pages.registerPage(Page_ColorPalette2);   // Page 6: Color palette (colors 64-127)
 
+    // Initialize DeviceMapper (before Controller)
+    DeviceMapper = new DeviceMapperHW({
+        twister: Twister,
+        bitwig: Bitwig,
+        deviceMappings: DeviceMappings,
+        debug: debug,
+        println: println
+    });
+
     // Initialize Controller (after all deps are ready)
     Controller = new ControllerHW({
         twister: Twister,
@@ -717,6 +734,7 @@ function init() {
         launchpadTopButtons: LaunchpadTopButtons,
         pages: Pages,
         pageMainControl: Page_MainControl,
+        deviceMapper: DeviceMapper,
         host: host,
         debug: debug,
         println: println

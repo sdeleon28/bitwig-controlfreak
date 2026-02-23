@@ -1,4 +1,6 @@
 test:
+    node DeviceMappings.test.js
+    node DeviceMapper.test.js
     node Animations.test.js
     node ClipGestures.test.js
     node ClipLauncher.test.js

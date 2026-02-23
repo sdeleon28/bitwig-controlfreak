@@ -1,0 +1,174 @@
+# frequalizer mappings
+
+This document outlines the mappings the encoder / button mappings that should
+happen when the frequalizer device is selected.
+
+Encoders are numbered bottom-left to top-right, 0-indexed.
+
+There's already some POC code that successfully detects the device and maps a
+single parameter.
+
+Mapping code should be declarative and mappings should be easy to change.
+Behavior code should be properly separated from configuration / mapping code.
+
+Now let's implement the full thing.
+
+## band 1 (Lowest)
+
+color: blue
+
+mappings:
+  [2] CONTENTS/PID5e65eb21 => Q1: Frequency
+      -> encoder 13
+  [3] CONTENTS/PID1fdbd404 => Q1: Quality
+      -> encoder 14
+  [5] CONTENTS/PID60a37761 => Q1: Active
+      -> button 13
+
+## band 2 (Low)
+
+color: red
+
+mappings:
+  [7] CONTENTS/PID47f82203 => Q2: Frequency
+      -> encoder 1
+  [8] CONTENTS/PID74f25b66 => Q2: Quality
+      -> encoder 5
+  [9] CONTENTS/PID14682278 => Q2: Gain
+      -> encoder 9
+  [10] CONTENTS/PID10cd7bbf => Q2: Active
+      -> button 9
+
+## band 3 (Low Mids)
+
+color: green
+
+mappings:
+  [12] CONTENTS/PID7f826bc6 => Q3: Frequency
+      -> encoder 2
+  [13] CONTENTS/PIDefa39e9 => Q3: Quality
+      -> encoder 6
+  [14] CONTENTS/PID9318ad5 => Q3: Gain
+      -> encoder 10
+  [15] CONTENTS/PID78de40dc => Q3: Active
+      -> button 10
+
+## band 4 (High Mids)
+
+color: orange
+
+mappings:
+  [17] CONTENTS/PID5f199778 => Q4: Frequency
+      -> encoder 3
+  [18] CONTENTS/PID416caa1b => Q4: Quality
+      -> encoder 7
+  [19] CONTENTS/PID1d7657e3 => Q4: Gain
+      -> encoder 11
+  [20] CONTENTS/PIDf24026a => Q4: Active
+      -> button 11
+
+## band 5 (High)
+
+color: yellow
+
+mappings:
+  [22] CONTENTS/PID5c3cef11 => Q5: Frequency
+      -> encoder 4
+  [23] CONTENTS/PID2a8313f4 => Q5: Quality
+      -> encoder 8
+  [24] CONTENTS/PID4b5ee4aa => Q5: Gain
+      -> encoder 12
+  [25] CONTENTS/PID651c7971 => Q5: Active
+      -> button 12
+
+## band 6 (Highest)
+
+color: bright red
+
+mappings:
+  [27] CONTENTS/PID10d85b53 => Q6: Frequency
+       -> encoder 15
+  [28] CONTENTS/PID1430a8b6 => Q6: Quality
+       -> encoder 16
+  [30] CONTENTS/PID74e8446f => Q6: Active
+       -> button 16
+
+## TODO
+
+  [1] CONTENTS/PID1372e255 => Q1: Filter Type
+  [6] CONTENTS/PID146e6633 => Q2: Filter Type
+  [11] CONTENTS/PID937ce90 => Q3: Filter Type
+  [16] CONTENTS/PID1d7c9b9e => Q4: Filter Type
+  [21] CONTENTS/PID4b652865 => Q5: Filter Type
+  [26] CONTENTS/PID49039ae3 => Q6: Filter Type
+  [31] CONTENTS/PIDdf3e251 => Q7: Filter Type
+  [36] CONTENTS/PID5bae472f => Q8: Filter Type
+  [41] CONTENTS/PID2a2390c => Q9: Filter Type
+  [46] CONTENTS/PID1e7dcf1a => Q10: Filter Type
+  [51] CONTENTS/PID5834a061 => Q11: Filter Type
+  [56] CONTENTS/PID2439a3df => Q12: Filter Type
+  [61] CONTENTS/PID4b5945d7 => Q13: Filter Type
+  [66] CONTENTS/PID1913aab5 => Q14: Filter Type
+  [71] CONTENTS/PID40079c92 => Q15: Filter Type
+  [76] CONTENTS/PID5be332a0 => Q16: Filter Type
+  [81] CONTENTS/PID159a03e7 => Q17: Filter Type
+  [86] CONTENTS/PID619f0765 => Q18: Filter Type
+
+  [32] CONTENTS/PID45b188a5 => Q7: Frequency
+  [33] CONTENTS/PID9b90288 => Q7: Quality
+  [34] CONTENTS/PIDded9e96 => Q7: Gain
+  [35] CONTENTS/PID3ee4685d => Q7: Active
+  [37] CONTENTS/PID1ba97e87 => Q8: Frequency
+  [38] CONTENTS/PID579908ea => Q8: Quality
+  [39] CONTENTS/PID5ba80374 => Q8: Gain
+  [40] CONTENTS/PID7990dbb => Q8: Active
+  [42] CONTENTS/PIDda32eca => Q9: Frequency
+  [43] CONTENTS/PID55b7eded => Q9: Quality
+  [44] CONTENTS/PID29bf551 => Q9: Gain
+  [45] CONTENTS/PID4157fc58 => Q9: Active
+  [47] CONTENTS/PID3179317c => Q10: Frequency
+  [48] CONTENTS/PID2c32f51f => Q10: Quality
+  [49] CONTENTS/PID1e778b5f => Q10: Gain
+  [50] CONTENTS/PID54a646e6 => Q10: Active
+  [52] CONTENTS/PID37851495 => Q11: Frequency
+  [53] CONTENTS/PID6ddeca78 => Q11: Quality
+  [54] CONTENTS/PID582e5ca6 => Q11: Gain
+  [55] CONTENTS/PID7bede26d => Q11: Active
+  [57] CONTENTS/PID1c2c8fd7 => Q12: Frequency
+  [58] CONTENTS/PID69502e3a => Q12: Quality
+  [59] CONTENTS/PID24336024 => Q12: Gain
+  [60] CONTENTS/PID5abffe6b => Q12: Active
+  [62] CONTENTS/PID73db68df => Q13: Frequency
+  [63] CONTENTS/PID4371a942 => Q13: Quality
+  [64] CONTENTS/PID4b53021c => Q13: Gain
+  [65] CONTENTS/PID387f0263 => Q13: Active
+  [67] CONTENTS/PID49d35ec1 => Q14: Frequency
+  [68] CONTENTS/PID1151afa4 => Q14: Quality
+  [69] CONTENTS/PID190d66fa => Q14: Gain
+  [70] CONTENTS/PID133a7c1 => Q14: Active
+  [72] CONTENTS/PID3bcd0f04 => Q15: Frequency
+  [73] CONTENTS/PIDf7094a7 => Q15: Quality
+  [74] CONTENTS/PID400158d7 => Q15: Gain
+  [75] CONTENTS/PID3af2965e => Q15: Active
+  [77] CONTENTS/PID5fa311b6 => Q16: Frequency
+  [78] CONTENTS/PID65eb9bd9 => Q16: Quality
+  [79] CONTENTS/PID5bdceee5 => Q16: Gain
+  [80] CONTENTS/PID4e40e0ec => Q16: Active
+  [82] CONTENTS/PID65aef4cf => Q17: Frequency
+  [83] CONTENTS/PID27977132 => Q17: Quality
+  [84] CONTENTS/PID1593c02c => Q17: Gain
+  [85] CONTENTS/PID75887c73 => Q17: Active
+  [87] CONTENTS/PID4a567011 => Q18: Frequency
+  [88] CONTENTS/PID2308d4f4 => Q18: Quality
+  [89] CONTENTS/PID6198c3aa => Q18: Gain
+  [90] CONTENTS/PID545a9871 => Q18: Active
+  [91] CONTENTS/PID3339a3 => Mode
+  [92] CONTENTS/PID68f7bbb => Fullscreen
+  [93] CONTENTS/PID10cd4cb4 => Band Solo
+  [94] CONTENTS/PID73e3d569 => Mid Output
+  [95] CONTENTS/PIDd504538 => Side Output
+
+## MORE TODO (IMPORTANT)
+
+[ ] forgot to add band solo on hold Q param
+[ ] activate highest band should be encoder 15, not 16
