@@ -106,7 +106,9 @@ var bands = freqMapping.bands;
         assert(typeof p.paramName === 'string', "pad " + i + " should have string paramName");
         assert(typeof p.value === 'number', "pad " + i + " should have numeric value");
         assert(typeof p.resolution === 'number', "pad " + i + " should have numeric resolution");
-        assert(typeof p.color === 'string', "pad " + i + " should have string color");
+        assert(typeof p.selectedColor === 'number', "pad " + i + " should have numeric selectedColor");
+        assert(typeof p.deselectedColor === 'number', "pad " + i + " should have numeric deselectedColor");
+        assert(Array.isArray(p.selectedWhen), "pad " + i + " should have selectedWhen array");
     }
 })();
 

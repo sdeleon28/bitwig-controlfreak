@@ -285,9 +285,9 @@ function makeSubject(opts) {
 
 function makePadConfig() {
     return [
-        { pad: 9, paramName: 'Mode', value: 0, resolution: 5, color: 'white' },
-        { pad: 5, paramName: 'Mode', value: 1, resolution: 5, color: 'blue' },
-        { pad: 6, paramName: 'Mode', value: 2, resolution: 5, color: 'purple' },
+        { pad: 9, paramName: 'Mode', value: 0, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [0] },
+        { pad: 5, paramName: 'Mode', value: 1, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [1, 3] },
+        { pad: 6, paramName: 'Mode', value: 2, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [2, 4] },
     ];
 }
 
@@ -322,21 +322,21 @@ function fakeBitwigWithMode() {
     assert(bw._paramCalls[0].resolution === 5, 'should pass resolution');
 })();
 
-// pad config paints pads with dim brightness initially
+// pad config paints pads with deselectedColor initially
 (function() {
     var pager = fakePager(1);
     var bw = fakeBitwigWithMode();
     var dq = makeSubject({ pager: pager, bitwig: bw });
     dq.activate(null, makePadConfig());
-    // pad 9 (index 8 = note 31) should be painted dim white
-    var pad9Paint = pager.paints.filter(function(p) { return p.pad === 31 && p.color === '3_dim'; });
-    assert(pad9Paint.length > 0, 'pad 9 should be painted dim white');
-    // pad 5 (index 4 = note 21) should be painted dim blue
-    var pad5Paint = pager.paints.filter(function(p) { return p.pad === 21 && p.color === '45_dim'; });
-    assert(pad5Paint.length > 0, 'pad 5 should be painted dim blue');
+    // pad 9 (index 8 = note 31) should be painted with deselectedColor (1)
+    var pad9Paint = pager.paints.filter(function(p) { return p.pad === 31 && p.color === 1; });
+    assert(pad9Paint.length > 0, 'pad 9 should be painted with deselectedColor');
+    // pad 5 (index 4 = note 21) should be painted with deselectedColor (1)
+    var pad5Paint = pager.paints.filter(function(p) { return p.pad === 21 && p.color === 1; });
+    assert(pad5Paint.length > 0, 'pad 5 should be painted with deselectedColor');
 })();
 
-// onParamValueChanged highlights the active mode pad bright, others dim
+// onParamValueChanged highlights the active mode pad, deselects others
 (function() {
     var pager = fakePager(1);
     var bw = fakeBitwigWithMode();
@@ -346,14 +346,14 @@ function fakeBitwigWithMode() {
     // Simulate mode changed to value 1 (normalized 0.25 = Mid)
     dq.onParamValueChanged('CONTENTS/PIDmode123', 0.25);
     var newPaints = pager.paints.slice(paintsBefore);
-    // pad 5 (value=1, norm=0.25) should be bright blue
+    // pad 5 (selectedWhen includes 1, norm=0.25) should be selectedColor
     var pad5 = newPaints.filter(function(p) { return p.pad === 21; });
     assert(pad5.length > 0, 'pad 5 should be repainted');
-    assert(pad5[0].color === '45_bright', 'active mode pad should be bright');
-    // pad 9 (value=0, norm=0) should be dim white
+    assert(pad5[0].color === 21, 'active mode pad should use selectedColor');
+    // pad 9 (selectedWhen [0], norm=0) should be deselectedColor
     var pad9 = newPaints.filter(function(p) { return p.pad === 31; });
     assert(pad9.length > 0, 'pad 9 should be repainted');
-    assert(pad9[0].color === '3_dim', 'inactive mode pad should be dim');
+    assert(pad9[0].color === 1, 'inactive mode pad should use deselectedColor');
 })();
 
 // onParamValueChanged is no-op when inactive
@@ -400,7 +400,7 @@ function fakeBitwigWithMode() {
     var lp = fakeLaunchpad();
     var bw = fakeBitwig({ paramNames: {} }); // no params registered
     var dq = makeSubject({ launchpad: lp, bitwig: bw });
-    dq.activate(null, [{ pad: 1, paramName: 'Missing', value: 0, resolution: 5, color: 'white' }]);
+    dq.activate(null, [{ pad: 1, paramName: 'Missing', value: 0, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [0] }]);
     assert(dq._padEntries.length === 0, 'should skip unresolvable params');
     assert(!lp.behaviors[11], 'should not register behavior for unresolvable param');
 })();
@@ -452,10 +452,10 @@ function fakeBitwigWithMode() {
     var pager = fakePager(1);
     var bw = fakeBitwig({ paramNames: { 'PID_A': 'Mode', 'PID_B': 'Other' } });
     var dq = makeSubject({ launchpad: lp, pager: pager, bitwig: bw });
-    dq.activate(null, [{ pad: 1, paramName: 'Mode', value: 0, resolution: 2, color: 'white' }]);
+    dq.activate(null, [{ pad: 1, paramName: 'Mode', value: 0, resolution: 2, selectedColor: 21, deselectedColor: 1, selectedWhen: [0] }]);
     assert(dq._padEntries.length === 1, 'precondition: 1 pad entry');
     // Replace with different config
-    dq.applyPadConfig([{ pad: 3, paramName: 'Other', value: 0, resolution: 2, color: 'blue' }]);
+    dq.applyPadConfig([{ pad: 3, paramName: 'Other', value: 0, resolution: 2, selectedColor: 21, deselectedColor: 1, selectedWhen: [0] }]);
     assert(dq._padEntries.length === 1, 'should have 1 new pad entry');
     assert(dq._modeParamId === 'PID_B', 'should track new param ID');
     // Old pad 1 behavior should be gone, new pad 3 should exist
@@ -567,6 +567,51 @@ function fakeBitwigWithMode() {
     dq.onDirectParamNameChanged('PID_OTHER', 'Frequency');
     assert(dq._pendingPadEntries.length === 3, 'unrelated name should not resolve pending entries');
     assert(dq._padEntries.length === 0, 'no entries should be resolved');
+})();
+
+// Mid pad (selectedWhen: [1, 3]) highlights when mode = MidSolo (value 3, normalized 0.75)
+(function() {
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ pager: pager, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    var paintsBefore = pager.paints.length;
+    // MidSolo = value 3, normalized 3/4 = 0.75
+    dq.onParamValueChanged('CONTENTS/PIDmode123', 0.75);
+    var newPaints = pager.paints.slice(paintsBefore);
+    var pad5 = newPaints.filter(function(p) { return p.pad === 21; });
+    assert(pad5.length > 0, 'Mid pad should be repainted');
+    assert(pad5[0].color === 21, 'Mid pad should highlight when MidSolo is active');
+})();
+
+// Side pad (selectedWhen: [2, 4]) highlights when mode = SideSolo (value 4, normalized 1.0)
+(function() {
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ pager: pager, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    var paintsBefore = pager.paints.length;
+    // SideSolo = value 4, normalized 4/4 = 1.0
+    dq.onParamValueChanged('CONTENTS/PIDmode123', 1.0);
+    var newPaints = pager.paints.slice(paintsBefore);
+    var pad6 = newPaints.filter(function(p) { return p.pad === 22; });
+    assert(pad6.length > 0, 'Side pad should be repainted');
+    assert(pad6[0].color === 21, 'Side pad should highlight when SideSolo is active');
+})();
+
+// Stereo pad does NOT highlight when mode = Mid
+(function() {
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ pager: pager, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    var paintsBefore = pager.paints.length;
+    // Mid = value 1, normalized 0.25
+    dq.onParamValueChanged('CONTENTS/PIDmode123', 0.25);
+    var newPaints = pager.paints.slice(paintsBefore);
+    var pad9 = newPaints.filter(function(p) { return p.pad === 31; });
+    assert(pad9.length > 0, 'Stereo pad should be repainted');
+    assert(pad9[0].color === 1, 'Stereo pad should NOT highlight when Mid is active');
 })();
 
 process.exit(t.summary('DeviceQuadrant'));

@@ -72,11 +72,11 @@ var DeviceMappings = {
               ]}
         ],
         pads: [
-            { pad: 9, paramName: 'Mode', value: 0, resolution: 5, color: 'white' },   // Stereo
-            { pad: 5, paramName: 'Mode', value: 1, resolution: 5, color: 'blue' },    // Mid
-            { pad: 6, paramName: 'Mode', value: 2, resolution: 5, color: 'purple' },  // Side
-            { pad: 1, paramName: 'Mode', value: 3, resolution: 5, color: 'blue' },    // Mid Solo
-            { pad: 2, paramName: 'Mode', value: 4, resolution: 5, color: 'purple' },  // Side Solo
+            { pad: 9, paramName: 'Mode', value: 0, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [0] },       // Stereo
+            { pad: 5, paramName: 'Mode', value: 1, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [1, 3] },    // Mid
+            { pad: 6, paramName: 'Mode', value: 2, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [2, 4] },    // Side
+            { pad: 1, paramName: 'Mode', value: 3, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [3] },       // Mid Solo
+            { pad: 2, paramName: 'Mode', value: 4, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [4] },       // Side Solo
         ]
     }
 };

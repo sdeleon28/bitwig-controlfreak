@@ -237,8 +237,8 @@ class DeviceQuadrantHW {
     }
 
     /**
-     * Register a single pad entry: store state, register click behavior, paint dim.
-     * @param {Object} entry - {pad, paramName, value, resolution, color}
+     * Register a single pad entry: store state, register click behavior, paint deselected.
+     * @param {Object} entry - {pad, paramName, value, resolution, selectedColor, deselectedColor, selectedWhen}
      * @param {string} paramId - Resolved parameter ID
      */
     _registerPadEntry(entry, paramId) {
@@ -248,15 +248,21 @@ class DeviceQuadrantHW {
 
         var padIndex = entry.pad - 1;
         var padNote = pads[padIndex];
-        var normalizedValue = entry.value / (entry.resolution - 1);
-        var colorKey = entry.color || 'white';
-        var baseColor = this.launchpad.colors[colorKey] || this.launchpad.colors.white;
+        var resolution = entry.resolution;
+
+        // Pre-normalize selectedWhen values
+        var selectedWhenNormalized = [];
+        var selectedWhen = entry.selectedWhen || [entry.value];
+        for (var i = 0; i < selectedWhen.length; i++) {
+            selectedWhenNormalized.push(selectedWhen[i] / (resolution - 1));
+        }
 
         this._padEntries.push({
             padNote: padNote,
             paramId: paramId,
-            normalizedValue: normalizedValue,
-            baseColor: baseColor
+            selectedColor: entry.selectedColor,
+            deselectedColor: entry.deselectedColor,
+            selectedWhenNormalized: selectedWhenNormalized
         });
 
         // Track the mode param (all entries share the same param)
@@ -272,24 +278,28 @@ class DeviceQuadrantHW {
             }, null, self.pageNumber);
         })(paramId, entry.value, entry.resolution);
 
-        // Paint dim initially
-        this.pager.requestPaint(page, padNote,
-            this.launchpad.getBrightnessVariant(baseColor, this.launchpad.brightness.dim));
+        // Paint deselected initially
+        this.pager.requestPaint(page, padNote, entry.deselectedColor);
     }
 
     /**
      * Repaint all configured pad highlights based on current mode value.
-     * Active mode = bright, others = dim.
+     * Checks if current mode matches any value in selectedWhenNormalized.
      */
     _repaintPadHighlights() {
         var page = this.pager.getActivePage();
         var EPSILON = 0.01;
         for (var i = 0; i < this._padEntries.length; i++) {
             var entry = this._padEntries[i];
-            var isActive = Math.abs(entry.normalizedValue - this._currentModeValue) < EPSILON;
-            var brightness = isActive ? this.launchpad.brightness.bright : this.launchpad.brightness.dim;
+            var isActive = false;
+            for (var j = 0; j < entry.selectedWhenNormalized.length; j++) {
+                if (Math.abs(entry.selectedWhenNormalized[j] - this._currentModeValue) < EPSILON) {
+                    isActive = true;
+                    break;
+                }
+            }
             this.pager.requestPaint(page, entry.padNote,
-                this.launchpad.getBrightnessVariant(entry.baseColor, brightness));
+                isActive ? entry.selectedColor : entry.deselectedColor);
         }
     }
 
