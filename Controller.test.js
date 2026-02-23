@@ -237,6 +237,18 @@ function fakeHost() {
     };
 }
 
+function fakeDeviceQuadrant() {
+    var calls = [];
+    var _active = false;
+    return {
+        calls: calls,
+        _exitCallback: null,
+        activate: function(cb) { _active = true; this._exitCallback = cb; calls.push('activate'); },
+        deactivate: function() { _active = false; calls.push('deactivate'); },
+        isActive: function() { return _active; }
+    };
+}
+
 function makeController(opts) {
     opts = opts || {};
     return new ControllerHW({
@@ -249,6 +261,7 @@ function makeController(opts) {
         launchpadTopButtons: opts.launchpadTopButtons || fakeTopButtons(),
         pages: opts.pages || fakePages(),
         pageMainControl: opts.pageMainControl || { pageNumber: 1 },
+        deviceQuadrant: opts.deviceQuadrant || null,
         host: opts.host || fakeHost(),
         debug: false,
         println: function() {}
@@ -890,6 +903,75 @@ function makeController(opts) {
     ctrl.selectGroup(16);
     // Encoder 1 should be L1+ threshold (overriding Bass track)
     assert(tw.behaviors[1], "encoder 1 should have L1+ behavior, overriding track link");
+})();
+
+// onDeviceChanged activates device quadrant
+(function() {
+    var dq = fakeDeviceQuadrant();
+    var fakeDeviceMapper = {
+        hasMapping: function() { return false; },
+        applyGenericMapping: function() {}
+    };
+    var ctrl = makeController({ deviceQuadrant: dq });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged("SomePlugin");
+    assert(dq.calls.indexOf('activate') !== -1, "onDeviceChanged should activate device quadrant");
+})();
+
+// onDeviceChanged does not re-activate if already active
+(function() {
+    var dq = fakeDeviceQuadrant();
+    var fakeDeviceMapper = {
+        hasMapping: function() { return false; },
+        applyGenericMapping: function() {}
+    };
+    var ctrl = makeController({ deviceQuadrant: dq });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged("Plugin1");
+    ctrl.onDeviceChanged("Plugin2");
+    var activateCalls = dq.calls.filter(function(c) { return c === 'activate'; });
+    assert(activateCalls.length === 1, "should not re-activate if already active");
+})();
+
+// selectGroup deactivates device quadrant
+(function() {
+    var dq = fakeDeviceQuadrant();
+    dq.activate(); // pre-activate
+    var ctrl = makeController({ deviceQuadrant: dq });
+    ctrl.selectGroup(16);
+    assert(dq.calls.indexOf('deactivate') !== -1, "selectGroup should deactivate device quadrant");
+})();
+
+// refreshTrackGrid is no-op when device quadrant active
+(function() {
+    var dq = fakeDeviceQuadrant();
+    dq.activate();
+    var lp = fakeLaunchpad();
+    var ctrl = makeController({ deviceQuadrant: dq, launchpad: lp });
+    lp.calls = [];
+    ctrl.refreshTrackGrid();
+    var unlinkCalls = lp.calls.filter(function(c) { return c.method === 'unlinkPad'; });
+    assert(unlinkCalls.length === 0, "refreshTrackGrid should be no-op when device quadrant active");
+})();
+
+// exit callback from device quadrant restores track grid
+(function() {
+    var dq = fakeDeviceQuadrant();
+    var fakeDeviceMapper = {
+        hasMapping: function() { return false; },
+        applyGenericMapping: function() {}
+    };
+    var tw = fakeTwister();
+    tw.links[1] = { trackId: 3 };
+    var bw = fakeBitwig({ tracks: { 3: fakeTrack("Kick (1)") } });
+    var lp = fakeLaunchpad();
+    var ctrl = makeController({ deviceQuadrant: dq, twister: tw, bitwig: bw, launchpad: lp });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged("SomePlugin");
+    assert(ctrl.deviceMode === true, "deviceMode should be true");
+    // Simulate exit callback
+    dq._exitCallback();
+    assert(ctrl.deviceMode === false, "exit callback should set deviceMode false");
 })();
 
 process.exit(t.summary('Controller'));

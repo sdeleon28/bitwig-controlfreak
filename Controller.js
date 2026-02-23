@@ -15,6 +15,7 @@ class ControllerHW {
      * @param {Object} deps.pageMainControl - Page_MainControl namespace
      * @param {Object} deps.host - Bitwig host
      * @param {Object} deps.deviceMapper - DeviceMapper instance
+     * @param {Object} deps.deviceQuadrant - DeviceQuadrant instance
      * @param {boolean} deps.debug - Debug flag
      * @param {Function} deps.println - Print function
      */
@@ -31,6 +32,7 @@ class ControllerHW {
         this.pageMainControl = deps.pageMainControl || null;
         this.host = deps.host || null;
         this.deviceMapper = deps.deviceMapper || null;
+        this.deviceQuadrant = deps.deviceQuadrant || null;
         this.debug = deps.debug || false;
         this.println = deps.println || function() {};
 
@@ -141,6 +143,10 @@ class ControllerHW {
             }
         }
 
+        if (this.deviceQuadrant && this.deviceQuadrant.isActive()) {
+            this.deviceQuadrant.deactivate();
+        }
+
         this.selectedGroup = groupNumber;
         this.deviceMode = false;
         this.refreshGroupDisplay();
@@ -196,6 +202,8 @@ class ControllerHW {
      * Refresh the track grid display on Launchpad
      */
     refreshTrackGrid() {
+        if (this.deviceQuadrant && this.deviceQuadrant.isActive()) return;
+
         var self = this;
         var page = this.pager.getActivePage();
 
@@ -537,6 +545,14 @@ class ControllerHW {
         } else if (this.deviceMapper) {
             this.deviceMode = true;
             this.deviceMapper.applyGenericMapping();
+        }
+
+        if (this.deviceQuadrant && !this.deviceQuadrant.isActive()) {
+            var self = this;
+            this.deviceQuadrant.activate(function() {
+                self.deviceMode = false;
+                self.refreshTrackGrid();
+            });
         }
     }
 

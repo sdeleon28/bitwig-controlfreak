@@ -25,6 +25,7 @@ load('Animations.js');
 
 // Layer 3.5: Device mapping behavior
 load('DeviceMapper.js');
+load('DeviceQuadrant.js');
 
 // Layer 4: UI components
 load('LaunchpadQuadrant.js');
@@ -303,6 +304,17 @@ function init() {
 
     Bitwig.initMasterDevice(masterDeviceCursor);
 
+    // Observe cursor device enabled state (for DeviceQuadrant bypass pad)
+    cursorDevice.isEnabled().markInterested();
+    cursorDevice.isEnabled().addValueObserver(function(enabled) {
+        DeviceQuadrant.onDeviceEnabledChanged(enabled);
+    });
+
+    // Observe cursor track solo state (for DeviceQuadrant solo pad)
+    cursorTrack.solo().markInterested();
+    cursorTrack.solo().addValueObserver(function(soloed) {
+        DeviceQuadrant.onCursorTrackSoloChanged(soloed);
+    });
     // Subscribe to track properties for tree building
     for (var i = 0; i < 64; i++) {
         var track = trackBank.getItemAt(i);
@@ -758,6 +770,17 @@ function init() {
         println: println
     });
 
+    // Initialize DeviceQuadrant (after Pager, LaunchpadQuadrant, Bitwig, Page_MainControl)
+    DeviceQuadrant = new DeviceQuadrantHW({
+        launchpad: Launchpad,
+        launchpadQuadrant: LaunchpadQuadrant,
+        pager: Pager,
+        bitwig: Bitwig,
+        pageNumber: Page_MainControl.pageNumber,
+        debug: debug,
+        println: println
+    });
+
     // Initialize Controller (after all deps are ready)
     Controller = new ControllerHW({
         twister: Twister,
@@ -770,6 +793,7 @@ function init() {
         pages: Pages,
         pageMainControl: Page_MainControl,
         deviceMapper: DeviceMapper,
+        deviceQuadrant: DeviceQuadrant,
         host: host,
         debug: debug,
         println: println
