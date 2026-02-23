@@ -56,6 +56,9 @@ class DeviceMapperHW {
                 if (btn.value !== undefined) {
                     assignments[btn.encoder].pressValue = btn.value;
                     assignments[btn.encoder].pressResolution = btn.resolution;
+                    if (btn.releaseValue !== undefined) {
+                        assignments[btn.encoder].releaseValue = btn.releaseValue;
+                    }
                 }
             }
         }
@@ -79,12 +82,15 @@ class DeviceMapperHW {
             var pressCb = null;
             if (assignment.pressParamId) {
                 if (assignment.pressValue !== undefined) {
-                    pressCb = (function(paramId, value, resolution) {
+                    pressCb = (function(paramId, value, releaseValue, resolution) {
                         return function(pressed) {
-                            if (!pressed) return;
-                            device.setDirectParameterValueNormalized(paramId, value, resolution);
+                            if (pressed) {
+                                device.setDirectParameterValueNormalized(paramId, value, resolution);
+                            } else if (releaseValue !== undefined) {
+                                device.setDirectParameterValueNormalized(paramId, releaseValue, resolution);
+                            }
                         };
-                    })(assignment.pressParamId, assignment.pressValue, assignment.pressResolution);
+                    })(assignment.pressParamId, assignment.pressValue, assignment.releaseValue, assignment.pressResolution);
                 } else {
                     pressCb = (function(paramId) {
                         return function(pressed) {

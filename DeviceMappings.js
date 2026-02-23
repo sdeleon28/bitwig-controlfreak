@@ -13,7 +13,7 @@ var DeviceMappings = {
           ],
           buttons: [
               { encoder: 13, paramId: 'CONTENTS/PID60a37761' },  // Q1: Active
-              { encoder: 14, paramId: 'CONTENTS/PID10cd4cb4', value: 0, resolution: 18 },  // Band Solo → Q1
+              { encoder: 14, paramId: 'CONTENTS/PID10cd4cb4', value: 1, releaseValue: 0, resolution: 19 },  // Band Solo → Q1
           ]},
         // Band 2: Low (red)
         { color: { r: 255, g: 0, b: 0 },
@@ -24,7 +24,7 @@ var DeviceMappings = {
           ],
           buttons: [
               { encoder: 9, paramId: 'CONTENTS/PID10cd7bbf' },   // Q2: Active
-              { encoder: 5, paramId: 'CONTENTS/PID10cd4cb4', value: 1, resolution: 18 },   // Band Solo → Q2
+              { encoder: 5, paramId: 'CONTENTS/PID10cd4cb4', value: 2, releaseValue: 0, resolution: 19 },   // Band Solo → Q2
           ]},
         // Band 3: Low Mids (green)
         { color: { r: 0, g: 255, b: 0 },
@@ -35,7 +35,7 @@ var DeviceMappings = {
           ],
           buttons: [
               { encoder: 10, paramId: 'CONTENTS/PID78de40dc' },  // Q3: Active
-              { encoder: 6, paramId: 'CONTENTS/PID10cd4cb4', value: 2, resolution: 18 },   // Band Solo → Q3
+              { encoder: 6, paramId: 'CONTENTS/PID10cd4cb4', value: 3, releaseValue: 0, resolution: 19 },   // Band Solo → Q3
           ]},
         // Band 4: High Mids (orange)
         { color: { r: 255, g: 150, b: 0 },
@@ -46,7 +46,7 @@ var DeviceMappings = {
           ],
           buttons: [
               { encoder: 11, paramId: 'CONTENTS/PIDf24026a' },   // Q4: Active
-              { encoder: 7, paramId: 'CONTENTS/PID10cd4cb4', value: 3, resolution: 18 },   // Band Solo → Q4
+              { encoder: 7, paramId: 'CONTENTS/PID10cd4cb4', value: 4, releaseValue: 0, resolution: 19 },   // Band Solo → Q4
           ]},
         // Band 5: High (yellow)
         { color: { r: 255, g: 255, b: 0 },
@@ -57,7 +57,7 @@ var DeviceMappings = {
           ],
           buttons: [
               { encoder: 12, paramId: 'CONTENTS/PID651c7971' },  // Q5: Active
-              { encoder: 8, paramId: 'CONTENTS/PID10cd4cb4', value: 4, resolution: 18 },   // Band Solo → Q5
+              { encoder: 8, paramId: 'CONTENTS/PID10cd4cb4', value: 5, releaseValue: 0, resolution: 19 },   // Band Solo → Q5
           ]},
         // Band 6: Highest (bright red)
         { color: { r: 255, g: 50, b: 0 },
@@ -67,7 +67,7 @@ var DeviceMappings = {
           ],
           buttons: [
               { encoder: 15, paramId: 'CONTENTS/PID74e8446f' },  // Q6: Active
-              { encoder: 16, paramId: 'CONTENTS/PID10cd4cb4', value: 5, resolution: 18 },  // Band Solo → Q6
+              { encoder: 16, paramId: 'CONTENTS/PID10cd4cb4', value: 6, releaseValue: 0, resolution: 19 },  // Band Solo → Q6
           ]}
     ]
 };
