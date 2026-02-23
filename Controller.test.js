@@ -250,13 +250,16 @@ function fakeHost() {
 function fakeDeviceQuadrant() {
     var calls = [];
     var _active = false;
+    var _handleModePadPressedCalls = [];
     return {
         calls: calls,
         _exitCallback: null,
         _lastPadConfig: null,
+        _handleModePadPressedCalls: _handleModePadPressedCalls,
         activate: function(cb, padConfig) { _active = true; this._exitCallback = cb; this._lastPadConfig = padConfig || null; calls.push('activate'); },
         deactivate: function() { _active = false; calls.push('deactivate'); },
         applyPadConfig: function(padConfig) { this._lastPadConfig = padConfig || null; calls.push('applyPadConfig'); },
+        handleModePadPressed: function(padNote) { _handleModePadPressedCalls.push(padNote); },
         isActive: function() { return _active; }
     };
 }
@@ -1132,6 +1135,27 @@ function makeController(opts) {
     assert(dq.calls.filter(function(c) { return c === 'activate'; }).length === 1, "should NOT re-activate");
     assert(dq.calls.filter(function(c) { return c === 'applyPadConfig'; }).length === 1, "should call applyPadConfig for second device");
     assert(dq._lastPadConfig === null, "second device has no pad config");
+})();
+
+// onLaunchpadMidi note-on calls deviceQuadrant.handleModePadPressed when active
+(function() {
+    var dq = fakeDeviceQuadrant();
+    dq.activate(); // make active
+    var pg = fakePages();
+    var ctrl = makeController({ deviceQuadrant: dq, pages: pg, launchpadTopButtons: fakeTopButtons() });
+    ctrl.onLaunchpadMidi(0x90, 21, 100);
+    assert(dq._handleModePadPressedCalls.length === 1, 'should call handleModePadPressed on note-on');
+    assert(dq._handleModePadPressedCalls[0] === 21, 'should pass the correct pad note');
+})();
+
+// onLaunchpadMidi note-on does not call handleModePadPressed when device quadrant inactive
+(function() {
+    var dq = fakeDeviceQuadrant();
+    // not activated
+    var pg = fakePages();
+    var ctrl = makeController({ deviceQuadrant: dq, pages: pg, launchpadTopButtons: fakeTopButtons() });
+    ctrl.onLaunchpadMidi(0x90, 21, 100);
+    assert(dq._handleModePadPressedCalls.length === 0, 'should not call handleModePadPressed when inactive');
 })();
 
 process.exit(t.summary('Controller'));

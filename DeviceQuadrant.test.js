@@ -614,4 +614,66 @@ function fakeBitwigWithMode() {
     assert(pad9[0].color === 1, 'Stereo pad should NOT highlight when Mid is active');
 })();
 
+// ---- handleModePadPressed tests ----
+
+// handleModePadPressed optimistically repaints all highlights
+(function() {
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ pager: pager, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    var paintsBefore = pager.paints.length;
+    // Press pad 5 (note 21, value=1, resolution=5 → normalized 0.25)
+    dq.handleModePadPressed(21);
+    var newPaints = pager.paints.slice(paintsBefore);
+    var pad5 = newPaints.filter(function(p) { return p.pad === 21; });
+    var pad9 = newPaints.filter(function(p) { return p.pad === 31; });
+    var pad6 = newPaints.filter(function(p) { return p.pad === 22; });
+    assert(pad5.length > 0 && pad5[0].color === 21, 'pressed pad should get selectedColor');
+    assert(pad9.length > 0 && pad9[0].color === 1, 'other pad should get deselectedColor');
+    assert(pad6.length > 0 && pad6[0].color === 1, 'other pad should get deselectedColor');
+})();
+
+// handleModePadPressed switches highlight when pressing different pads
+(function() {
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ pager: pager, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    // Press pad 9 (Stereo, note 31, value=0, normalized 0)
+    dq.handleModePadPressed(31);
+    var paintsBefore = pager.paints.length;
+    // Now press pad 6 (Side, note 22, value=2, normalized 0.5)
+    dq.handleModePadPressed(22);
+    var newPaints = pager.paints.slice(paintsBefore);
+    var pad6 = newPaints.filter(function(p) { return p.pad === 22; });
+    var pad9 = newPaints.filter(function(p) { return p.pad === 31; });
+    var pad5 = newPaints.filter(function(p) { return p.pad === 21; });
+    assert(pad6.length > 0 && pad6[0].color === 21, 'newly pressed pad should get selectedColor');
+    assert(pad9.length > 0 && pad9[0].color === 1, 'previously active pad should get deselectedColor');
+    assert(pad5.length > 0 && pad5[0].color === 1, 'other pad should get deselectedColor');
+})();
+
+// handleModePadPressed is no-op for unrelated pad note
+(function() {
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ pager: pager, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    var paintsBefore = pager.paints.length;
+    dq.handleModePadPressed(99); // not a configured pad
+    assert(pager.paints.length === paintsBefore, 'unrelated pad should not trigger repaint');
+})();
+
+// handleModePadPressed is no-op when inactive
+(function() {
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ pager: pager, bitwig: bw });
+    // Not activated
+    var paintsBefore = pager.paints.length;
+    dq.handleModePadPressed(21);
+    assert(pager.paints.length === paintsBefore, 'should not repaint when inactive');
+})();
+
 process.exit(t.summary('DeviceQuadrant'));

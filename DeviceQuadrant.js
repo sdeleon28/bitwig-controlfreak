@@ -119,11 +119,28 @@ class DeviceQuadrantHW {
     }
 
     /**
+     * Optimistic pad color update triggered directly from the MIDI handler.
+     * Runs the moment MIDI arrives — no Bitwig API dependency.
+     * @param {number} padNote - MIDI note of the pressed pad
+     */
+    handleModePadPressed(padNote) {
+        if (!this._active) return;
+        for (var i = 0; i < this._padEntries.length; i++) {
+            if (this._padEntries[i].padNote === padNote) {
+                this._currentModeValue = this._padEntries[i].setNormalized;
+                this._repaintPadHighlights();
+                return;
+            }
+        }
+    }
+
+    /**
      * Re-apply pad config while already active (e.g. when switching devices).
      * Clears old device pad entries and applies new config on pads 1-13.
      * @param {Array|null} padConfig - New pad config, or null to clear
      */
     applyPadConfig(padConfig) {
+        if (this.debug) this.println("applyPadConfig active=" + this._active + " padConfig=" + (padConfig ? padConfig.length + " entries" : "null"));
         if (!this._active) return;
 
         var pads = this.launchpadQuadrant.bottomLeft.pads;
@@ -173,7 +190,8 @@ class DeviceQuadrantHW {
      * @param {number} value - Normalized value (0-1)
      */
     onParamValueChanged(id, value) {
-        if (!this._active || !this._modeParamId || id !== this._modeParamId) return;
+        if (!this._active) return;
+        if (!this._modeParamId || id !== this._modeParamId) return;
         this._currentModeValue = value;
         this._repaintPadHighlights();
     }
@@ -201,15 +219,21 @@ class DeviceQuadrantHW {
         if (!this._active || this._pendingPadEntries.length === 0) return;
 
         var remaining = [];
+        var resolved = false;
         for (var i = 0; i < this._pendingPadEntries.length; i++) {
             var entry = this._pendingPadEntries[i];
             if (entry.paramName === name) {
                 this._registerPadEntry(entry, id);
+                resolved = true;
             } else {
                 remaining.push(entry);
             }
         }
         this._pendingPadEntries = remaining;
+
+        if (resolved && this._padEntries.length > 0 && this._currentModeValue >= 0) {
+            this._repaintPadHighlights();
+        }
     }
 
     /**
@@ -227,12 +251,14 @@ class DeviceQuadrantHW {
             var entry = padConfig[i];
             var paramId = this._resolveParamName(entry.paramName);
             if (!paramId) {
-                if (this.debug) this.println("DeviceQuadrant: deferring param '" + entry.paramName + "'");
                 this._pendingPadEntries.push(entry);
                 continue;
             }
-
             this._registerPadEntry(entry, paramId);
+        }
+
+        if (this._padEntries.length > 0 && this._currentModeValue >= 0) {
+            this._repaintPadHighlights();
         }
     }
 
@@ -260,6 +286,7 @@ class DeviceQuadrantHW {
         this._padEntries.push({
             padNote: padNote,
             paramId: paramId,
+            setNormalized: entry.value / (resolution - 1),
             selectedColor: entry.selectedColor,
             deselectedColor: entry.deselectedColor,
             selectedWhenNormalized: selectedWhenNormalized
@@ -298,8 +325,8 @@ class DeviceQuadrantHW {
                     break;
                 }
             }
-            this.pager.requestPaint(page, entry.padNote,
-                isActive ? entry.selectedColor : entry.deselectedColor);
+            var color = isActive ? entry.selectedColor : entry.deselectedColor;
+            this.pager.requestPaint(page, entry.padNote, color);
         }
     }
 
