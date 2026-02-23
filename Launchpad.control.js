@@ -269,6 +269,39 @@ function init() {
         Controller.onDeviceChanged(name);
     });
 
+    // Master track L1+ limiter: create dedicated device cursor
+    var masterTrack = host.createMasterTrack(0);
+    var masterDeviceCursor = masterTrack.createCursorDevice("l1-cursor", "L1+ Cursor", 0, CursorDeviceFollowMode.FIRST_DEVICE);
+    masterDeviceCursor.name().markInterested();
+    masterDeviceCursor.exists().markInterested();
+
+    var foundL1 = false;
+    masterDeviceCursor.addDirectParameterNameObserver(64, function(id, name) {
+        if (foundL1 && name === 'Threshold') {
+            Bitwig.setMasterLimiterThresholdId(id);
+            if (debug) println("Found L1+ Threshold param: " + id);
+        }
+    });
+
+    masterDeviceCursor.addDirectParameterNormalizedValueObserver(function(id, value) {
+        var thresholdId = Bitwig.getMasterLimiterThresholdId();
+        if (id === thresholdId) {
+            Controller.onMasterLimiterThresholdChanged(value);
+        }
+    });
+
+    masterDeviceCursor.name().addValueObserver(function(name) {
+        if (!name) return;
+        if (name.indexOf('L1+') !== -1) {
+            foundL1 = true;
+            if (debug) println("Found master limiter: " + name);
+        } else if (!foundL1) {
+            masterDeviceCursor.selectNext();
+        }
+    });
+
+    Bitwig.initMasterDevice(masterDeviceCursor);
+
     // Subscribe to track properties for tree building
     for (var i = 0; i < 64; i++) {
         var track = trackBank.getItemAt(i);

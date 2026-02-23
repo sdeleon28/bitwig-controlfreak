@@ -88,7 +88,7 @@
         [ ] solo current track button
         [ ] remote control mode (mapped to "Stop") doesn't have pad feedback like rec does
     [ ] device change is triggered on start, make sure that one doesn't count
-[ ] URGENT: add limiter input to main group encoders
+[X] URGENT: add limiter input to main group encoders
 [ ] URGENT: master group in remote control mode doesn't jump to track
 [ ] more resolution on the encoders
 [ ] refactor
@@ -101,4 +101,5 @@
     [ ] display growl on track select (include current mode/s)
     [ ] display growl on mode switch
 [ ] can i narrow down the visible tracks in the arranger? something like "select and zoom into tracks"
+[ ] add FX to top group
 

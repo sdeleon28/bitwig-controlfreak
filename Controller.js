@@ -77,8 +77,23 @@ class ControllerHW {
                 }
             }
 
-            // Link tempo encoder
+            // Link master limiter threshold to encoder 1
             var self = this;
+            var masterDevice = this.bitwig.getMasterCursorDevice();
+            var thresholdId = this.bitwig.getMasterLimiterThresholdId();
+            if (masterDevice && thresholdId) {
+                this.twister.linkEncoderToBehavior(1,
+                    function(value) {
+                        masterDevice.setDirectParameterValueNormalized(thresholdId, value, 128);
+                    },
+                    null,
+                    { r: 255, g: 50, b: 0 }
+                );
+                var currentValue = this.bitwig.getMasterLimiterThresholdValue();
+                this.twister.setEncoderLED(1, Math.round(currentValue * 127));
+            }
+
+            // Link tempo encoder
             this.twister.linkEncoderToBehavior(this.twister.TEMPO_ENCODER,
                 function(value) {
                     var tempo = self.bitwig.getTransport().tempo();
@@ -495,6 +510,17 @@ class ControllerHW {
         if (status === 0xB1) {
             var pressed = data2 > 0;
             this.twister.handleEncoderPress(encoderNumber, pressed);
+        }
+    }
+
+    /**
+     * Handle master limiter threshold value changes (for LED sync)
+     * @param {number} value - Normalized value (0-1)
+     */
+    onMasterLimiterThresholdChanged(value) {
+        this.bitwig.setMasterLimiterThresholdValue(value);
+        if (this.selectedGroup === 16 && !this.deviceMode) {
+            this.twister.setEncoderLED(1, Math.round(value * 127));
         }
     }
 

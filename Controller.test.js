@@ -67,6 +67,10 @@ function fakeBitwig(opts) {
                 }
             };
         },
+        getMasterCursorDevice: function() { return opts.masterCursorDevice || null; },
+        getMasterLimiterThresholdId: function() { return opts.masterLimiterThresholdId || null; },
+        getMasterLimiterThresholdValue: function() { return opts.masterLimiterThresholdValue || 0; },
+        setMasterLimiterThresholdValue: function(v) { opts.masterLimiterThresholdValue = v; },
         selectTrack: function(id) { result.selectedTracks.push(id); },
         setTimeSelection: function(start, end) { result._timeSelection = { start: start, end: end }; },
         setPlayheadPosition: function(pos) { result._playheadPos = pos; },
@@ -792,6 +796,100 @@ function makeController(opts) {
     ctrl.onDeviceChanged("SomeOtherPlugin");
     assert(genericCalls.length === 1, "should call applyGenericMapping when leaving mapped device");
     assert(ctrl.deviceMode === true, "deviceMode should remain true");
+})();
+
+// selectGroup(16) links encoder 1 to master limiter threshold when L1+ is available
+(function() {
+    var tw = fakeTwister();
+    var paramCalls = [];
+    var fakeMasterDevice = {
+        setDirectParameterValueNormalized: function(id, value, res) {
+            paramCalls.push({ id: id, value: value, resolution: res });
+        }
+    };
+    var bw = fakeBitwig({
+        topLevel: [],
+        bpm: 120,
+        masterCursorDevice: fakeMasterDevice,
+        masterLimiterThresholdId: 'CONTENTS/PIDthreshold',
+        masterLimiterThresholdValue: 0.5
+    });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.selectGroup(16);
+    assert(tw.behaviors[1], "encoder 1 should have behavior linked for L1+ threshold");
+    assert(tw.behaviors[1].color.r === 255, "encoder 1 color should be orange-red (r=255)");
+    assert(tw.leds[1] === 64, "encoder 1 LED should reflect current threshold value (0.5 * 127 ≈ 64)");
+    // Simulate turning encoder
+    tw.behaviors[1].turn(100);
+    assert(paramCalls.length === 1, "turning encoder should call setDirectParameterValueNormalized");
+    assert(paramCalls[0].id === 'CONTENTS/PIDthreshold', "should use correct param ID");
+    assert(paramCalls[0].value === 100, "should pass encoder value");
+})();
+
+// selectGroup(16) skips L1+ linking when master device not available
+(function() {
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.selectGroup(16);
+    assert(!tw.behaviors[1], "encoder 1 should not have behavior when no master device");
+    assert(tw.behaviors[4], "tempo encoder should still be linked");
+})();
+
+// onMasterLimiterThresholdChanged updates LED when group 16 active
+(function() {
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.selectedGroup = 16;
+    ctrl.deviceMode = false;
+    ctrl.onMasterLimiterThresholdChanged(0.75);
+    assert(tw.leds[1] === 95, "encoder 1 LED should update to 0.75 * 127 ≈ 95");
+})();
+
+// onMasterLimiterThresholdChanged does not update LED when in device mode
+(function() {
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.selectedGroup = 16;
+    ctrl.deviceMode = true;
+    ctrl.onMasterLimiterThresholdChanged(0.75);
+    assert(tw.leds[1] === undefined, "encoder 1 LED should not update in device mode");
+})();
+
+// onMasterLimiterThresholdChanged does not update LED when different group selected
+(function() {
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.selectedGroup = 5;
+    ctrl.deviceMode = false;
+    ctrl.onMasterLimiterThresholdChanged(0.5);
+    assert(tw.leds[1] === undefined, "encoder 1 LED should not update when group 5 selected");
+})();
+
+// selectGroup(16) L1+ encoder overrides track on encoder 1
+(function() {
+    var tw = fakeTwister();
+    var paramCalls = [];
+    var fakeMasterDevice = {
+        setDirectParameterValueNormalized: function(id, value, res) {
+            paramCalls.push({ id: id, value: value, resolution: res });
+        }
+    };
+    var bw = fakeBitwig({
+        topLevel: [0],
+        tracks: { 0: fakeTrack("Bass (1)") },
+        bpm: 120,
+        masterCursorDevice: fakeMasterDevice,
+        masterLimiterThresholdId: 'CONTENTS/PIDthreshold',
+        masterLimiterThresholdValue: 0
+    });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.selectGroup(16);
+    // Encoder 1 should be L1+ threshold (overriding Bass track)
+    assert(tw.behaviors[1], "encoder 1 should have L1+ behavior, overriding track link");
 })();
 
 process.exit(t.summary('Controller'));
