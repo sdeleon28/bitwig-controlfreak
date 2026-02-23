@@ -77,12 +77,15 @@ function fakeBitwig(opts) {
         setPlayheadPosition: function(pos) { result._playheadPos = pos; },
         getMarkerBank: function() { return opts.markerBank || null; },
         getRemoteControls: function() {
+            var names = opts.remoteControlNames || [];
             var params = {};
             for (var i = 0; i < 8; i++) {
-                params[i] = {
-                    name: function() { return { get: function() { return "Param " + i; } }; },
-                    value: function() { return { set: function() {} }; }
-                };
+                (function(idx) {
+                    params[idx] = {
+                        name: function() { return { get: function() { return names[idx] || ""; } }; },
+                        value: function() { return { get: function() { return 0; }, set: function() {} }; }
+                    };
+                })(i);
             }
             return { getParameter: function(i) { return params[i]; } };
         }
@@ -1007,6 +1010,41 @@ function makeController(opts) {
     var ctrl = makeController({ twister: tw, bitwig: bw });
     ctrl.selectGroup(16);
     assert(ctrl.selectedGroup === 16, "selectGroup(16) should work without master track");
+})();
+
+// onDeviceChanged: non-mapped device with remote controls uses remote controls
+(function() {
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ remoteControlNames: ['Cutoff', 'Resonance', '', '', '', '', '', ''] });
+    var genericCalls = [];
+    var fakeDeviceMapper = {
+        hasMapping: function() { return false; },
+        applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); }
+    };
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged("SomePlugin");
+    var rcCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToRemoteControls'; });
+    assert(rcCalls.length === 1, "should call linkEncodersToRemoteControls for device with remote controls");
+    assert(genericCalls.length === 0, "should NOT call applyGenericMapping when remote controls exist");
+    assert(ctrl.deviceMode === true, "deviceMode should be true");
+})();
+
+// onDeviceChanged: declarative mapping takes priority over remote controls
+(function() {
+    var applyCalls = [];
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ remoteControlNames: ['Cutoff', 'Resonance', '', '', '', '', '', ''] });
+    var fakeDeviceMapper = {
+        hasMapping: function(name) { return name === "Frequalizer Alt"; },
+        applyMapping: function(name) { applyCalls.push(name); }
+    };
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged("Frequalizer Alt");
+    assert(applyCalls.length === 1, "should use declarative mapping even when remote controls exist");
+    var rcCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToRemoteControls'; });
+    assert(rcCalls.length === 0, "should NOT call linkEncodersToRemoteControls when declarative mapping exists");
 })();
 
 process.exit(t.summary('Controller'));

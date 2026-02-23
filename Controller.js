@@ -546,6 +546,9 @@ class ControllerHW {
         if (this.deviceMapper && this.deviceMapper.hasMapping(deviceName)) {
             this.deviceMode = true;
             this.deviceMapper.applyMapping(deviceName);
+        } else if (this._deviceHasRemoteControls()) {
+            this.deviceMode = true;
+            this.twister.linkEncodersToRemoteControls();
         } else if (this.deviceMapper) {
             this.deviceMode = true;
             this.deviceMapper.applyGenericMapping();
@@ -558,6 +561,16 @@ class ControllerHW {
                 self.selectGroup(self.selectedGroup);
             });
         }
+    }
+
+    _deviceHasRemoteControls() {
+        var remoteControls = this.bitwig.getRemoteControls();
+        if (!remoteControls) return false;
+        for (var i = 0; i < 8; i++) {
+            var name = remoteControls.getParameter(i).name().get();
+            if (name && name.length > 0) return true;
+        }
+        return false;
     }
 
     /**
