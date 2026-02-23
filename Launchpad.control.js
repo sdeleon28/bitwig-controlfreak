@@ -271,7 +271,7 @@ function init() {
 
     // Master track L1+ limiter: create dedicated device cursor
     var masterTrack = host.createMasterTrack(0);
-    var masterDeviceCursor = masterTrack.createCursorDevice("l1-cursor", "L1+ Cursor", 0, CursorDeviceFollowMode.FIRST_DEVICE);
+    var masterDeviceCursor = masterTrack.createCursorDevice("L1+ Cursor");
     masterDeviceCursor.name().markInterested();
     masterDeviceCursor.exists().markInterested();
 
