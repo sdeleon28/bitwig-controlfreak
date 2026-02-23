@@ -61,6 +61,10 @@ class ControllerHW {
 
         if (groupNumber === 16) {
             if (this.host) this.host.showPopupNotification("Top Level");
+
+            var masterTrack = this.bitwig.getMasterTrack();
+            if (masterTrack) masterTrack.selectInMixer();
+
             var topTracks = this.bitwig.getTopLevelTracks();
 
             for (var i = 0; i < topTracks.length; i++) {

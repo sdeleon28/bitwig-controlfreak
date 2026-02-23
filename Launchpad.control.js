@@ -302,6 +302,7 @@ function init() {
         }
     });
 
+    Bitwig.initMasterTrack(masterTrack);
     Bitwig.initMasterDevice(masterDeviceCursor);
 
     // Observe cursor device enabled state (for DeviceQuadrant bypass pad)

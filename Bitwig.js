@@ -22,6 +22,7 @@ class BitwigHW {
         this._remoteControls = null;
         this._directParamIds = [];
         this._directParamNames = {};
+        this._masterTrack = null;
         this._masterCursorDevice = null;
         this._masterLimiterThresholdId = null;
         this._masterLimiterThresholdValue = 0;
@@ -426,6 +427,18 @@ class BitwigHW {
                 this._fxTracks.sort(function(a, b) { return a.number - b.number; });
             }
         }
+    }
+
+    /**
+     * Initialize master track reference
+     * @param {Object} masterTrack - Bitwig master track object
+     */
+    initMasterTrack(masterTrack) {
+        this._masterTrack = masterTrack;
+    }
+
+    getMasterTrack() {
+        return this._masterTrack;
     }
 
     /**

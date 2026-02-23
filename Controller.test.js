@@ -67,6 +67,7 @@ function fakeBitwig(opts) {
                 }
             };
         },
+        getMasterTrack: function() { return opts.masterTrack || null; },
         getMasterCursorDevice: function() { return opts.masterCursorDevice || null; },
         getMasterLimiterThresholdId: function() { return opts.masterLimiterThresholdId || null; },
         getMasterLimiterThresholdValue: function() { return opts.masterLimiterThresholdValue || 0; },
@@ -972,6 +973,29 @@ function makeController(opts) {
     // Simulate exit callback
     dq._exitCallback();
     assert(ctrl.deviceMode === false, "exit callback should set deviceMode false");
+})();
+
+// selectGroup(16) calls selectInMixer on master track
+(function() {
+    var tw = fakeTwister();
+    var selected = false;
+    var bw = fakeBitwig({
+        topLevel: [],
+        bpm: 120,
+        masterTrack: { selectInMixer: function() { selected = true; } }
+    });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.selectGroup(16);
+    assert(selected === true, "selectGroup(16) should call masterTrack.selectInMixer()");
+})();
+
+// selectGroup(16) does not crash when no master track available
+(function() {
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.selectGroup(16);
+    assert(ctrl.selectedGroup === 16, "selectGroup(16) should work without master track");
 })();
 
 process.exit(t.summary('Controller'));
