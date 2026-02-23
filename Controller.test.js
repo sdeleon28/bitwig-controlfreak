@@ -955,7 +955,7 @@ function makeController(opts) {
     assert(unlinkCalls.length === 0, "refreshTrackGrid should be no-op when device quadrant active");
 })();
 
-// exit callback from device quadrant restores track grid
+// exit callback from device quadrant re-selects group to restore full state
 (function() {
     var dq = fakeDeviceQuadrant();
     var fakeDeviceMapper = {
@@ -963,16 +963,27 @@ function makeController(opts) {
         applyGenericMapping: function() {}
     };
     var tw = fakeTwister();
-    tw.links[1] = { trackId: 3 };
-    var bw = fakeBitwig({ tracks: { 3: fakeTrack("Kick (1)") } });
+    var bw = fakeBitwig({
+        groups: { 5: 10 },
+        groupChildren: { 10: [11, 12] },
+        tracks: {
+            10: fakeTrack("Guitars (5)", { isGroup: true }),
+            11: fakeTrack("Clean (1)"),
+            12: fakeTrack("Dist (2)")
+        }
+    });
     var lp = fakeLaunchpad();
     var ctrl = makeController({ deviceQuadrant: dq, twister: tw, bitwig: bw, launchpad: lp });
     ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.selectedGroup = 5;
     ctrl.onDeviceChanged("SomePlugin");
     assert(ctrl.deviceMode === true, "deviceMode should be true");
-    // Simulate exit callback
+    // Simulate exit callback — should re-select group 5
     dq._exitCallback();
     assert(ctrl.deviceMode === false, "exit callback should set deviceMode false");
+    assert(ctrl.selectedGroup === 5, "should remain on group 5");
+    assert(tw.links[1] && tw.links[1].trackId === 11, "encoder 1 should re-link to Clean (1)");
+    assert(tw.links[2] && tw.links[2].trackId === 12, "encoder 2 should re-link to Dist (2)");
 })();
 
 // selectGroup(16) calls selectInMixer on master track

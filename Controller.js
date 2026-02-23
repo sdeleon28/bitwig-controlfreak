@@ -555,7 +555,7 @@ class ControllerHW {
             var self = this;
             this.deviceQuadrant.activate(function() {
                 self.deviceMode = false;
-                self.refreshTrackGrid();
+                self.selectGroup(self.selectedGroup);
             });
         }
     }
