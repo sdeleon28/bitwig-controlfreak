@@ -46,9 +46,10 @@ class DeviceQuadrantHW {
         var pads = this.launchpadQuadrant.bottomLeft.pads;
         var page = this.pager.getActivePage();
 
-        // Unlink all 16 track grid pads
+        // Unlink all 16 track grid pads and clear stale behaviors
         for (var i = 0; i < pads.length; i++) {
             this.launchpad.unlinkPad(pads[i]);
+            this.launchpad.clearPadBehavior(pads[i]);
         }
 
         // Paint pads 1-13 dark (available for device-specific use)
@@ -102,6 +103,7 @@ class DeviceQuadrantHW {
 
         for (var i = 0; i < pads.length; i++) {
             this.pager.requestClear(page, pads[i]);
+            this.launchpad.clearPadBehavior(pads[i]);
         }
 
         if (this.debug) this.println("DeviceQuadrant deactivated");
@@ -112,6 +114,31 @@ class DeviceQuadrantHW {
      */
     isActive() {
         return this._active;
+    }
+
+    /**
+     * Re-apply pad config while already active (e.g. when switching devices).
+     * Clears old device pad entries and applies new config on pads 1-13.
+     * @param {Array|null} padConfig - New pad config, or null to clear
+     */
+    applyPadConfig(padConfig) {
+        if (!this._active) return;
+
+        var pads = this.launchpadQuadrant.bottomLeft.pads;
+        var page = this.pager.getActivePage();
+
+        // Clear old device pads (1-13)
+        for (var i = 0; i < 13; i++) {
+            this.launchpad.clearPadBehavior(pads[i]);
+            this.pager.requestPaint(page, pads[i], this.launchpad.colors.off);
+        }
+        this._padEntries = [];
+        this._modeParamId = null;
+        this._currentModeValue = -1;
+
+        if (padConfig) {
+            this._applyPadConfig(padConfig);
+        }
     }
 
     /**

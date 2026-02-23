@@ -174,6 +174,7 @@ function fakeLaunchpad() {
         bitwigColorToLaunchpad: function(r, g, b) { return 'lp_' + r + '_' + g + '_' + b; },
         setPadColor: function(pad, color) { padColors[pad] = color; calls.push({ method: 'setPadColor', pad: pad, color: color }); },
         registerPadBehavior: function(pad, click, hold, page) { behaviors[pad] = { click: click, hold: hold, page: page }; },
+        clearPadBehavior: function(pad) { delete behaviors[pad]; calls.push({ method: 'clearPadBehavior', pad: pad }); },
         handlePadPress: function(pad) { calls.push({ method: 'handlePadPress', pad: pad }); return true; },
         handlePadRelease: function(pad) { calls.push({ method: 'handlePadRelease', pad: pad }); },
         clearAll: function() { calls.push('clearAll'); },
@@ -255,6 +256,7 @@ function fakeDeviceQuadrant() {
         _lastPadConfig: null,
         activate: function(cb, padConfig) { _active = true; this._exitCallback = cb; this._lastPadConfig = padConfig || null; calls.push('activate'); },
         deactivate: function() { _active = false; calls.push('deactivate'); },
+        applyPadConfig: function(padConfig) { this._lastPadConfig = padConfig || null; calls.push('applyPadConfig'); },
         isActive: function() { return _active; }
     };
 }
@@ -1109,6 +1111,27 @@ function makeController(opts) {
     ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.onDeviceChanged("SomePlugin");
     assert(dq._lastPadConfig === null, "should pass null pad config for non-mapped device");
+})();
+
+// switching devices while already active calls applyPadConfig instead of activate
+(function() {
+    var dq = fakeDeviceQuadrant();
+    var testPads = [{ pad: 1 }];
+    var fakeDeviceMapper = {
+        hasMapping: function(name) { return name === "DeviceA"; },
+        applyMapping: function() {},
+        applyGenericMapping: function() {},
+        getPadConfig: function(name) { return name === "DeviceA" ? testPads : null; }
+    };
+    var ctrl = makeController({ deviceQuadrant: dq });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged("DeviceA");
+    assert(dq.calls.filter(function(c) { return c === 'activate'; }).length === 1, "first device should activate");
+    // Switch to a different device while already active
+    ctrl.onDeviceChanged("OtherDevice");
+    assert(dq.calls.filter(function(c) { return c === 'activate'; }).length === 1, "should NOT re-activate");
+    assert(dq.calls.filter(function(c) { return c === 'applyPadConfig'; }).length === 1, "should call applyPadConfig for second device");
+    assert(dq._lastPadConfig === null, "second device has no pad config");
 })();
 
 process.exit(t.summary('Controller'));

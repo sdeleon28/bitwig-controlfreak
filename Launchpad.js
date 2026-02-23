@@ -106,6 +106,10 @@ class LaunchpadHW {
         this._padTimers = {};
     }
 
+    clearPadBehavior(padNote) {
+        delete this._padTimers[padNote];
+    }
+
     // ---- SysEx mode control ----
 
     enterProgrammerMode() {

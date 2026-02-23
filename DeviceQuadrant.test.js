@@ -18,6 +18,7 @@ function fakeLaunchpad() {
         padLinks: padLinks,
         unlinkPad: function(pad) { delete padLinks[pad]; calls.push({ method: 'unlinkPad', pad: pad }); },
         registerPadBehavior: function(pad, click, hold, page) { behaviors[pad] = { click: click, hold: hold, page: page }; },
+        clearPadBehavior: function(pad) { delete behaviors[pad]; calls.push({ method: 'clearPadBehavior', pad: pad }); },
         getBrightnessVariant: function(baseColor, level) { return baseColor + '_' + level; },
         setPadColor: function(pad, color) { padColors[pad] = color; },
         clearPad: function(pad) { padColors[pad] = 0; }
@@ -402,6 +403,73 @@ function fakeBitwigWithMode() {
     dq.activate(null, [{ pad: 1, paramName: 'Missing', value: 0, resolution: 5, color: 'white' }]);
     assert(dq._padEntries.length === 0, 'should skip unresolvable params');
     assert(!lp.behaviors[11], 'should not register behavior for unresolvable param');
+})();
+
+// activate clears stale pad behaviors from track grid
+(function() {
+    var lp = fakeLaunchpad();
+    var dq = makeSubject({ launchpad: lp });
+    // Simulate stale behavior from track grid mode
+    lp.registerPadBehavior(11, function() {}, null, 1);
+    assert(lp.behaviors[11], 'precondition: pad 11 has a stale behavior');
+    dq.activate();
+    // After activate, pad 11 should have been cleared then NOT re-registered (it's in pads 1-13 range)
+    assert(!lp.behaviors[11], 'activate should clear stale track grid behavior on pad 1');
+})();
+
+// deactivate clears pad behaviors so track grid can register fresh ones
+(function() {
+    var lp = fakeLaunchpad();
+    var dq = makeSubject({ launchpad: lp });
+    dq.activate();
+    // pad 14 (solo) gets a behavior registered during activate
+    assert(lp.behaviors[42], 'precondition: solo pad has behavior');
+    dq.deactivate();
+    assert(!lp.behaviors[42], 'deactivate should clear solo pad behavior');
+    assert(!lp.behaviors[43], 'deactivate should clear bypass pad behavior');
+    assert(!lp.behaviors[44], 'deactivate should clear exit pad behavior');
+})();
+
+// applyPadConfig clears old device pads and applies new config
+(function() {
+    var lp = fakeLaunchpad();
+    var pager = fakePager(1);
+    var bw = fakeBitwigWithMode();
+    var dq = makeSubject({ launchpad: lp, pager: pager, bitwig: bw });
+    dq.activate(null, makePadConfig());
+    assert(dq._padEntries.length === 3, 'precondition: 3 pad entries');
+    assert(lp.behaviors[31], 'precondition: pad 9 has behavior');
+    // Re-apply with null = clear all device pads
+    dq.applyPadConfig(null);
+    assert(dq._padEntries.length === 0, 'applyPadConfig(null) should clear pad entries');
+    assert(dq._modeParamId === null, 'applyPadConfig(null) should clear mode param');
+    assert(!lp.behaviors[31], 'applyPadConfig(null) should clear old pad behaviors');
+})();
+
+// applyPadConfig replaces old config with new config
+(function() {
+    var lp = fakeLaunchpad();
+    var pager = fakePager(1);
+    var bw = fakeBitwig({ paramNames: { 'PID_A': 'Mode', 'PID_B': 'Other' } });
+    var dq = makeSubject({ launchpad: lp, pager: pager, bitwig: bw });
+    dq.activate(null, [{ pad: 1, paramName: 'Mode', value: 0, resolution: 2, color: 'white' }]);
+    assert(dq._padEntries.length === 1, 'precondition: 1 pad entry');
+    // Replace with different config
+    dq.applyPadConfig([{ pad: 3, paramName: 'Other', value: 0, resolution: 2, color: 'blue' }]);
+    assert(dq._padEntries.length === 1, 'should have 1 new pad entry');
+    assert(dq._modeParamId === 'PID_B', 'should track new param ID');
+    // Old pad 1 behavior should be gone, new pad 3 should exist
+    assert(!lp.behaviors[11], 'old pad 1 behavior should be cleared');
+    var pads = fakeQuadrant().bottomLeft.pads;
+    assert(lp.behaviors[pads[2]], 'new pad 3 should have behavior');
+})();
+
+// applyPadConfig is no-op when inactive
+(function() {
+    var lp = fakeLaunchpad();
+    var dq = makeSubject({ launchpad: lp });
+    dq.applyPadConfig(makePadConfig());
+    assert(dq._padEntries.length === 0, 'should not apply config when inactive');
 })();
 
 process.exit(t.summary('DeviceQuadrant'));

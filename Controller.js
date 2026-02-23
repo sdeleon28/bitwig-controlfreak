@@ -211,9 +211,10 @@ class ControllerHW {
         var self = this;
         var page = this.pager.getActivePage();
 
-        // Unlink all track grid pads
+        // Unlink all track grid pads and clear stale behaviors
         for (var i = 0; i < this.launchpadQuadrant.bottomLeft.pads.length; i++) {
             this.launchpad.unlinkPad(this.launchpadQuadrant.bottomLeft.pads[i]);
+            this.launchpad.clearPadBehavior(this.launchpadQuadrant.bottomLeft.pads[i]);
         }
 
         var padMode = this.launchpadModeSwitcher.getPadMode();
@@ -556,13 +557,17 @@ class ControllerHW {
             this.deviceMapper.applyGenericMapping();
         }
 
-        if (this.deviceQuadrant && !this.deviceQuadrant.isActive()) {
-            var self = this;
-            this.deviceQuadrant.activate(function() {
-                self.deviceMode = false;
-                self.bitwig.getCursorDevice().selectNone();
-                self.selectGroup(self.selectedGroup);
-            }, padConfig);
+        if (this.deviceQuadrant) {
+            if (!this.deviceQuadrant.isActive()) {
+                var self = this;
+                this.deviceQuadrant.activate(function() {
+                    self.deviceMode = false;
+                    self.bitwig.getCursorDevice().selectNone();
+                    self.selectGroup(self.selectedGroup);
+                }, padConfig);
+            } else {
+                this.deviceQuadrant.applyPadConfig(padConfig);
+            }
         }
     }
 

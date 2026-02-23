@@ -315,6 +315,16 @@ function makeLaunchpad(opts) {
     assert(lp._clickTracking[44].clickCount === 0, 'click count reset to 0');
 })();
 
+// clearPadBehavior removes behavior for a single pad
+(function() {
+    var lp = makeLaunchpad();
+    lp.registerPadBehavior(44, function() {}, null, 1);
+    lp.registerPadBehavior(45, function() {}, null, 1);
+    lp.clearPadBehavior(44);
+    assert(!lp._padTimers[44], 'cleared pad should have no behavior');
+    assert(lp._padTimers[45], 'other pad should still have behavior');
+})();
+
 // ---- summary ----
 
 process.exit(t.summary('Launchpad'));
