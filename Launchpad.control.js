@@ -252,6 +252,7 @@ function init() {
     // Register direct parameter observers (for devices without Remote Controls pages)
     cursorDevice.addDirectParameterIdObserver(function(ids) {
         Bitwig.setDirectParamIds(ids);
+        DeviceMapper.onDirectParamsChanged();
     });
 
     cursorDevice.addDirectParameterNameObserver(64, function(id, name) {

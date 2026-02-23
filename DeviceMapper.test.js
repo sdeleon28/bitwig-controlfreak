@@ -340,12 +340,14 @@ function makeMapper(opts) {
     assert(linkCalls[2].encoder === 3, "third param should map to encoder 3");
 })();
 
-// applyGenericMapping does nothing when no params available
+// applyGenericMapping clears encoders even when no params available
 (function() {
     var tw = fakeTwister();
     var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], []) });
     mapper.applyGenericMapping();
-    assert(tw.calls.length === 0, "should not call anything with empty params");
+    assert(tw.calls[0] === 'unlinkAll', "should call unlinkAll even with empty params");
+    var linkCalls = tw.calls.filter(function(c) { return c.method === 'linkEncoderToBehavior'; });
+    assert(linkCalls.length === 0, "should not link any encoders with empty params");
 })();
 
 // applyGenericMapping limits to 16 encoders
@@ -409,6 +411,57 @@ function makeMapper(opts) {
     var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A']) });
     mapper.applyGenericMapping();
     assert(tw.behaviors[1].press === null, "generic mapping should not set press callback");
+})();
+
+// onDirectParamsChanged re-applies generic mapping when in generic mode
+(function() {
+    var tw = fakeTwister();
+    var paramIds = [];
+    var bw = fakeBitwig([], paramIds);
+    var mapper = makeMapper({ twister: tw, bitwig: bw });
+    // Apply generic with empty params (simulates name arriving before params)
+    mapper.applyGenericMapping();
+    var callsAfterFirst = tw.calls.length;
+    // Now params arrive
+    paramIds.push('PARAM/A', 'PARAM/B');
+    mapper.onDirectParamsChanged();
+    var linkCalls = tw.calls.filter(function(c) { return c.method === 'linkEncoderToBehavior'; });
+    assert(linkCalls.length === 2, "should link 2 encoders after params arrive, got " + linkCalls.length);
+})();
+
+// onDirectParamsChanged does nothing when not in generic mode
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A']) });
+    // Don't call applyGenericMapping — not in generic mode
+    mapper.onDirectParamsChanged();
+    assert(tw.calls.length === 0, "should not do anything when not in generic mode");
+})();
+
+// onDirectParamsChanged does nothing after applyMapping (custom device)
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A']) });
+    mapper.applyGenericMapping(); // enter generic mode
+    mapper.applyMapping("TestDevice"); // switch to custom mapping
+    var callsAfterMapping = tw.calls.length;
+    mapper.onDirectParamsChanged();
+    assert(tw.calls.length === callsAfterMapping, "should not re-apply after switching to custom mapping");
+})();
+
+// applyGenericMapping after applyMapping clears custom mode and enters generic
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A', 'PARAM/B']) });
+    mapper.applyMapping("TestDevice");
+    mapper.applyGenericMapping();
+    var linkCalls = tw.calls.filter(function(c) { return c.method === 'linkEncoderToBehavior'; });
+    // TestDevice has 3 encoders + generic has 2 = 5 total
+    assert(linkCalls.length === 5, "should have both custom and generic link calls");
+    // After re-apply, onDirectParamsChanged should work
+    mapper.onDirectParamsChanged();
+    var linkCallsAfter = tw.calls.filter(function(c) { return c.method === 'linkEncoderToBehavior'; });
+    assert(linkCallsAfter.length === 7, "onDirectParamsChanged should re-apply generic, got " + linkCallsAfter.length);
 })();
 
 process.exit(t.summary('DeviceMapper'));

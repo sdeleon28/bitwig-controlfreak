@@ -20,6 +20,7 @@ class DeviceMapperHW {
 
         this._paramValues = {};
         this._activeParamToEncoder = {};
+        this._genericMode = false;
     }
 
     hasMapping(deviceName) {
@@ -30,6 +31,7 @@ class DeviceMapperHW {
         var mapping = this.deviceMappings[deviceName];
         if (!mapping) return;
 
+        this._genericMode = false;
         this.twister.unlinkAll();
 
         // Build assignments: merge turn + press for shared encoders
@@ -128,11 +130,15 @@ class DeviceMapperHW {
     }
 
     applyGenericMapping() {
-        var paramIds = this.bitwig.getDirectParamIds();
-        if (!paramIds || paramIds.length === 0) return;
-
+        this._genericMode = true;
         this.twister.unlinkAll();
         this._activeParamToEncoder = {};
+
+        var paramIds = this.bitwig.getDirectParamIds();
+        if (!paramIds || paramIds.length === 0) {
+            if (this.debug) this.println("Generic device mapping: waiting for params...");
+            return;
+        }
 
         var device = this.bitwig.getCursorDevice();
         var self = this;
@@ -161,9 +167,16 @@ class DeviceMapperHW {
         if (this.debug) this.println("Applied generic device mapping: " + count + " params");
     }
 
+    onDirectParamsChanged() {
+        if (this._genericMode) {
+            this.applyGenericMapping();
+        }
+    }
+
     clearParamValues() {
         this._paramValues = {};
         this._activeParamToEncoder = {};
+        this._genericMode = false;
     }
 }
 
