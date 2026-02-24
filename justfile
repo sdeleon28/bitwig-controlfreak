@@ -27,3 +27,4 @@ test:
     node TD17Remapper.test.js
     node FrequalizerDevice.test.js
     node TwisterPainter.test.js
+    node FrequalizerTwisterMapper.test.js
