@@ -26,3 +26,4 @@ test:
     node Bitwig.test.js
     node TD17Remapper.test.js
     node FrequalizerDevice.test.js
+    node TwisterPainter.test.js
