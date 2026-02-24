@@ -106,6 +106,22 @@ class TwisterHW {
         var cc = this.encoderToCC(encoderNumber);
         var colorIndex = this.findClosestColorIndex(red, green, blue);
         this._output.sendMidi(0xB1, cc, colorIndex);
+        this._output.sendMidi(0xB2, cc, 47);  // ensure encoder is visible
+    }
+
+    // RGB brightness is controlled via channel 2 (0xB2).
+    // Value 17 = off (brightness 0), value 47 = max brightness. Range: 17-47.
+    setEncoderBrightness(encoderNumber, value) {
+        if (!this._output) {
+            if (this.debug) this.println("Warning: Twister not initialized");
+            return;
+        }
+        var cc = this.encoderToCC(encoderNumber);
+        this._output.sendMidi(0xB2, cc, value);
+    }
+
+    setEncoderOff(encoderNumber) {
+        this.setEncoderBrightness(encoderNumber, 17);
     }
 
     clearEncoder(encoderNumber) {

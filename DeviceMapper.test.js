@@ -8,10 +8,14 @@ function fakeTwister() {
     var behaviors = {};
     var calls = [];
     var ledValues = {};
+    var encoderColors = {};
+    var brightnessValues = {};
     return {
         calls: calls,
         behaviors: behaviors,
         ledValues: ledValues,
+        encoderColors: encoderColors,
+        brightnessValues: brightnessValues,
         unlinkAll: function() {
             for (var k in behaviors) delete behaviors[k];
             calls.push('unlinkAll');
@@ -23,6 +27,18 @@ function fakeTwister() {
         setEncoderLED: function(enc, value) {
             ledValues[enc] = value;
             calls.push({ method: 'setEncoderLED', encoder: enc, value: value });
+        },
+        setEncoderColor: function(enc, r, g, b) {
+            encoderColors[enc] = { r: r, g: g, b: b };
+            calls.push({ method: 'setEncoderColor', encoder: enc, r: r, g: g, b: b });
+        },
+        setEncoderBrightness: function(enc, value) {
+            brightnessValues[enc] = value;
+            calls.push({ method: 'setEncoderBrightness', encoder: enc, value: value });
+        },
+        setEncoderOff: function(enc) {
+            brightnessValues[enc] = 17;
+            calls.push({ method: 'setEncoderOff', encoder: enc });
         }
     };
 }
@@ -462,6 +478,237 @@ function makeMapper(opts) {
     mapper.onDirectParamsChanged();
     var linkCallsAfter = tw.calls.filter(function(c) { return c.method === 'linkEncoderToBehavior'; });
     assert(linkCallsAfter.length === 7, "onDirectParamsChanged should re-apply generic, got " + linkCallsAfter.length);
+})();
+
+// ---- band active/inactive brightness tests ----
+
+// inactive band (value 0) calls setEncoderOff for band encoders
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    mapper.onParamValueChanged('CONTENTS/PIDccc', 0);
+    assert(tw.brightnessValues[1] === 17, "encoder 1 should be off (brightness 17) when band is inactive");
+    assert(tw.brightnessValues[5] === 17, "encoder 5 should be off (brightness 17) when band is inactive");
+})();
+
+// re-activated band (value 1) sets brightness 47 on all band encoders
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    mapper.onParamValueChanged('CONTENTS/PIDccc', 0);
+    mapper.onParamValueChanged('CONTENTS/PIDccc', 1);
+    assert(tw.brightnessValues[1] === 47, "encoder 1 should be full brightness when band is re-activated");
+    assert(tw.brightnessValues[5] === 47, "encoder 5 should be full brightness when band is re-activated");
+})();
+
+// band without active toggle has no brightness calls
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    var brightnessCalls = tw.calls.filter(function(c) {
+        return (c.method === 'setEncoderBrightness' || c.method === 'setEncoderOff') && c.encoder === 2;
+    });
+    assert(brightnessCalls.length === 0, "encoder 2 should have no brightness calls (no active toggle)");
+    assert(tw.behaviors[2].color.r === 0 && tw.behaviors[2].color.g === 255,
+        "encoder 2 should retain green band color");
+})();
+
+// active param change only affects its own band's encoders
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    mapper.onParamValueChanged('CONTENTS/PIDccc', 0);
+    assert(tw.brightnessValues[2] === undefined, "encoder 2 brightness should not be affected by band 1 active change");
+})();
+
+// applyMapping with pre-existing inactive value sets brightness off after linking
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.onParamValueChanged('CONTENTS/PIDccc', 0);
+    mapper.applyMapping("TestDevice");
+    assert(tw.brightnessValues[1] === 17, "encoder 1 should be off when pre-existing inactive");
+    assert(tw.brightnessValues[5] === 17, "encoder 5 should be off when pre-existing inactive");
+    // Color should still be band color (not black)
+    assert(tw.behaviors[1].color.r === 255 && tw.behaviors[1].color.g === 0,
+        "encoder 1 should still have band color when pre-existing inactive");
+})();
+
+// applyMapping with pre-existing active value sets brightness 47 after linking
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.onParamValueChanged('CONTENTS/PIDccc', 1);
+    mapper.applyMapping("TestDevice");
+    assert(tw.brightnessValues[1] === 47, "encoder 1 should be full brightness when pre-existing active");
+    assert(tw.brightnessValues[5] === 47, "encoder 5 should be full brightness when pre-existing active");
+})();
+
+// applyMapping with unknown active state defaults to brightness 47 (active)
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    assert(tw.brightnessValues[1] === 47, "encoder 1 should default to full brightness when active state unknown");
+    assert(tw.brightnessValues[5] === 47, "encoder 5 should default to full brightness when active state unknown");
+    // Color should always be band color
+    assert(tw.behaviors[1].color.r === 255 && tw.behaviors[1].color.g === 0,
+        "encoder 1 should always use band color");
+})();
+
+// FixedValueDevice has no brightness calls (no active toggles)
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("FixedValueDevice");
+    var brightnessCalls = tw.calls.filter(function(c) {
+        return c.method === 'setEncoderBrightness' || c.method === 'setEncoderOff';
+    });
+    assert(brightnessCalls.length === 0, "FixedValueDevice should have no brightness calls");
+    assert(tw.behaviors[1].color.r === 255 && tw.behaviors[1].color.g === 0,
+        "FixedValueDevice encoder 1 should show band color (red)");
+    assert(tw.behaviors[2].color.r === 0 && tw.behaviors[2].color.g === 255,
+        "FixedValueDevice encoder 2 should show band color (green)");
+})();
+
+// clearParamValues resets tracking — no brightness calls after clear
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    mapper.clearParamValues();
+    var callsBefore = tw.calls.length;
+    mapper.onParamValueChanged('CONTENTS/PIDccc', 0);
+    var newCalls = tw.calls.slice(callsBefore);
+    var brightnessCalls = newCalls.filter(function(c) {
+        return c.method === 'setEncoderBrightness' || c.method === 'setEncoderOff';
+    });
+    assert(brightnessCalls.length === 0, "should not set brightness after clearParamValues");
+})();
+
+// threshold: 0.5 = brightness 47, 0.49 = off
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    mapper.onParamValueChanged('CONTENTS/PIDccc', 0.5);
+    assert(tw.brightnessValues[1] === 47, "value 0.5 should be active (brightness 47)");
+    mapper.onParamValueChanged('CONTENTS/PIDccc', 0.49);
+    assert(tw.brightnessValues[1] === 17, "value 0.49 should be inactive (brightness 17 / off)");
+})();
+
+// ---- toggle press brightness tests ----
+
+// active toggle press (off→on) sets brightness 47 on all band encoders
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    mapper._paramValues['CONTENTS/PIDccc'] = 0;
+    var callsBefore = tw.calls.length;
+    tw.behaviors[5].press(true);
+    var newCalls = tw.calls.slice(callsBefore);
+    var brightCalls = newCalls.filter(function(c) { return c.method === 'setEncoderBrightness'; });
+    assert(brightCalls.length === 2, "should call setEncoderBrightness on both band encoders, got " + brightCalls.length);
+    assert(brightCalls[0].encoder === 1 && brightCalls[0].value === 47, "encoder 1 should get brightness 47");
+    assert(brightCalls[1].encoder === 5 && brightCalls[1].value === 47, "encoder 5 should get brightness 47");
+    // Should not re-send color (color already set by linkEncoderToBehavior)
+    var colorCalls = newCalls.filter(function(c) { return c.method === 'setEncoderColor'; });
+    assert(colorCalls.length === 0, "should not re-send color on activation");
+})();
+
+// active toggle press (on→off) calls setEncoderOff on all band encoders
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    mapper._paramValues['CONTENTS/PIDccc'] = 1;
+    var callsBefore = tw.calls.length;
+    tw.behaviors[5].press(true);
+    var newCalls = tw.calls.slice(callsBefore);
+    var offCalls = newCalls.filter(function(c) { return c.method === 'setEncoderOff'; });
+    assert(offCalls.length === 2, "should call setEncoderOff on both band encoders, got " + offCalls.length);
+    assert(offCalls[0].encoder === 1 || offCalls[1].encoder === 1, "encoder 1 should be turned off");
+    assert(offCalls[0].encoder === 5 || offCalls[1].encoder === 5, "encoder 5 should be turned off");
+})();
+
+// ---- param ID normalization tests ----
+
+// onParamValueChanged strips ROOT_GENERIC_MODULE/ prefix and stores under short-form key
+(function() {
+    var mapper = makeMapper();
+    mapper.onParamValueChanged('CONTENTS/ROOT_GENERIC_MODULE/PIDaaa', 0.75);
+    assert(mapper._paramValues['CONTENTS/PIDaaa'] === 0.75,
+        "should store value under normalized key (without ROOT_GENERIC_MODULE/)");
+    assert(mapper._paramValues['CONTENTS/ROOT_GENERIC_MODULE/PIDaaa'] === undefined,
+        "should not store value under long-form key");
+})();
+
+// onParamValueChanged with long-form ID updates encoder LED when mapping is active
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    // Observer reports long-form ID, but encoder 1 is mapped to short-form CONTENTS/PIDaaa
+    mapper.onParamValueChanged('CONTENTS/ROOT_GENERIC_MODULE/PIDaaa', 0.75);
+    assert(tw.ledValues[1] === 95,
+        "encoder 1 LED should update via normalized ID, got " + tw.ledValues[1]);
+})();
+
+// onParamValueChanged with long-form ID updates band brightness
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    // Observer reports long-form ID for band active param (PIDccc)
+    mapper.onParamValueChanged('CONTENTS/ROOT_GENERIC_MODULE/PIDccc', 0);
+    assert(tw.brightnessValues[1] === 17,
+        "encoder 1 should be off via normalized band active ID");
+    assert(tw.brightnessValues[5] === 17,
+        "encoder 5 should be off via normalized band active ID");
+})();
+
+// onParamValueChanged with long-form ID restores band brightness
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    mapper.onParamValueChanged('CONTENTS/ROOT_GENERIC_MODULE/PIDccc', 0);
+    mapper.onParamValueChanged('CONTENTS/ROOT_GENERIC_MODULE/PIDccc', 1);
+    assert(tw.brightnessValues[1] === 47,
+        "encoder 1 should restore brightness via normalized ID");
+    assert(tw.brightnessValues[5] === 47,
+        "encoder 5 should restore brightness via normalized ID");
+})();
+
+// toggle reads normalized param value after observer update with long-form ID
+(function() {
+    var directParamCalls = [];
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, directParamCalls: directParamCalls });
+    mapper.applyMapping("TestDevice");
+    // Observer reports long-form, storing under short-form key
+    mapper.onParamValueChanged('CONTENTS/ROOT_GENERIC_MODULE/PIDccc', 1.0);
+    // Toggle press reads _paramValues[short-form] — should see 1.0 and toggle off
+    tw.behaviors[5].press(true);
+    assert(directParamCalls[0].value === 0,
+        "toggle should read normalized param value and turn off, got " + directParamCalls[0].value);
+})();
+
+// IDs without ROOT_GENERIC_MODULE/ prefix pass through unchanged
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw });
+    mapper.applyMapping("TestDevice");
+    mapper.onParamValueChanged('CONTENTS/PIDaaa', 0.5);
+    assert(tw.ledValues[1] === 64,
+        "short-form ID should still work, got " + tw.ledValues[1]);
+    assert(mapper._paramValues['CONTENTS/PIDaaa'] === 0.5,
+        "short-form ID should store correctly");
 })();
 
 process.exit(t.summary('DeviceMapper'));

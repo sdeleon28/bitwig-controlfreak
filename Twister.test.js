@@ -280,6 +280,47 @@ function makeTwister(opts) {
     assert(tw.getEncoderLink(99) === null, 'missing encoder link returns null');
 })();
 
+// setEncoderBrightness sends on channel 2 (0xB2)
+(function() {
+    var out = fakeMidiOutput();
+    var tw = makeTwister({ midiOutput: out });
+    tw.setEncoderBrightness(1, 47);
+    var msg = out.messages.find(function(m) { return m.status === 0xB2; });
+    assert(msg !== undefined, 'brightness message sent on 0xB2');
+    assert(msg.data1 === tw.encoderToCC(1), 'brightness targets correct CC');
+    assert(msg.data2 === 47, 'brightness value is 47 (max)');
+})();
+
+// setEncoderOff sends brightness 17 (off)
+(function() {
+    var out = fakeMidiOutput();
+    var tw = makeTwister({ midiOutput: out });
+    tw.setEncoderOff(1);
+    var msg = out.messages.find(function(m) { return m.status === 0xB2; });
+    assert(msg !== undefined, 'off message sent on 0xB2');
+    assert(msg.data2 === 17, 'off brightness value is 17');
+})();
+
+// setEncoderBrightness does not throw without output
+(function() {
+    var tw = new TwisterHW({ debug: false, println: function() {} });
+    tw.setEncoderBrightness(1, 47);  // should not throw
+    assert(true, 'setEncoderBrightness does not throw without output');
+})();
+
+// setEncoderColor also sends brightness 47 to ensure visibility
+(function() {
+    var out = fakeMidiOutput();
+    var tw = makeTwister({ midiOutput: out });
+    tw.setEncoderColor(1, 255, 0, 0);
+    var colorMsg = out.messages.find(function(m) { return m.status === 0xB1; });
+    assert(colorMsg !== undefined, 'color message sent on 0xB1');
+    var brightMsg = out.messages.find(function(m) { return m.status === 0xB2; });
+    assert(brightMsg !== undefined, 'brightness message sent on 0xB2 with color');
+    assert(brightMsg.data1 === tw.encoderToCC(1), 'brightness targets correct CC');
+    assert(brightMsg.data2 === 47, 'brightness set to max (47) with color');
+})();
+
 // no output does not throw
 (function() {
     var tw = new TwisterHW({ debug: false, println: function() {} });

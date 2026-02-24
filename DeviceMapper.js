@@ -20,6 +20,7 @@ class DeviceMapperHW {
 
         this._paramValues = {};
         this._activeParamToEncoder = {};
+        this._activeParamToEncoders = {};
         this._genericMode = false;
     }
 
@@ -42,6 +43,9 @@ class DeviceMapperHW {
         this._genericMode = false;
         this.twister.unlinkAll();
 
+        // Build band-active maps
+        this._activeParamToEncoders = {};
+
         // Build assignments: merge turn + press for shared encoders
         var assignments = {};
 
@@ -49,14 +53,17 @@ class DeviceMapperHW {
             var band = bands[b];
             var color = band.color;
 
+            var bandEncoders = [];
             for (var e = 0; e < band.encoders.length; e++) {
                 var enc = band.encoders[e];
+                bandEncoders.push(enc.encoder);
                 if (!assignments[enc.encoder]) {
                     assignments[enc.encoder] = { color: color };
                 }
                 assignments[enc.encoder].turnParamId = enc.paramId;
             }
 
+            var activeParamId = null;
             for (var bt = 0; bt < band.buttons.length; bt++) {
                 var btn = band.buttons[bt];
                 if (!assignments[btn.encoder]) {
@@ -69,7 +76,13 @@ class DeviceMapperHW {
                     if (btn.releaseValue !== undefined) {
                         assignments[btn.encoder].releaseValue = btn.releaseValue;
                     }
+                } else {
+                    activeParamId = btn.paramId;
                 }
+            }
+
+            if (activeParamId) {
+                this._activeParamToEncoders[activeParamId] = bandEncoders;
             }
         }
 
@@ -109,12 +122,23 @@ class DeviceMapperHW {
                             var newValue = current >= 0.5 ? 0 : 127;
                             device.setDirectParameterValueNormalized(paramId, newValue, 128);
                             self._paramValues[paramId] = newValue / 127;
+                            var bandEncoders = self._activeParamToEncoders[paramId];
+                            if (bandEncoders) {
+                                for (var i = 0; i < bandEncoders.length; i++) {
+                                    if (newValue >= 64) {
+                                        self.twister.setEncoderBrightness(bandEncoders[i], 47);
+                                    } else {
+                                        self.twister.setEncoderOff(bandEncoders[i]);
+                                    }
+                                }
+                            }
                         };
                     })(assignment.pressParamId);
                 }
             }
 
             var num = parseInt(encoderNum);
+
             this.twister.linkEncoderToBehavior(num, turnCb, pressCb, assignment.color);
 
             if (assignment.turnParamId) {
@@ -126,14 +150,38 @@ class DeviceMapperHW {
             }
         }
 
+        // Set initial brightness based on known active state
+        for (var apId in this._activeParamToEncoders) {
+            var val = this._paramValues[apId];
+            var encs = this._activeParamToEncoders[apId];
+            for (var i = 0; i < encs.length; i++) {
+                if (val !== undefined && val < 0.5) {
+                    this.twister.setEncoderOff(encs[i]);
+                } else {
+                    this.twister.setEncoderBrightness(encs[i], 47);
+                }
+            }
+        }
+
         if (this.debug) this.println("Applied device mapping: " + deviceName);
     }
 
     onParamValueChanged(id, value) {
-        this._paramValues[id] = value;
-        var encoderNum = this._activeParamToEncoder[id];
+        var normalizedId = id.replace('ROOT_GENERIC_MODULE/', '');
+        this._paramValues[normalizedId] = value;
+        var encoderNum = this._activeParamToEncoder[normalizedId];
         if (encoderNum !== undefined) {
             this.twister.setEncoderLED(encoderNum, Math.round(value * 127));
+        }
+        var bandEncoders = this._activeParamToEncoders[normalizedId];
+        if (bandEncoders) {
+            for (var i = 0; i < bandEncoders.length; i++) {
+                if (value >= 0.5) {
+                    this.twister.setEncoderBrightness(bandEncoders[i], 47);
+                } else {
+                    this.twister.setEncoderOff(bandEncoders[i]);
+                }
+            }
         }
     }
 
@@ -184,6 +232,7 @@ class DeviceMapperHW {
     clearParamValues() {
         this._paramValues = {};
         this._activeParamToEncoder = {};
+        this._activeParamToEncoders = {};
         this._genericMode = false;
     }
 }

@@ -64,6 +64,12 @@
         [ ] proper playing / stopped feedback
         [ ] growl indicating what you just did
     [ ] auto-stop at the end of the project
+[-] frequalizer
+    [X] mode selector optimistic update
+    [-] lights off when band is inactive -> lights on when we activate it
+    [ ] turn other bands off when soloing a band
+    [ ] mid and side mappings
+    [ ] low priority: let's make the buttons work when the mode changes from the UI (remove optimistic update)
 [X] mode selector -> only selected modes should light up (to bright color)
 [X] make page jumps immediate
 [-] device mode
@@ -72,12 +78,13 @@
     [X] when Frequalizer is selected
         [X] unbind all twister encoders
         [X] bind them to parmeters on the plugin
-        [-] mid / mid-solo / side-side solo buttons on the launchpad
-    [ ] for generic devices
-        [ ] auto-map direct params
-        [ ] exit device mode button
-        [ ] bypass device button
-        [ ] solo current track button
+        [X] mid / mid-solo / side-side solo buttons on the launchpad
+    [X] for generic devices
+        [X] auto-map direct params
+        [X] exit device mode button
+        [X] bypass device button
+        [X] solo current track button
+        [ ] make twister encoders all the same color
     [ ] remote control
         [ ] if a device has remote controls, auto-map to those instead of direct params
         [ ] exit device mode button
@@ -99,4 +106,6 @@
     [ ] display growl on mode switch
 [ ] can i narrow down the visible tracks in the arranger? something like "select and zoom into tracks"
 [ ] add FX to top group
+[ ] make it so changing a track to black turns off the LED light (we already have code for this)
+[ ] make it so whenever we unlink encoders we turn them off - they seem to retain color across sessions
 
