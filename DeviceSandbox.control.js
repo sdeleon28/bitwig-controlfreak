@@ -4,20 +4,121 @@ host.defineController("Generic", "Device Sandbox", "1.0", "a1b2c3d4-e5f6-7890-ab
 host.defineMidiPorts(1, 1);  // 1 input (Twister), 1 output (Twister)
 
 // ============================================================================
-// Device Parameter Observation Spike
+// Device Parameter Observation — Findings
 //
-// Goal: Try every possible API for listening to parameter changes on the
-// active device. Turn a knob in a plugin and check the script console to
-// see which approaches fired and what values they reported.
+// WHAT WORKS:
+//   addDirectParameterNormalizedValueObserver [DIRECT-VALUE]
+//     - Fires for ALL parameters on the active device (not just remote-mapped)
+//     - Param IDs arrive prefixed with ROOT_GENERIC_MODULE/
+//       e.g. "CONTENTS/ROOT_GENERIC_MODULE/PID10cd7bbf"
+//     - Must strip ROOT_GENERIC_MODULE/ to match canonical IDs in DeviceMappings
+//     - Boolean params (Active) fire as 0.0 / 1.0
+//     - Enum params (Mode, Band Solo) fire as normalized fractions
+//       e.g. Mode: 0.0=Stereo, 0.25=Mid, 0.5=Side, 0.75=MidSolo, 1.0=SideSolo
+//     - Continuous params (Frequency, Gain, Quality) fire as normalized 0–1
 //
-// Each approach is wrapped in a try/catch so a failure in one doesn't block
-// the others. Look for [TAG] prefixes in the console output.
+//   Also useful:
+//     addDirectParameterIdObserver     — full list of param IDs on device load
+//     addDirectParameterNameObserver   — maps ID → human-readable name
+//     addDirectParameterValueDisplayObserver — formatted display string
+//
+// WHAT DID NOT FIRE for Frequalizer param changes:
+//   - CursorRemoteControlsPage (approaches 2–4): only fires for remote-mapped params
+//   - Legacy page observers (approach 5): deprecated, no output
+//   - SpecificBitwigDevice (approach 6): requires known UUID, not useful for plugins
+//   - Device metadata observers (approach 7): static info, not param values
+//   - DeviceBank (approach 8): device list, not param values
+//   - Track-level remote controls (approach 9): no output
+//   - Raw value observer (approach 10): only on remote controls
+//   - Device position (approach 11): chain position, not param values
 // ============================================================================
+
+// ---------------------------------------------------------------------------
+// Frequalizer Parameter Registry
+// Maps canonical param IDs (without ROOT_GENERIC_MODULE/) to descriptors.
+// Unmatched params fall through to raw [DIRECT-VALUE] logging.
+// ---------------------------------------------------------------------------
+var FREQ_PARAMS = {
+    // Band 1 (Lowest)
+    'CONTENTS/PID5e65eb21': { name: 'Q1: Frequency', type: 'continuous' },
+    'CONTENTS/PID1fdbd404': { name: 'Q1: Quality',   type: 'continuous' },
+    'CONTENTS/PID60a37761': { name: 'Q1: Active',    type: 'bool' },
+    'CONTENTS/PID1372e255': { name: 'Q1: Filter Type', type: 'enum' },
+
+    // Band 2 (Low)
+    'CONTENTS/PID47f82203': { name: 'Q2: Frequency', type: 'continuous' },
+    'CONTENTS/PID74f25b66': { name: 'Q2: Quality',   type: 'continuous' },
+    'CONTENTS/PID14682278': { name: 'Q2: Gain',      type: 'continuous' },
+    'CONTENTS/PID10cd7bbf': { name: 'Q2: Active',    type: 'bool' },
+    'CONTENTS/PID146e6633': { name: 'Q2: Filter Type', type: 'enum' },
+
+    // Band 3 (Low Mids)
+    'CONTENTS/PID7f826bc6': { name: 'Q3: Frequency', type: 'continuous' },
+    'CONTENTS/PIDefa39e9':  { name: 'Q3: Quality',   type: 'continuous' },
+    'CONTENTS/PID9318ad5':  { name: 'Q3: Gain',      type: 'continuous' },
+    'CONTENTS/PID78de40dc': { name: 'Q3: Active',    type: 'bool' },
+    'CONTENTS/PID937ce90':  { name: 'Q3: Filter Type', type: 'enum' },
+
+    // Band 4 (High Mids)
+    'CONTENTS/PID5f199778': { name: 'Q4: Frequency', type: 'continuous' },
+    'CONTENTS/PID416caa1b': { name: 'Q4: Quality',   type: 'continuous' },
+    'CONTENTS/PID1d7657e3': { name: 'Q4: Gain',      type: 'continuous' },
+    'CONTENTS/PIDf24026a':  { name: 'Q4: Active',    type: 'bool' },
+    'CONTENTS/PID1d7c9b9e': { name: 'Q4: Filter Type', type: 'enum' },
+
+    // Band 5 (High)
+    'CONTENTS/PID5c3cef11': { name: 'Q5: Frequency', type: 'continuous' },
+    'CONTENTS/PID2a8313f4': { name: 'Q5: Quality',   type: 'continuous' },
+    'CONTENTS/PID4b5ee4aa': { name: 'Q5: Gain',      type: 'continuous' },
+    'CONTENTS/PID651c7971': { name: 'Q5: Active',    type: 'bool' },
+    'CONTENTS/PID4b652865': { name: 'Q5: Filter Type', type: 'enum' },
+
+    // Band 6 (Highest)
+    'CONTENTS/PID10d85b53': { name: 'Q6: Frequency', type: 'continuous' },
+    'CONTENTS/PID1430a8b6': { name: 'Q6: Quality',   type: 'continuous' },
+    'CONTENTS/PID74e8446f': { name: 'Q6: Active',    type: 'bool' },
+    'CONTENTS/PID49039ae3': { name: 'Q6: Filter Type', type: 'enum' },
+
+    // Global
+    'CONTENTS/PID3339a3':   { name: 'Mode',       type: 'enum', values: ['Stereo', 'Mid', 'Side', 'MidSolo', 'SideSolo'] },
+    'CONTENTS/PID68f7bbb':  { name: 'Fullscreen', type: 'bool' },
+    'CONTENTS/PID10cd4cb4': { name: 'Band Solo',  type: 'enum', resolution: 19 },
+    'CONTENTS/PID73e3d569': { name: 'Mid Output',  type: 'continuous' },
+    'CONTENTS/PIDd504538':  { name: 'Side Output', type: 'continuous' },
+};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 var twisterOut;
 
 function trace(tag, msg) {
     println("[" + tag + "] " + msg);
+}
+
+/**
+ * Decode and log a param change using the FREQ_PARAMS registry.
+ * Returns true if the param was matched, false otherwise.
+ */
+function watchParam(id, value) {
+    var desc = FREQ_PARAMS[id];
+    if (!desc) return false;
+
+    var display;
+    if (desc.type === 'bool') {
+        display = desc.name + " = " + (value >= 0.5 ? "ON" : "OFF");
+    } else if (desc.type === 'enum' && desc.values) {
+        var index = Math.round(value * (desc.values.length - 1));
+        display = desc.name + " = " + desc.values[index];
+    } else if (desc.type === 'enum') {
+        display = desc.name + " = " + value.toFixed(4) + " (enum)";
+    } else {
+        display = desc.name + " = " + value.toFixed(4);
+    }
+
+    trace("FREQ", display);
+    return true;
 }
 
 function init() {
@@ -30,7 +131,7 @@ function init() {
         trace("TWISTER-IN", "status=" + status + " data1=" + data1 + " data2=" + data2);
     });
 
-    // --- Cursor Track & Device (foundation for everything) ------------------
+    // --- Cursor Track & Device ----------------------------------------------
     var cursorTrack = host.createCursorTrack("sandbox-cursor", "Sandbox Cursor", 0, 0, true);
     var cursorDevice = cursorTrack.createCursorDevice();
 
@@ -41,11 +142,6 @@ function init() {
 
     cursorDevice.name().markInterested();
     cursorDevice.exists().markInterested();
-    cursorDevice.isEnabled().markInterested();
-    cursorDevice.presetName().markInterested();
-    cursorDevice.presetCategory().markInterested();
-    cursorDevice.presetCreator().markInterested();
-    cursorDevice.position().markInterested();
 
     cursorDevice.name().addValueObserver(function(name) {
         trace("DEVICE-NAME", "Device: " + name);
@@ -55,331 +151,43 @@ function init() {
         trace("DEVICE-EXISTS", "exists=" + exists);
     });
 
-    cursorDevice.isEnabled().addValueObserver(function(enabled) {
-        trace("DEVICE-ENABLED", "enabled=" + enabled);
-    });
+    // --- Direct Parameter Observers (the only approach that works) ----------
 
-    cursorDevice.presetName().addValueObserver(function(name) {
-        trace("DEVICE-PRESET", "preset=" + name);
-    });
-
-    // ========================================================================
-    // APPROACH 1: Direct Parameter Observers
-    // These fire for ALL parameters on the device, not just remote-mapped ones
-    // ========================================================================
-
-    var directParamIds = [];
     var directParamNames = {};
 
-    try {
-        cursorDevice.addDirectParameterIdObserver(function(ids) {
-            directParamIds = ids;
-            trace("DIRECT-IDS", "Got " + ids.length + " parameter IDs");
-            for (var i = 0; i < Math.min(ids.length, 30); i++) {
-                trace("DIRECT-IDS", "  [" + i + "] " + ids[i]);
-            }
-            if (ids.length > 30) {
-                trace("DIRECT-IDS", "  ... (" + (ids.length - 30) + " more)");
-            }
-        });
-    } catch(e) {
-        trace("DIRECT-IDS", "FAILED: " + e);
-    }
-
-    try {
-        cursorDevice.addDirectParameterNameObserver(64, function(id, name) {
-            directParamNames[id] = name;
-            trace("DIRECT-NAME", id + " => '" + name + "'");
-        });
-    } catch(e) {
-        trace("DIRECT-NAME", "FAILED: " + e);
-    }
-
-    try {
-        cursorDevice.addDirectParameterNormalizedValueObserver(function(id, value) {
-            var name = directParamNames[id] || "?";
-            trace("DIRECT-VALUE", id + " (" + name + ") = " + value);
-        });
-    } catch(e) {
-        trace("DIRECT-VALUE", "FAILED: " + e);
-    }
-
-    try {
-        cursorDevice.addDirectParameterValueDisplayObserver(64, function(id, displayValue) {
-            var name = directParamNames[id] || "?";
-            trace("DIRECT-DISPLAY", id + " (" + name + ") display='" + displayValue + "'");
-        });
-    } catch(e) {
-        trace("DIRECT-DISPLAY", "FAILED: " + e);
-    }
-
-    // ========================================================================
-    // APPROACH 2: CursorRemoteControlsPage (8 params per page)
-    // These fire for the 8 remote-control-mapped parameters
-    // ========================================================================
-
-    var remoteControls;
-    try {
-        remoteControls = cursorDevice.createCursorRemoteControlsPage(8);
-
-        remoteControls.pageNames().markInterested();
-        remoteControls.pageCount().markInterested();
-        remoteControls.selectedPageIndex().markInterested();
-
-        remoteControls.pageCount().addValueObserver(function(count) {
-            trace("RC-PAGE", "Page count: " + count);
-        });
-
-        remoteControls.selectedPageIndex().addValueObserver(function(idx) {
-            trace("RC-PAGE", "Selected page index: " + idx);
-        });
-
-        for (var rc = 0; rc < 8; rc++) {
-            var param = remoteControls.getParameter(rc);
-            param.markInterested();
-            param.name().markInterested();
-            param.value().markInterested();
-            param.displayedValue().markInterested();
-
-            (function(paramIndex, p) {
-                p.name().addValueObserver(function(name) {
-                    trace("RC-PARAM-NAME", "[" + paramIndex + "] name='" + name + "'");
-                });
-
-                // Normalized 0-1 float observer
-                p.value().addValueObserver(function(value) {
-                    trace("RC-PARAM-VALUE", "[" + paramIndex + "] " + p.name().get() + " = " + value + " (normalized 0-1)");
-                });
-
-                // 128-step integer observer
-                p.value().addValueObserver(128, function(value) {
-                    trace("RC-PARAM-INT128", "[" + paramIndex + "] " + p.name().get() + " = " + value + " (0-127)");
-                });
-
-                // Display string observer
-                p.displayedValue().addValueObserver(function(display) {
-                    trace("RC-PARAM-DISPLAY", "[" + paramIndex + "] display='" + display + "'");
-                });
-            })(rc, param);
+    cursorDevice.addDirectParameterIdObserver(function(ids) {
+        trace("DIRECT-IDS", "Got " + ids.length + " parameter IDs");
+        for (var i = 0; i < Math.min(ids.length, 10); i++) {
+            trace("DIRECT-IDS", "  [" + i + "] " + ids[i]);
         }
-    } catch(e) {
-        trace("RC-PAGE", "FAILED: " + e);
-    }
-
-    // ========================================================================
-    // APPROACH 3: Modulated value on remote controls
-    // Shows value after modulation (LFO, envelope, etc.) is applied
-    // ========================================================================
-
-    try {
-        for (var mv = 0; mv < 8; mv++) {
-            var modParam = remoteControls.getParameter(mv);
-            modParam.modulatedValue().markInterested();
-
-            (function(paramIndex, p) {
-                p.modulatedValue().addValueObserver(function(value) {
-                    trace("RC-MODULATED", "[" + paramIndex + "] " + p.name().get() + " modulated=" + value);
-                });
-            })(mv, modParam);
+        if (ids.length > 10) {
+            trace("DIRECT-IDS", "  ... (" + (ids.length - 10) + " more)");
         }
-    } catch(e) {
-        trace("RC-MODULATED", "FAILED: " + e);
-    }
+    });
 
-    // ========================================================================
-    // APPROACH 4: Second remote controls page (named, different tag)
-    // Test if we can create a second independent cursor for the same device
-    // ========================================================================
+    cursorDevice.addDirectParameterNameObserver(64, function(id, name) {
+        var normalizedId = id.replace('ROOT_GENERIC_MODULE/', '');
+        directParamNames[normalizedId] = name;
+    });
 
-    try {
-        var remoteControls2 = cursorDevice.createCursorRemoteControlsPage("sandbox-alt", 8, "");
+    cursorDevice.addDirectParameterNormalizedValueObserver(function(id, value) {
+        var normalizedId = id.replace('ROOT_GENERIC_MODULE/', '');
 
-        for (var rc2 = 0; rc2 < 8; rc2++) {
-            var param2 = remoteControls2.getParameter(rc2);
-            param2.markInterested();
-            param2.name().markInterested();
-            param2.value().markInterested();
-
-            (function(paramIndex, p) {
-                p.value().addValueObserver(function(value) {
-                    trace("RC2-VALUE", "[" + paramIndex + "] " + p.name().get() + " = " + value);
-                });
-            })(rc2, param2);
+        if (!watchParam(normalizedId, value)) {
+            var name = directParamNames[normalizedId] || "?";
+            trace("DIRECT-VALUE", normalizedId + " (" + name + ") = " + value);
         }
-    } catch(e) {
-        trace("RC2-VALUE", "FAILED: " + e);
-    }
+    });
 
-    // ========================================================================
-    // APPROACH 5: Device-level parameter page observers (legacy)
-    // ========================================================================
-
-    try {
-        cursorDevice.addSelectedPageObserver(-1, function(pageIndex) {
-            trace("LEGACY-PAGE", "Selected parameter page: " + pageIndex);
-        });
-    } catch(e) {
-        trace("LEGACY-PAGE", "FAILED: " + e);
-    }
-
-    try {
-        cursorDevice.addPageNamesObserver(function(names) {
-            trace("LEGACY-PAGENAMES", "Page names: " + names.join(", "));
-        });
-    } catch(e) {
-        trace("LEGACY-PAGENAMES", "FAILED: " + e);
-    }
-
-    // ========================================================================
-    // APPROACH 6: SpecificBitwigDevice / SpecificPluginDevice
-    // For accessing internal parameters of known device types
-    // ========================================================================
-
-    try {
-        var specificDevice = cursorDevice.createSpecificBitwigDevice("00000000-0000-0000-0000-000000000000");
-        trace("SPECIFIC-BW", "Created specific Bitwig device cursor (placeholder UUID)");
-    } catch(e) {
-        trace("SPECIFIC-BW", "FAILED (expected): " + e);
-    }
-
-    // ========================================================================
-    // APPROACH 7: Device isPlugin / isWindowOpen / hasSlottedInsertionPoint
-    // Metadata observers to understand what kind of device we're looking at
-    // ========================================================================
-
-    try {
-        cursorDevice.isPlugin().markInterested();
-        cursorDevice.isPlugin().addValueObserver(function(isPlugin) {
-            trace("DEVICE-META", "isPlugin=" + isPlugin);
-        });
-    } catch(e) {
-        trace("DEVICE-META-PLUGIN", "FAILED: " + e);
-    }
-
-    try {
-        cursorDevice.isWindowOpen().markInterested();
-        cursorDevice.isWindowOpen().addValueObserver(function(isOpen) {
-            trace("DEVICE-META", "isWindowOpen=" + isOpen);
-        });
-    } catch(e) {
-        trace("DEVICE-META-WINDOW", "FAILED: " + e);
-    }
-
-    try {
-        cursorDevice.hasLayers().markInterested();
-        cursorDevice.hasLayers().addValueObserver(function(hasLayers) {
-            trace("DEVICE-META", "hasLayers=" + hasLayers);
-        });
-    } catch(e) {
-        trace("DEVICE-META-LAYERS", "FAILED: " + e);
-    }
-
-    try {
-        cursorDevice.hasDrumPads().markInterested();
-        cursorDevice.hasDrumPads().addValueObserver(function(hasDrumPads) {
-            trace("DEVICE-META", "hasDrumPads=" + hasDrumPads);
-        });
-    } catch(e) {
-        trace("DEVICE-META-DRUMPADS", "FAILED: " + e);
-    }
-
-    try {
-        cursorDevice.hasSlots().markInterested();
-        cursorDevice.hasSlots().addValueObserver(function(hasSlots) {
-            trace("DEVICE-META", "hasSlots=" + hasSlots);
-        });
-    } catch(e) {
-        trace("DEVICE-META-SLOTS", "FAILED: " + e);
-    }
-
-    // ========================================================================
-    // APPROACH 8: DeviceBank on cursor track
-    // Observe multiple devices on the track, not just the selected one
-    // ========================================================================
-
-    try {
-        var deviceBank = cursorTrack.createDeviceBank(8);
-        deviceBank.itemCount().markInterested();
-        deviceBank.itemCount().addValueObserver(function(count) {
-            trace("DEVICE-BANK", "Device count on track: " + count);
-        });
-
-        for (var db = 0; db < 8; db++) {
-            var bankDevice = deviceBank.getDevice(db);
-            bankDevice.exists().markInterested();
-            bankDevice.name().markInterested();
-
-            (function(deviceIndex, dev) {
-                dev.name().addValueObserver(function(name) {
-                    if (name) {
-                        trace("DEVICE-BANK", "[" + deviceIndex + "] device='" + name + "'");
-                    }
-                });
-            })(db, bankDevice);
+    cursorDevice.addDirectParameterValueDisplayObserver(64, function(id, displayValue) {
+        var normalizedId = id.replace('ROOT_GENERIC_MODULE/', '');
+        var desc = FREQ_PARAMS[normalizedId];
+        if (desc) {
+            trace("FREQ-DISPLAY", desc.name + " display='" + displayValue + "'");
         }
-    } catch(e) {
-        trace("DEVICE-BANK", "FAILED: " + e);
-    }
+    });
 
-    // ========================================================================
-    // APPROACH 9: Cursor track remote controls (track-level, not device-level)
-    // Some hosts expose track-level remote controls
-    // ========================================================================
-
-    try {
-        var trackRemoteControls = cursorTrack.createCursorRemoteControlsPage("track-rc", 8, "");
-
-        for (var trc = 0; trc < 8; trc++) {
-            var trackParam = trackRemoteControls.getParameter(trc);
-            trackParam.markInterested();
-            trackParam.name().markInterested();
-            trackParam.value().markInterested();
-
-            (function(paramIndex, p) {
-                p.value().addValueObserver(function(value) {
-                    trace("TRACK-RC", "[" + paramIndex + "] " + p.name().get() + " = " + value);
-                });
-            })(trc, trackParam);
-        }
-    } catch(e) {
-        trace("TRACK-RC", "FAILED: " + e);
-    }
-
-    // ========================================================================
-    // APPROACH 10: Parameter value via raw observer (addRawValueObserver)
-    // Alternative observer that gives unnormalized raw values
-    // ========================================================================
-
-    try {
-        for (var raw = 0; raw < 8; raw++) {
-            var rawParam = remoteControls.getParameter(raw);
-
-            (function(paramIndex, p) {
-                p.value().addRawValueObserver(function(value) {
-                    trace("RC-RAW", "[" + paramIndex + "] " + p.name().get() + " raw=" + value);
-                });
-            })(raw, rawParam);
-        }
-    } catch(e) {
-        trace("RC-RAW", "FAILED: " + e);
-    }
-
-    // ========================================================================
-    // APPROACH 11: Cursor device position() and chain info
-    // ========================================================================
-
-    try {
-        cursorDevice.position().addValueObserver(function(position) {
-            trace("DEVICE-POS", "Device position in chain: " + position);
-        });
-    } catch(e) {
-        trace("DEVICE-POS", "FAILED: " + e);
-    }
-
-    // ========================================================================
-    // LED feedback: light up encoder 0 to confirm script is running
-    // ========================================================================
-
+    // --- LED feedback: confirm script is running ----------------------------
     try {
         twisterOut.sendMidi(0xB1, 0, 65);  // Encoder 0 = blue
         twisterOut.sendMidi(0xB2, 0, 47);  // Full brightness
@@ -390,12 +198,14 @@ function init() {
 
     trace("INIT", "==================================================");
     trace("INIT", "DeviceSandbox ready. Select a device in Bitwig,");
-    trace("INIT", "then move a parameter. Check console for [TAG] output.");
+    trace("INIT", "then move a parameter. Check console for output.");
+    trace("INIT", "  [FREQ]         = matched Frequalizer param");
+    trace("INIT", "  [DIRECT-VALUE] = unmatched param (raw fallback)");
     trace("INIT", "==================================================");
 }
 
 function flush() {
-    // Nothing to flush in this spike
+    // Nothing to flush
 }
 
 function exit() {
