@@ -3,6 +3,8 @@ loadAPI(24);
 host.defineController("Generic", "Device Sandbox", "1.0", "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "xan_t");
 host.defineMidiPorts(1, 1);  // 1 input (Twister), 1 output (Twister)
 
+load('FrequalizerDevice.js');
+
 // ============================================================================
 // Device Parameter Observation — Findings
 //
@@ -34,60 +36,6 @@ host.defineMidiPorts(1, 1);  // 1 input (Twister), 1 output (Twister)
 // ============================================================================
 
 // ---------------------------------------------------------------------------
-// Frequalizer Parameter Registry
-// Maps canonical param IDs (without ROOT_GENERIC_MODULE/) to descriptors.
-// Unmatched params fall through to raw [DIRECT-VALUE] logging.
-// ---------------------------------------------------------------------------
-var FREQ_PARAMS = {
-    // Band 1 (Lowest)
-    'CONTENTS/PID5e65eb21': { name: 'Q1: Frequency', type: 'continuous' },
-    'CONTENTS/PID1fdbd404': { name: 'Q1: Quality',   type: 'continuous' },
-    'CONTENTS/PID60a37761': { name: 'Q1: Active',    type: 'bool' },
-    'CONTENTS/PID1372e255': { name: 'Q1: Filter Type', type: 'enum' },
-
-    // Band 2 (Low)
-    'CONTENTS/PID47f82203': { name: 'Q2: Frequency', type: 'continuous' },
-    'CONTENTS/PID74f25b66': { name: 'Q2: Quality',   type: 'continuous' },
-    'CONTENTS/PID14682278': { name: 'Q2: Gain',      type: 'continuous' },
-    'CONTENTS/PID10cd7bbf': { name: 'Q2: Active',    type: 'bool' },
-    'CONTENTS/PID146e6633': { name: 'Q2: Filter Type', type: 'enum' },
-
-    // Band 3 (Low Mids)
-    'CONTENTS/PID7f826bc6': { name: 'Q3: Frequency', type: 'continuous' },
-    'CONTENTS/PIDefa39e9':  { name: 'Q3: Quality',   type: 'continuous' },
-    'CONTENTS/PID9318ad5':  { name: 'Q3: Gain',      type: 'continuous' },
-    'CONTENTS/PID78de40dc': { name: 'Q3: Active',    type: 'bool' },
-    'CONTENTS/PID937ce90':  { name: 'Q3: Filter Type', type: 'enum' },
-
-    // Band 4 (High Mids)
-    'CONTENTS/PID5f199778': { name: 'Q4: Frequency', type: 'continuous' },
-    'CONTENTS/PID416caa1b': { name: 'Q4: Quality',   type: 'continuous' },
-    'CONTENTS/PID1d7657e3': { name: 'Q4: Gain',      type: 'continuous' },
-    'CONTENTS/PIDf24026a':  { name: 'Q4: Active',    type: 'bool' },
-    'CONTENTS/PID1d7c9b9e': { name: 'Q4: Filter Type', type: 'enum' },
-
-    // Band 5 (High)
-    'CONTENTS/PID5c3cef11': { name: 'Q5: Frequency', type: 'continuous' },
-    'CONTENTS/PID2a8313f4': { name: 'Q5: Quality',   type: 'continuous' },
-    'CONTENTS/PID4b5ee4aa': { name: 'Q5: Gain',      type: 'continuous' },
-    'CONTENTS/PID651c7971': { name: 'Q5: Active',    type: 'bool' },
-    'CONTENTS/PID4b652865': { name: 'Q5: Filter Type', type: 'enum' },
-
-    // Band 6 (Highest)
-    'CONTENTS/PID10d85b53': { name: 'Q6: Frequency', type: 'continuous' },
-    'CONTENTS/PID1430a8b6': { name: 'Q6: Quality',   type: 'continuous' },
-    'CONTENTS/PID74e8446f': { name: 'Q6: Active',    type: 'bool' },
-    'CONTENTS/PID49039ae3': { name: 'Q6: Filter Type', type: 'enum' },
-
-    // Global
-    'CONTENTS/PID3339a3':   { name: 'Mode',       type: 'enum', values: ['Stereo', 'Mid', 'Side', 'MidSolo', 'SideSolo'] },
-    'CONTENTS/PID68f7bbb':  { name: 'Fullscreen', type: 'bool' },
-    'CONTENTS/PID10cd4cb4': { name: 'Band Solo',  type: 'enum', resolution: 19 },
-    'CONTENTS/PID73e3d569': { name: 'Mid Output',  type: 'continuous' },
-    'CONTENTS/PIDd504538':  { name: 'Side Output', type: 'continuous' },
-};
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -95,30 +43,6 @@ var twisterOut;
 
 function trace(tag, msg) {
     println("[" + tag + "] " + msg);
-}
-
-/**
- * Decode and log a param change using the FREQ_PARAMS registry.
- * Returns true if the param was matched, false otherwise.
- */
-function watchParam(id, value) {
-    var desc = FREQ_PARAMS[id];
-    if (!desc) return false;
-
-    var display;
-    if (desc.type === 'bool') {
-        display = desc.name + " = " + (value >= 0.5 ? "ON" : "OFF");
-    } else if (desc.type === 'enum' && desc.values) {
-        var index = Math.round(value * (desc.values.length - 1));
-        display = desc.name + " = " + desc.values[index];
-    } else if (desc.type === 'enum') {
-        display = desc.name + " = " + value.toFixed(4) + " (enum)";
-    } else {
-        display = desc.name + " = " + value.toFixed(4);
-    }
-
-    trace("FREQ", display);
-    return true;
 }
 
 function init() {
@@ -151,6 +75,21 @@ function init() {
         trace("DEVICE-EXISTS", "exists=" + exists);
     });
 
+    // --- Frequalizer Device Abstraction -------------------------------------
+    var frequalizerDevice = new FrequalizerDevice();
+
+    frequalizerDevice.onBandSoloed(function(band) {
+        trace("FREQ", "Band Solo = " + (band === null ? "None" : band));
+    });
+
+    frequalizerDevice.onModeChanged(function(mode) {
+        trace("FREQ", "Mode = " + mode);
+    });
+
+    frequalizerDevice.onBandActiveChanged(function(band, isActive) {
+        trace("FREQ", band + " Active = " + (isActive ? "ON" : "OFF"));
+    });
+
     // --- Direct Parameter Observers (the only approach that works) ----------
 
     var directParamNames = {};
@@ -173,17 +112,9 @@ function init() {
     cursorDevice.addDirectParameterNormalizedValueObserver(function(id, value) {
         var normalizedId = id.replace('ROOT_GENERIC_MODULE/', '');
 
-        if (!watchParam(normalizedId, value)) {
+        if (!frequalizerDevice.feed(normalizedId, value)) {
             var name = directParamNames[normalizedId] || "?";
             trace("DIRECT-VALUE", normalizedId + " (" + name + ") = " + value);
-        }
-    });
-
-    cursorDevice.addDirectParameterValueDisplayObserver(64, function(id, displayValue) {
-        var normalizedId = id.replace('ROOT_GENERIC_MODULE/', '');
-        var desc = FREQ_PARAMS[normalizedId];
-        if (desc) {
-            trace("FREQ-DISPLAY", desc.name + " display='" + displayValue + "'");
         }
     });
 
