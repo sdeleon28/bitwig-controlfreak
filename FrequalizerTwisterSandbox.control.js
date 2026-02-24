@@ -16,10 +16,6 @@ function init() {
 
     var twisterOut = host.getMidiOutPort(0);
 
-    host.getMidiInPort(0).setMidiCallback(function(status, data1, data2) {
-        trace("TWISTER-IN", "status=" + status + " data1=" + data1 + " data2=" + data2);
-    });
-
     // --- Cursor Track & Device ----------------------------------------------
     var cursorTrack = host.createCursorTrack("freq-twister-cursor", "FreqTwister Cursor", 0, 0, true);
     var cursorDevice = cursorTrack.createCursorDevice();
@@ -40,6 +36,19 @@ function init() {
     var device = new FrequalizerDevice({ println: println });
     var painter = new TwisterPainter({ midiOutput: twisterOut });
     var mapper = new FrequalizerTwisterMapper({ device: device, painter: painter });
+
+    // --- Twister MIDI input (encoder clicks) ---------------------------------
+    host.getMidiInPort(0).setMidiCallback(function(status, data1, data2) {
+        if (status === 0xB1 && data2 > 0) {
+            var encoder = painter.ccToEncoder(data1);
+            var toggle = mapper.handleClick(encoder);
+            if (toggle) {
+                var fullId = toggle.paramId.replace('CONTENTS/', 'CONTENTS/ROOT_GENERIC_MODULE/');
+                cursorDevice.setDirectParameterNormalizedValue(fullId, toggle.value);
+                trace("TOGGLE", "encoder " + encoder + " -> " + toggle.paramId + " = " + toggle.value);
+            }
+        }
+    });
 
     // --- Direct Parameter Observer -------------------------------------------
     cursorDevice.addDirectParameterIdObserver(function(ids) {

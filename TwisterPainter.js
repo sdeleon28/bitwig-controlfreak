@@ -39,5 +39,12 @@ TwisterPainter.prototype.encoderToCC = function(encoderNumber) {
     return (3 - row) * 4 + col;
 };
 
+TwisterPainter.prototype.ccToEncoder = function(cc) {
+    var row = Math.floor(cc / 4);
+    var col = cc % 4;
+    var originalRow = 3 - row;
+    return originalRow * 4 + col + 1;
+};
+
 var TwisterPainter_ns = { TwisterPalette: TwisterPalette, TwisterPainter: TwisterPainter };
 if (typeof module !== 'undefined') module.exports = TwisterPainter_ns;

@@ -73,6 +73,25 @@ function fakeMidiOutput() {
     assert(painter.encoderToCC(16) === 3, 'encoder 16 -> CC 3');
 })();
 
+// ccToEncoder is the inverse of encoderToCC
+(function() {
+    var painter = new TwisterPainter({ midiOutput: fakeMidiOutput() });
+    assert(painter.ccToEncoder(0) === 13, 'CC 0 -> encoder 13');
+    assert(painter.ccToEncoder(12) === 1, 'CC 12 -> encoder 1');
+    assert(painter.ccToEncoder(3) === 16, 'CC 3 -> encoder 16');
+    assert(painter.ccToEncoder(15) === 4, 'CC 15 -> encoder 4');
+})();
+
+// ccToEncoder roundtrips with encoderToCC for all 16 encoders
+(function() {
+    var painter = new TwisterPainter({ midiOutput: fakeMidiOutput() });
+    for (var enc = 1; enc <= 16; enc++) {
+        var cc = painter.encoderToCC(enc);
+        var back = painter.ccToEncoder(cc);
+        assert(back === enc, 'roundtrip encoder ' + enc + ' -> CC ' + cc + ' -> encoder ' + back);
+    }
+})();
+
 // ---- summary ----
 
 process.exit(t.summary('TwisterPainter'));

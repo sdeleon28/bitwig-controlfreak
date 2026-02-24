@@ -36,19 +36,19 @@ function makeMapper() {
 
 // ---- tests ----
 
-// feeding Q1_ACTIVE with 1.0 paints encoders 13 and 14 red
+// feeding Q1_ACTIVE with 1.0 paints encoders 13 and 14 blue
 (function() {
     var s = makeMapper();
     s.mapper.feed(PARAM_IDS.Q1_ACTIVE, 1.0);
-    // paint(13, red1) sends 2 messages, paint(14, red1) sends 2 messages = 4 total
+    // paint(13, blue1) sends 2 messages, paint(14, blue1) sends 2 messages = 4 total
     assert(s.output.messages.length === 4, 'active band sends 4 messages, got ' + s.output.messages.length);
     // First pair: encoder 13
     assert(s.output.messages[0].status === 0xB1, 'msg 0 is color channel');
-    assert(s.output.messages[0].data2 === TwisterPalette.red1, 'encoder 13 gets red1');
+    assert(s.output.messages[0].data2 === TwisterPalette.blue1, 'encoder 13 gets blue1');
     assert(s.output.messages[1].status === 0xB2, 'msg 1 is brightness channel');
     // Second pair: encoder 14
     assert(s.output.messages[2].status === 0xB1, 'msg 2 is color channel');
-    assert(s.output.messages[2].data2 === TwisterPalette.red1, 'encoder 14 gets red1');
+    assert(s.output.messages[2].data2 === TwisterPalette.blue1, 'encoder 14 gets blue1');
     assert(s.output.messages[3].status === 0xB2, 'msg 3 is brightness channel');
 })();
 
@@ -77,6 +77,31 @@ function makeMapper() {
     var result = s.mapper.feed('CONTENTS/UNKNOWN', 0.5);
     assert(result === false, 'unknown param returns false');
     assert(s.output.messages.length === 0, 'unknown param produces no output');
+})();
+
+// handleClick on encoder 13 returns toggle to active when band is inactive (default)
+(function() {
+    var s = makeMapper();
+    var result = s.mapper.handleClick(13);
+    assert(result !== null, 'encoder 13 returns a toggle');
+    assert(result.paramId === PARAM_IDS.Q1_ACTIVE, 'paramId is Q1_ACTIVE');
+    assert(result.value === 1.0, 'default state toggles to active (1.0)');
+})();
+
+// handleClick on encoder 13 returns toggle to inactive after band is activated
+(function() {
+    var s = makeMapper();
+    s.mapper.feed(PARAM_IDS.Q1_ACTIVE, 1.0);
+    var result = s.mapper.handleClick(13);
+    assert(result !== null, 'encoder 13 returns a toggle');
+    assert(result.paramId === PARAM_IDS.Q1_ACTIVE, 'paramId is Q1_ACTIVE');
+    assert(result.value === 0.0, 'active state toggles to inactive (0.0)');
+})();
+
+// handleClick on unmapped encoder returns null
+(function() {
+    var result = makeMapper().mapper.handleClick(14);
+    assert(result === null, 'encoder 14 returns null');
 })();
 
 // ---- summary ----
