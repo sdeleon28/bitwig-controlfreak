@@ -35,7 +35,7 @@ function init() {
     // --- Mapper setup -------------------------------------------------------
     var device = new FrequalizerDevice({ println: println });
     var painter = new TwisterPainter({ midiOutput: twisterOut });
-    var mapper = new FrequalizerTwisterMapper({ device: device, painter: painter });
+    var mapper = new FrequalizerTwisterMapper({ device: device, painter: painter, println: println });
 
     // --- Twister MIDI input (encoder clicks) ---------------------------------
     host.getMidiInPort(0).setMidiCallback(function(status, data1, data2) {
@@ -43,8 +43,7 @@ function init() {
             var encoder = painter.ccToEncoder(data1);
             var toggle = mapper.handleClick(encoder);
             if (toggle) {
-                var fullId = toggle.paramId.replace('CONTENTS/', 'CONTENTS/ROOT_GENERIC_MODULE/');
-                cursorDevice.setDirectParameterNormalizedValue(fullId, toggle.value);
+                cursorDevice.setDirectParameterValueNormalized(toggle.paramId, toggle.value * 127, 128);
                 trace("TOGGLE", "encoder " + encoder + " -> " + toggle.paramId + " = " + toggle.value);
             }
         }
