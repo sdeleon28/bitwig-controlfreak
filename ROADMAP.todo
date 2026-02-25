@@ -79,6 +79,7 @@
         [X] unbind all twister encoders
         [X] bind them to parmeters on the plugin
         [X] mid / mid-solo / side-side solo buttons on the launchpad
+        [ ] Lowest / Highest band should have gain instead of Q in the second encoder when shelfing
     [X] for generic devices
         [X] auto-map direct params
         [X] exit device mode button

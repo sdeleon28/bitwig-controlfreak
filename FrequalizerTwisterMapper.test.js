@@ -168,6 +168,44 @@ for (var si = 0; si < soloTests.length; si++) {
     assert(s.mapper.handleHold(1, true) === null, 'encoder 1 hold returns null');
 })();
 
+// ---- encoderParamId tests ----
+
+var turnTests = [
+    { encoder: 1,  param: PARAM_IDS.Q2_FREQ,    name: 'Q2 freq' },
+    { encoder: 5,  param: PARAM_IDS.Q2_QUALITY,  name: 'Q2 Q' },
+    { encoder: 9,  param: PARAM_IDS.Q2_GAIN,     name: 'Q2 gain' },
+    { encoder: 2,  param: PARAM_IDS.Q3_FREQ,     name: 'Q3 freq' },
+    { encoder: 6,  param: PARAM_IDS.Q3_QUALITY,  name: 'Q3 Q' },
+    { encoder: 10, param: PARAM_IDS.Q3_GAIN,     name: 'Q3 gain' },
+    { encoder: 3,  param: PARAM_IDS.Q4_FREQ,     name: 'Q4 freq' },
+    { encoder: 7,  param: PARAM_IDS.Q4_QUALITY,  name: 'Q4 Q' },
+    { encoder: 11, param: PARAM_IDS.Q4_GAIN,     name: 'Q4 gain' },
+    { encoder: 4,  param: PARAM_IDS.Q5_FREQ,     name: 'Q5 freq' },
+    { encoder: 8,  param: PARAM_IDS.Q5_QUALITY,  name: 'Q5 Q' },
+    { encoder: 12, param: PARAM_IDS.Q5_GAIN,     name: 'Q5 gain' },
+    { encoder: 13, param: PARAM_IDS.Q1_FREQ,     name: 'Q1 freq' },
+    { encoder: 14, param: PARAM_IDS.Q1_QUALITY,  name: 'Q1 Q' },
+    { encoder: 15, param: PARAM_IDS.Q6_FREQ,     name: 'Q6 freq' },
+    { encoder: 16, param: PARAM_IDS.Q6_QUALITY,  name: 'Q6 Q' },
+];
+
+for (var ti = 0; ti < turnTests.length; ti++) {
+    // encoderParamId returns the correct param ID for each mapped encoder
+    (function(tt) {
+        var s = makeMapper();
+        var result = s.mapper.encoderParamId(tt.encoder);
+        assert(result === tt.param,
+            tt.name + ': encoder ' + tt.encoder + ' -> ' + tt.param + ', got ' + result);
+    })(turnTests[ti]);
+}
+
+// encoderParamId returns null for unmapped encoder
+(function() {
+    var s = makeMapper();
+    assert(s.mapper.encoderParamId(0) === null, 'encoder 0 returns null');
+    assert(s.mapper.encoderParamId(99) === null, 'encoder 99 returns null');
+})();
+
 // ---- summary ----
 
 process.exit(t.summary('FrequalizerTwisterMapper'));

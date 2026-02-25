@@ -37,24 +37,37 @@ function init() {
     var painter = new TwisterPainter({ midiOutput: twisterOut });
     var mapper = new FrequalizerTwisterMapper({ device: device, painter: painter, println: println });
 
-    // --- Twister MIDI input (encoder clicks) ---------------------------------
+    // --- Twister MIDI input ---------------------------------------------------
     host.getMidiInPort(0).setMidiCallback(function(status, data1, data2) {
-        if (status !== 0xB1) return;
         var encoder = painter.ccToEncoder(data1);
-        var pressed = data2 > 0;
 
-        if (pressed) {
-            var toggle = mapper.handleClick(encoder);
-            if (toggle) {
-                cursorDevice.setDirectParameterValueNormalized(toggle.paramId, toggle.value, toggle.resolution);
-                trace("TOGGLE", "encoder " + encoder + " -> " + toggle.paramId + " = " + toggle.value);
+        // Encoder turns (channel 0)
+        if (status === 0xB0) {
+            var paramId = mapper.encoderParamId(encoder);
+            if (paramId) {
+                cursorDevice.setDirectParameterValueNormalized(paramId, data2, 128);
+                trace("TURN", "encoder " + encoder + " -> " + paramId + " = " + data2);
             }
+            return;
         }
 
-        var hold = mapper.handleHold(encoder, pressed);
-        if (hold) {
-            cursorDevice.setDirectParameterValueNormalized(hold.paramId, hold.value, hold.resolution);
-            trace("SOLO", "encoder " + encoder + " -> " + hold.paramId + " = " + hold.value);
+        // Encoder clicks (channel 1)
+        if (status === 0xB1) {
+            var pressed = data2 > 0;
+
+            if (pressed) {
+                var toggle = mapper.handleClick(encoder);
+                if (toggle) {
+                    cursorDevice.setDirectParameterValueNormalized(toggle.paramId, toggle.value, toggle.resolution);
+                    trace("TOGGLE", "encoder " + encoder + " -> " + toggle.paramId + " = " + toggle.value);
+                }
+            }
+
+            var hold = mapper.handleHold(encoder, pressed);
+            if (hold) {
+                cursorDevice.setDirectParameterValueNormalized(hold.paramId, hold.value, hold.resolution);
+                trace("SOLO", "encoder " + encoder + " -> " + hold.paramId + " = " + hold.value);
+            }
         }
     });
 
