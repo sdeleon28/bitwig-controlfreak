@@ -534,6 +534,152 @@ for (var msi = 0; msi < midSoloTests.length; msi++) {
 }
 
 // ===========================================================================
+// Side mode tests
+// ===========================================================================
+
+function switchToSideSolo(mapper) {
+    mapper.feed(PARAM_IDS.MODE, 1.0); // step 4 = SideSolo
+}
+
+// ---- side encoder param ID tests ----
+
+var sideTurnTests = [
+    { encoder: 1,  param: PARAM_IDS.Q14_FREQ,    name: 'Q14 freq' },
+    { encoder: 5,  param: PARAM_IDS.Q14_QUALITY,  name: 'Q14 Q' },
+    { encoder: 9,  param: PARAM_IDS.Q14_GAIN,     name: 'Q14 gain' },
+    { encoder: 2,  param: PARAM_IDS.Q15_FREQ,     name: 'Q15 freq' },
+    { encoder: 6,  param: PARAM_IDS.Q15_QUALITY,  name: 'Q15 Q' },
+    { encoder: 10, param: PARAM_IDS.Q15_GAIN,     name: 'Q15 gain' },
+    { encoder: 3,  param: PARAM_IDS.Q16_FREQ,     name: 'Q16 freq' },
+    { encoder: 7,  param: PARAM_IDS.Q16_QUALITY,  name: 'Q16 Q' },
+    { encoder: 11, param: PARAM_IDS.Q16_GAIN,     name: 'Q16 gain' },
+    { encoder: 4,  param: PARAM_IDS.Q17_FREQ,     name: 'Q17 freq' },
+    { encoder: 8,  param: PARAM_IDS.Q17_QUALITY,  name: 'Q17 Q' },
+    { encoder: 12, param: PARAM_IDS.Q17_GAIN,     name: 'Q17 gain' },
+    { encoder: 13, param: PARAM_IDS.Q13_FREQ,     name: 'Q13 freq' },
+    { encoder: 14, param: PARAM_IDS.Q13_QUALITY,  name: 'Q13 Q' },
+    { encoder: 15, param: PARAM_IDS.Q18_FREQ,     name: 'Q18 freq' },
+    { encoder: 16, param: PARAM_IDS.Q18_QUALITY,  name: 'Q18 Q' },
+];
+
+// side mode: encoderParamId routes to Q13-Q18 param IDs
+for (var sti = 0; sti < sideTurnTests.length; sti++) {
+    (function(tt) {
+        var s = makeMapper();
+        switchToSide(s.mapper);
+        var result = s.mapper.encoderParamId(tt.encoder);
+        assert(result === tt.param,
+            'side ' + tt.name + ': encoder ' + tt.encoder + ' -> ' + tt.param + ', got ' + result);
+    })(sideTurnTests[sti]);
+}
+
+// ---- side handleClick tests ----
+
+var sideClickTests = [
+    { encoder: 9,  paramId: PARAM_IDS.Q14_ACTIVE,  activeId: PARAM_IDS.Q14_ACTIVE,  name: 'Side Low' },
+    { encoder: 10, paramId: PARAM_IDS.Q15_ACTIVE,  activeId: PARAM_IDS.Q15_ACTIVE,  name: 'Side LowMids' },
+    { encoder: 11, paramId: PARAM_IDS.Q16_ACTIVE, activeId: PARAM_IDS.Q16_ACTIVE, name: 'Side HighMids' },
+    { encoder: 12, paramId: PARAM_IDS.Q17_ACTIVE, activeId: PARAM_IDS.Q17_ACTIVE, name: 'Side High' },
+    { encoder: 13, paramId: PARAM_IDS.Q13_ACTIVE,  activeId: PARAM_IDS.Q13_ACTIVE,  name: 'Side Lowest' },
+    { encoder: 15, paramId: PARAM_IDS.Q18_ACTIVE, activeId: PARAM_IDS.Q18_ACTIVE, name: 'Side Highest' },
+];
+
+for (var sci = 0; sci < sideClickTests.length; sci++) {
+    // side handleClick returns toggle to active when band is inactive
+    (function(ct) {
+        var s = makeMapper();
+        switchToSide(s.mapper);
+        var result = s.mapper.handleClick(ct.encoder);
+        assert(result !== null, ct.name + ': encoder ' + ct.encoder + ' returns a toggle');
+        assert(result.paramId === ct.paramId, ct.name + ': paramId is ' + ct.paramId);
+        assert(result.value === 1, ct.name + ': default toggles to active (1)');
+        assert(result.resolution === 2, ct.name + ': resolution is 2');
+    })(sideClickTests[sci]);
+
+    // side handleClick returns toggle to inactive after band is activated
+    (function(ct) {
+        var s = makeMapper();
+        switchToSide(s.mapper);
+        s.mapper.feed(ct.activeId, 1.0);
+        var result = s.mapper.handleClick(ct.encoder);
+        assert(result !== null, ct.name + ': encoder ' + ct.encoder + ' returns a toggle after active');
+        assert(result.paramId === ct.paramId, ct.name + ': paramId is ' + ct.paramId);
+        assert(result.value === 0, ct.name + ': active toggles to inactive (0)');
+        assert(result.resolution === 2, ct.name + ': resolution is 2');
+    })(sideClickTests[sci]);
+}
+
+// ---- side hold-turn filter tests ----
+
+var sideHoldTurnTests = [
+    { band: 'Side Low',      holdButton: 1, encoder: 5, filterParam: PARAM_IDS.Q14_FILTER,  defaultParam: PARAM_IDS.Q14_QUALITY },
+    { band: 'Side LowMids',  holdButton: 2, encoder: 6, filterParam: PARAM_IDS.Q15_FILTER,  defaultParam: PARAM_IDS.Q15_QUALITY },
+    { band: 'Side HighMids', holdButton: 3, encoder: 7, filterParam: PARAM_IDS.Q16_FILTER, defaultParam: PARAM_IDS.Q16_QUALITY },
+    { band: 'Side High',     holdButton: 4, encoder: 8, filterParam: PARAM_IDS.Q17_FILTER, defaultParam: PARAM_IDS.Q17_QUALITY },
+];
+
+for (var shi = 0; shi < sideHoldTurnTests.length; shi++) {
+    // side hold-turn returns FILTER param
+    (function(ht) {
+        var s = makeMapper();
+        switchToSide(s.mapper);
+        s.mapper.notifyButtonState(ht.holdButton, true);
+        var result = s.mapper.encoderParamId(ht.encoder);
+        assert(result === ht.filterParam,
+            ht.band + ': hold button ' + ht.holdButton + ' + encoder ' + ht.encoder + ' returns FILTER, got ' + result);
+    })(sideHoldTurnTests[shi]);
+
+    // side default (no hold) returns QUALITY param
+    (function(ht) {
+        var s = makeMapper();
+        switchToSide(s.mapper);
+        var result = s.mapper.encoderParamId(ht.encoder);
+        assert(result === ht.defaultParam,
+            ht.band + ': encoder ' + ht.encoder + ' default returns QUALITY, got ' + result);
+    })(sideHoldTurnTests[shi]);
+}
+
+// ---- side handleHold solo tests ----
+
+var sideSoloTests = [
+    { encoder: 5, soloStep: 14, name: 'Side Low' },
+    { encoder: 6, soloStep: 15, name: 'Side LowMids' },
+    { encoder: 7, soloStep: 16, name: 'Side HighMids' },
+    { encoder: 8, soloStep: 17, name: 'Side High' },
+];
+
+for (var ssi = 0; ssi < sideSoloTests.length; ssi++) {
+    // side handleHold press returns side solo step for BAND_SOLO
+    (function(st) {
+        var s = makeMapper();
+        switchToSide(s.mapper);
+        var result = s.mapper.handleHold(st.encoder, true);
+        assert(result !== null, st.name + ': encoder ' + st.encoder + ' press returns a hold action');
+        assert(result.paramId === PARAM_IDS.BAND_SOLO, st.name + ': paramId is BAND_SOLO');
+        assert(result.value === st.soloStep, st.name + ': press value is ' + st.soloStep + ', got ' + result.value);
+        assert(result.resolution === 19, st.name + ': resolution is 19');
+    })(sideSoloTests[ssi]);
+
+    // side handleHold release returns 0 (unsolo)
+    (function(st) {
+        var s = makeMapper();
+        switchToSide(s.mapper);
+        var result = s.mapper.handleHold(st.encoder, false);
+        assert(result !== null, st.name + ': encoder ' + st.encoder + ' release returns a hold action');
+        assert(result.paramId === PARAM_IDS.BAND_SOLO, st.name + ': release paramId is BAND_SOLO');
+        assert(result.value === 0, st.name + ': release value is 0');
+        assert(result.resolution === 19, st.name + ': release resolution is 19');
+    })(sideSoloTests[ssi]);
+}
+
+// SideSolo mode also activates the side mapper
+(function() {
+    var s = makeMapper();
+    switchToSideSolo(s.mapper);
+    assert(s.mapper.encoderParamId(1) === PARAM_IDS.Q14_FREQ, 'side solo: encoder 1 = Q14_FREQ');
+})();
+
+// ===========================================================================
 // Mode switch tests
 // ===========================================================================
 
@@ -625,7 +771,7 @@ for (var msi = 0; msi < midSoloTests.length; msi++) {
     assert(s.output.messages.length === 0, 'inactive stereo mapper produces no LED output on band active');
 })();
 
-// switch to Side mode → all 16 encoders dark, interaction methods return null
+// switch to Side mode → all 16 encoders cleared then side mapper active
 (function() {
     var s = makeMapper();
     s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
@@ -634,18 +780,12 @@ for (var msi = 0; msi < midSoloTests.length; msi++) {
     switchToSide(s.mapper);
     var msgs = s.output.messages;
 
-    // 16 off messages
+    // at least 16 off messages (clean slate)
     var offMsgs = msgs.filter(function(m) { return m.status === 0xB2 && m.data2 === 17; });
-    assert(offMsgs.length === 16, 'side mode: 16 off messages, got ' + offMsgs.length);
+    assert(offMsgs.length >= 16, 'side mode: at least 16 off messages, got ' + offMsgs.length);
 
-    // no paint messages (no active mapper to repaint)
-    var paintColorMsgs = msgs.filter(function(m) { return m.status === 0xB1; });
-    assert(paintColorMsgs.length === 0, 'side mode: no color messages, got ' + paintColorMsgs.length);
-
-    // all interaction methods return null
-    assert(s.mapper.encoderParamId(1) === null, 'side mode: encoderParamId returns null');
-    assert(s.mapper.handleClick(9) === null, 'side mode: handleClick returns null');
-    assert(s.mapper.handleHold(5, true) === null, 'side mode: handleHold returns null');
+    // side mapper is now active — encoderParamId returns side params
+    assert(s.mapper.encoderParamId(1) === PARAM_IDS.Q14_FREQ, 'side mode: encoderParamId returns Q14_FREQ');
 })();
 
 // switch Side → Stereo → correct repaint from tracked state
@@ -739,6 +879,22 @@ for (var msi = 0; msi < midSoloTests.length; msi++) {
     switchToStereo(s.mapper);
     var ringMsgs = s.output.messages.filter(function(m) { return m.status === 0xB0; });
     assert(ringMsgs.length === 2, 'stereo round-trip: 2 cached rings replayed, got ' + ringMsgs.length);
+})();
+
+// side ring values cached while disabled — replayed on mode switch to side
+(function() {
+    var s = makeMapper();
+    // feed side Q14_FREQ while in stereo (side is disabled)
+    s.mapper.feed(PARAM_IDS.Q14_FREQ, 0.75);
+    var ringMsgs = s.output.messages.filter(function(m) { return m.status === 0xB0; });
+    assert(ringMsgs.length === 0, 'side ring cache: no ring output while side disabled');
+
+    s.output.messages.length = 0;
+    switchToSide(s.mapper);
+    ringMsgs = s.output.messages.filter(function(m) { return m.status === 0xB0; });
+    var enc1Ring = ringMsgs.filter(function(m) { return m.data1 === 12; }); // encoder 1 -> CC 12
+    assert(enc1Ring.length === 1, 'side ring cache: Q14_FREQ ring replayed on side switch, got ' + enc1Ring.length);
+    assert(enc1Ring[0].data2 === 95, 'side ring cache: 0.75 * 127 = 95, got ' + enc1Ring[0].data2);
 })();
 
 // ---- summary ----

@@ -119,13 +119,38 @@ function makeDevice(opts) {
     assert(received === Band.HIGHEST, 'band solo step 12 = Highest (mid)');
 })();
 
+// onBandSoloed fires with correct band for side solo steps (13-18)
+(function() {
+    var dev = makeDevice();
+    var received = null;
+    dev.onBandSoloed(function(band) { received = band; });
+
+    dev.feed(PARAM_IDS.BAND_SOLO, 13 / 18);
+    assert(received === Band.LOWEST, 'band solo step 13 = Lowest (side)');
+
+    dev.feed(PARAM_IDS.BAND_SOLO, 14 / 18);
+    assert(received === Band.LOW, 'band solo step 14 = Low (side)');
+
+    dev.feed(PARAM_IDS.BAND_SOLO, 15 / 18);
+    assert(received === Band.LOW_MIDS, 'band solo step 15 = LowMids (side)');
+
+    dev.feed(PARAM_IDS.BAND_SOLO, 16 / 18);
+    assert(received === Band.HIGH_MIDS, 'band solo step 16 = HighMids (side)');
+
+    dev.feed(PARAM_IDS.BAND_SOLO, 17 / 18);
+    assert(received === Band.HIGH, 'band solo step 17 = High (side)');
+
+    dev.feed(PARAM_IDS.BAND_SOLO, 18 / 18);
+    assert(received === Band.HIGHEST, 'band solo step 18 = Highest (side)');
+})();
+
 // band solo out-of-range step returns null
 (function() {
     var dev = makeDevice();
     var received = 'NOT_CALLED';
     dev.onBandSoloed(function(band) { received = band; });
-    dev.feed(PARAM_IDS.BAND_SOLO, 13 / 18);
-    assert(received === null, 'band solo step 13 (out of range) = null');
+    dev.feed(PARAM_IDS.BAND_SOLO, 19 / 18);
+    assert(received === null, 'band solo step 19 (out of range) = null');
 })();
 
 // ===========================================================================
@@ -207,6 +232,23 @@ function makeDevice(opts) {
         var result = dev.feed(midActiveParams[i], 1.0);
         assert(result === false, 'Q' + (i + 7) + '_ACTIVE returns false from device.feed');
         assert(called === false, 'Q' + (i + 7) + '_ACTIVE does not fire onBandActiveChanged');
+    }
+})();
+
+// Q13-Q18 active params are not in ACTIVE_PARAM_TO_BAND (handled by mapper)
+(function() {
+    var dev = makeDevice();
+    var called = false;
+    dev.onBandActiveChanged(function() { called = true; });
+
+    var sideActiveParams = [
+        PARAM_IDS.Q13_ACTIVE, PARAM_IDS.Q14_ACTIVE, PARAM_IDS.Q15_ACTIVE,
+        PARAM_IDS.Q16_ACTIVE, PARAM_IDS.Q17_ACTIVE, PARAM_IDS.Q18_ACTIVE
+    ];
+    for (var i = 0; i < sideActiveParams.length; i++) {
+        var result = dev.feed(sideActiveParams[i], 1.0);
+        assert(result === false, 'Q' + (i + 13) + '_ACTIVE returns false from device.feed');
+        assert(called === false, 'Q' + (i + 13) + '_ACTIVE does not fire onBandActiveChanged');
     }
 })();
 

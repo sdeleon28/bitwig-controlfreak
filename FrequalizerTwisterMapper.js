@@ -84,6 +84,7 @@ function makeBandConfig(qMap) {
 
 var STEREO_CONFIG = makeBandConfig({ Lowest:'Q1', Low:'Q2', LowMids:'Q3', HighMids:'Q4', High:'Q5', Highest:'Q6' });
 var MID_CONFIG    = makeBandConfig({ Lowest:'Q7', Low:'Q8', LowMids:'Q9', HighMids:'Q10', High:'Q11', Highest:'Q12' });
+var SIDE_CONFIG   = makeBandConfig({ Lowest:'Q13', Low:'Q14', LowMids:'Q15', HighMids:'Q16', High:'Q17', Highest:'Q18' });
 
 // ---------------------------------------------------------------------------
 // FrequalizerTwisterBandMapper — handles a single set of 6 EQ bands
@@ -248,12 +249,15 @@ class FrequalizerTwisterMapper {
         this._stereo = new FrequalizerTwisterBandMapper(deps, STEREO_CONFIG);
         this._mid = new FrequalizerTwisterBandMapper(deps, MID_CONFIG);
         this._mid.enabled = false;
+        this._side = new FrequalizerTwisterBandMapper(deps, SIDE_CONFIG);
+        this._side.enabled = false;
         this._active = this._stereo;
 
         var self = this;
         this._device.onBandSoloed(function(band) {
             self._stereo._onBandSoloed(band);
             self._mid._onBandSoloed(band);
+            self._side._onBandSoloed(band);
         });
         this._device.onModeChanged(function(mode) {
             self._onModeChanged(mode);
@@ -270,6 +274,8 @@ class FrequalizerTwisterMapper {
             this._active = this._stereo;
         } else if (mode === Mode.MID || mode === Mode.MID_SOLO) {
             this._active = this._mid;
+        } else if (mode === Mode.SIDE || mode === Mode.SIDE_SOLO) {
+            this._active = this._side;
         } else {
             this._active = null;
         }
@@ -284,6 +290,7 @@ class FrequalizerTwisterMapper {
     notifyButtonState(encoder, pressed) {
         this._stereo.notifyButtonState(encoder, pressed);
         this._mid.notifyButtonState(encoder, pressed);
+        this._side.notifyButtonState(encoder, pressed);
     }
 
     encoderParamId(encoder) {
@@ -304,7 +311,8 @@ class FrequalizerTwisterMapper {
     feed(id, value) {
         var stereoHandled = this._stereo.feed(id, value);
         var midHandled = this._mid.feed(id, value);
-        if (stereoHandled || midHandled) return true;
+        var sideHandled = this._side.feed(id, value);
+        if (stereoHandled || midHandled || sideHandled) return true;
         return this._device.feed(id, value);
     }
 }
