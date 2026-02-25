@@ -66,8 +66,13 @@
     [ ] auto-stop at the end of the project
 [-] frequalizer
     [X] mode selector optimistic update
-    [-] lights off when band is inactive -> lights on when we activate it
-    [ ] turn other bands off when soloing a band
+    [X] lights off when band is inactive -> lights on when we activate it
+    [X] turn other bands off when soloing a band
+    [ ] filter type change mode
+        [X] POC (Q2)
+        [X] Q3..5
+        [ ] Q1 + Q6?
+        [ ] if we migrate to continuous encoders, increase encoder change speed
     [ ] mid and side mappings
     [ ] low priority: let's make the buttons work when the mode changes from the UI (remove optimistic update)
 [X] mode selector -> only selected modes should light up (to bright color)

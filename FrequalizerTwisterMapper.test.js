@@ -338,6 +338,53 @@ for (var ti = 0; ti < turnTests.length; ti++) {
     assert(ringMsgs.length === 0, 'BAND_SOLO produces no ring messages');
 })();
 
+// ---- hold-turn gesture tests ----
+
+var holdTurnTests = [
+    { band: 'Low',      holdButton: 1, encoder: 5, filterParam: PARAM_IDS.Q2_FILTER, defaultParam: PARAM_IDS.Q2_QUALITY },
+    { band: 'LowMids',  holdButton: 2, encoder: 6, filterParam: PARAM_IDS.Q3_FILTER, defaultParam: PARAM_IDS.Q3_QUALITY },
+    { band: 'HighMids', holdButton: 3, encoder: 7, filterParam: PARAM_IDS.Q4_FILTER, defaultParam: PARAM_IDS.Q4_QUALITY },
+    { band: 'High',     holdButton: 4, encoder: 8, filterParam: PARAM_IDS.Q5_FILTER, defaultParam: PARAM_IDS.Q5_QUALITY },
+];
+
+for (var hi = 0; hi < holdTurnTests.length; hi++) {
+    // hold freq button + turn quality encoder returns FILTER param
+    (function(ht) {
+        var s = makeMapper();
+        s.mapper.notifyButtonState(ht.holdButton, true);
+        var result = s.mapper.encoderParamId(ht.encoder);
+        assert(result === ht.filterParam,
+            ht.band + ': hold button ' + ht.holdButton + ' + encoder ' + ht.encoder + ' returns FILTER, got ' + result);
+    })(holdTurnTests[hi]);
+
+    // default (no hold) returns QUALITY param
+    (function(ht) {
+        var s = makeMapper();
+        var result = s.mapper.encoderParamId(ht.encoder);
+        assert(result === ht.defaultParam,
+            ht.band + ': encoder ' + ht.encoder + ' default returns QUALITY, got ' + result);
+    })(holdTurnTests[hi]);
+
+    // release restores normal behavior
+    (function(ht) {
+        var s = makeMapper();
+        s.mapper.notifyButtonState(ht.holdButton, true);
+        s.mapper.notifyButtonState(ht.holdButton, false);
+        var result = s.mapper.encoderParamId(ht.encoder);
+        assert(result === ht.defaultParam,
+            ht.band + ': encoder ' + ht.encoder + ' after release returns QUALITY, got ' + result);
+    })(holdTurnTests[hi]);
+}
+
+// holding an unrelated button does not affect encoder 5
+(function() {
+    var s = makeMapper();
+    s.mapper.notifyButtonState(2, true);
+    var result = s.mapper.encoderParamId(5);
+    assert(result === PARAM_IDS.Q2_QUALITY,
+        'holding button 2 does not affect encoder 5, got ' + result);
+})();
+
 // ---- summary ----
 
 process.exit(t.summary('FrequalizerTwisterMapper'));

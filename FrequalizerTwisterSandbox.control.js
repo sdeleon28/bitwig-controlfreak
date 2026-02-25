@@ -54,6 +54,7 @@ function init() {
         // Encoder clicks (channel 1)
         if (status === 0xB1) {
             var pressed = data2 > 0;
+            mapper.notifyButtonState(encoder, pressed);
 
             if (pressed) {
                 var toggle = mapper.handleClick(encoder);
