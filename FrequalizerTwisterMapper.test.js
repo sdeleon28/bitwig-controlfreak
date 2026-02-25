@@ -97,8 +97,8 @@ for (var ci = 0; ci < clickTests.length; ci++) {
         var result = s.mapper.handleClick(ct.encoder);
         assert(result !== null, ct.name + ': encoder ' + ct.encoder + ' returns a toggle');
         assert(result.paramId === ct.paramId, ct.name + ': paramId is ' + ct.paramId);
-        assert(result.value === 127, ct.name + ': default toggles to active (127)');
-        assert(result.resolution === 128, ct.name + ': resolution is 128');
+        assert(result.value === 1, ct.name + ': default toggles to active (1)');
+        assert(result.resolution === 2, ct.name + ': resolution is 2');
     })(clickTests[ci]);
 
     // handleClick returns toggle to inactive after band is activated
@@ -109,7 +109,7 @@ for (var ci = 0; ci < clickTests.length; ci++) {
         assert(result !== null, ct.name + ': encoder ' + ct.encoder + ' returns a toggle after active');
         assert(result.paramId === ct.paramId, ct.name + ': paramId is ' + ct.paramId);
         assert(result.value === 0, ct.name + ': active toggles to inactive (0)');
-        assert(result.resolution === 128, ct.name + ': resolution is 128');
+        assert(result.resolution === 2, ct.name + ': resolution is 2');
     })(clickTests[ci]);
 }
 

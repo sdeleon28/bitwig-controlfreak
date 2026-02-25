@@ -55,8 +55,8 @@ class FrequalizerTwisterMapper {
         if (!cfg) return null;
         return {
             paramId: FrequalizerDevice.PARAM_IDS[cfg.paramId],
-            value: this._bandActive[cfg.band] ? 0 : 127,
-            resolution: 128
+            value: this._bandActive[cfg.band] ? 0 : 1,
+            resolution: 2
         };
     }
 
