@@ -51,6 +51,7 @@ class FrequalizerTwisterMapper {
         this._soloByButton = {};
 
         this._paramByEncoder = {};
+        this._encoderByParam = {};
 
         for (var i = 0; i < BAND_CONFIG.length; i++) {
             var cfg = BAND_CONFIG[i];
@@ -60,12 +61,16 @@ class FrequalizerTwisterMapper {
             for (var j = 0; j < cfg.encoderParams.length; j++) {
                 var ep = cfg.encoderParams[j];
                 this._paramByEncoder[ep.encoder] = FrequalizerDevice.PARAM_IDS[ep.param];
+                this._encoderByParam[FrequalizerDevice.PARAM_IDS[ep.param]] = ep.encoder;
             }
         }
 
         var self = this;
         this._device.onBandActiveChanged(function(band, isActive) {
             self._onBandActive(band, isActive);
+        });
+        this._device.onBandSoloed(function(band) {
+            self._onBandSoloed(band);
         });
     }
 
@@ -83,11 +88,44 @@ class FrequalizerTwisterMapper {
         }
     }
 
+    _onBandSoloed(band) {
+        if (band) {
+            for (var i = 0; i < BAND_CONFIG.length; i++) {
+                var cfg = BAND_CONFIG[i];
+                for (var j = 0; j < cfg.encoderParams.length; j++) {
+                    this._painter.off(cfg.encoderParams[j].encoder);
+                }
+            }
+            var soloCfg = this._bandByName[band];
+            if (soloCfg) {
+                for (var k = 0; k < soloCfg.encoderParams.length; k++) {
+                    this._painter.paint(soloCfg.encoderParams[k].encoder, TwisterPalette[soloCfg.color]);
+                }
+            }
+        } else {
+            this._repaintAll();
+        }
+    }
+
+    _repaintAll() {
+        for (var i = 0; i < BAND_CONFIG.length; i++) {
+            var cfg = BAND_CONFIG[i];
+            this._onBandActive(cfg.band, !!this._bandActive[cfg.band]);
+        }
+    }
+
     encoderParamId(encoder) {
         return this._paramByEncoder[encoder] || null;
     }
 
-    feed(id, value) { return this._device.feed(id, value); }
+    feed(id, value) {
+        var encoder = this._encoderByParam[id];
+        if (encoder !== undefined) {
+            this._painter.ring(encoder, Math.round(value * 127));
+            return true;
+        }
+        return this._device.feed(id, value);
+    }
 
     handleClick(encoder) {
         var cfg = this._bandByButton[encoder];

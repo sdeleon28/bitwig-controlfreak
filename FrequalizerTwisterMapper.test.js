@@ -168,6 +168,84 @@ for (var si = 0; si < soloTests.length; si++) {
     assert(s.mapper.handleHold(1, true) === null, 'encoder 1 hold returns null');
 })();
 
+// ---- solo light feedback tests ----
+
+// solo a band → all 16 encoders off'd, then soloed band's encoders painted
+(function() {
+    var s = makeMapper();
+    // activate Low and High first
+    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
+    s.mapper.feed(PARAM_IDS.Q5_ACTIVE, 1.0);
+    s.output.messages.length = 0;
+
+    // solo Low
+    s.mapper.feed(PARAM_IDS.BAND_SOLO, 2 / 18); // step 2 = Low
+    var msgs = s.output.messages;
+
+    // Should have 16 off messages + 3 paint messages (Low has 3 encoders, paint = 2 msgs each)
+    var offMsgs = msgs.filter(function(m) { return m.status === 0xB2 && m.data2 === 17; });
+    assert(offMsgs.length === 16, 'solo: all 16 encoders turned off, got ' + offMsgs.length);
+
+    var paintColorMsgs = msgs.filter(function(m) { return m.status === 0xB1; });
+    assert(paintColorMsgs.length === 3, 'solo: 3 color messages for Low band, got ' + paintColorMsgs.length);
+    for (var i = 0; i < paintColorMsgs.length; i++) {
+        assert(paintColorMsgs[i].data2 === TwisterPalette.red1,
+            'solo: Low encoder gets red1 color');
+    }
+})();
+
+// unsolo → all encoders repainted based on active state
+(function() {
+    var s = makeMapper();
+    // activate Low and High
+    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
+    s.mapper.feed(PARAM_IDS.Q5_ACTIVE, 1.0);
+
+    // solo Low, then unsolo
+    s.mapper.feed(PARAM_IDS.BAND_SOLO, 2 / 18);
+    s.output.messages.length = 0;
+    s.mapper.feed(PARAM_IDS.BAND_SOLO, 0); // unsolo
+
+    var msgs = s.output.messages;
+
+    // Low (3 encoders) and High (3 encoders) should be painted (2 msgs each = 12)
+    // Other 10 encoders should be off'd (1 msg each = 10)
+    var paintColorMsgs = msgs.filter(function(m) { return m.status === 0xB1; });
+    assert(paintColorMsgs.length === 6, 'unsolo: 6 color messages (Low=3 + High=3), got ' + paintColorMsgs.length);
+
+    var offMsgs = msgs.filter(function(m) { return m.status === 0xB2 && m.data2 === 17; });
+    assert(offMsgs.length === 10, 'unsolo: 10 encoders turned off, got ' + offMsgs.length);
+})();
+
+// solo from cold state (no bands active) → only soloed band lights, unsolo → everything off
+(function() {
+    var s = makeMapper();
+    s.output.messages.length = 0;
+
+    // solo HighMids (step 4)
+    s.mapper.feed(PARAM_IDS.BAND_SOLO, 4 / 18);
+    var msgs = s.output.messages;
+
+    var offMsgs = msgs.filter(function(m) { return m.status === 0xB2 && m.data2 === 17; });
+    assert(offMsgs.length === 16, 'cold solo: all 16 encoders off\'d, got ' + offMsgs.length);
+
+    var paintColorMsgs = msgs.filter(function(m) { return m.status === 0xB1; });
+    assert(paintColorMsgs.length === 3, 'cold solo: 3 color msgs for HighMids, got ' + paintColorMsgs.length);
+    for (var i = 0; i < paintColorMsgs.length; i++) {
+        assert(paintColorMsgs[i].data2 === TwisterPalette.orange2,
+            'cold solo: HighMids encoder gets orange2 color');
+    }
+
+    // unsolo → everything off (no bands were active)
+    s.output.messages.length = 0;
+    s.mapper.feed(PARAM_IDS.BAND_SOLO, 0);
+    var unsoloMsgs = s.output.messages;
+    var unsoloOff = unsoloMsgs.filter(function(m) { return m.status === 0xB2 && m.data2 === 17; });
+    assert(unsoloOff.length === 16, 'cold unsolo: all 16 encoders off, got ' + unsoloOff.length);
+    var unsoloPaint = unsoloMsgs.filter(function(m) { return m.status === 0xB1; });
+    assert(unsoloPaint.length === 0, 'cold unsolo: no color messages, got ' + unsoloPaint.length);
+})();
+
 // ---- encoderParamId tests ----
 
 var turnTests = [
@@ -204,6 +282,60 @@ for (var ti = 0; ti < turnTests.length; ti++) {
     var s = makeMapper();
     assert(s.mapper.encoderParamId(0) === null, 'encoder 0 returns null');
     assert(s.mapper.encoderParamId(99) === null, 'encoder 99 returns null');
+})();
+
+// ---- ring feedback tests ----
+
+// feeding a mapped encoder param sends a ring message to the correct encoder
+(function() {
+    var s = makeMapper();
+    var result = s.mapper.feed(PARAM_IDS.Q2_FREQ, 0.5);
+    assert(result === true, 'mapped encoder param returns true');
+    var ringMsgs = s.output.messages.filter(function(m) { return m.status === 0xB0; });
+    assert(ringMsgs.length === 1, 'one ring message sent');
+    // encoder 1 -> CC 12
+    assert(ringMsgs[0].data1 === 12, 'Q2_FREQ -> encoder 1 -> CC 12');
+    assert(ringMsgs[0].data2 === 64, '0.5 * 127 rounds to 64');
+})();
+
+// all 16 encoder params produce ring messages
+(function() {
+    var allEncoderParams = [
+        { param: PARAM_IDS.Q2_FREQ,    encoder: 1 },
+        { param: PARAM_IDS.Q3_FREQ,    encoder: 2 },
+        { param: PARAM_IDS.Q4_FREQ,    encoder: 3 },
+        { param: PARAM_IDS.Q5_FREQ,    encoder: 4 },
+        { param: PARAM_IDS.Q2_QUALITY, encoder: 5 },
+        { param: PARAM_IDS.Q3_QUALITY, encoder: 6 },
+        { param: PARAM_IDS.Q4_QUALITY, encoder: 7 },
+        { param: PARAM_IDS.Q5_QUALITY, encoder: 8 },
+        { param: PARAM_IDS.Q2_GAIN,    encoder: 9 },
+        { param: PARAM_IDS.Q3_GAIN,    encoder: 10 },
+        { param: PARAM_IDS.Q4_GAIN,    encoder: 11 },
+        { param: PARAM_IDS.Q5_GAIN,    encoder: 12 },
+        { param: PARAM_IDS.Q1_FREQ,    encoder: 13 },
+        { param: PARAM_IDS.Q1_QUALITY, encoder: 14 },
+        { param: PARAM_IDS.Q6_FREQ,    encoder: 15 },
+        { param: PARAM_IDS.Q6_QUALITY, encoder: 16 },
+    ];
+    for (var i = 0; i < allEncoderParams.length; i++) {
+        var ep = allEncoderParams[i];
+        var s = makeMapper();
+        var result = s.mapper.feed(ep.param, 1.0);
+        assert(result === true, 'encoder ' + ep.encoder + ' param returns true');
+        var ringMsgs = s.output.messages.filter(function(m) { return m.status === 0xB0; });
+        assert(ringMsgs.length === 1, 'encoder ' + ep.encoder + ' sends one ring message');
+        assert(ringMsgs[0].data2 === 127, 'encoder ' + ep.encoder + ' value 1.0 -> 127');
+    }
+})();
+
+// feeding an unmapped param still delegates to device
+(function() {
+    var s = makeMapper();
+    var result = s.mapper.feed(PARAM_IDS.BAND_SOLO, 0.0);
+    assert(result === true, 'BAND_SOLO delegates to device and returns true');
+    var ringMsgs = s.output.messages.filter(function(m) { return m.status === 0xB0; });
+    assert(ringMsgs.length === 0, 'BAND_SOLO produces no ring messages');
 })();
 
 // ---- summary ----

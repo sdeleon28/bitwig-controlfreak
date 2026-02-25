@@ -82,6 +82,31 @@ function fakeMidiOutput() {
     assert(painter.ccToEncoder(15) === 4, 'CC 15 -> encoder 4');
 })();
 
+// ring sends 0xB0 on correct CC with the given value
+(function() {
+    var out = fakeMidiOutput();
+    var painter = new TwisterPainter({ midiOutput: out });
+    painter.ring(1, 64);
+    assert(out.messages.length === 1, 'ring sends 1 message');
+    var msg = out.messages[0];
+    assert(msg.status === 0xB0, 'ring sends on 0xB0');
+    assert(msg.data1 === 12, 'encoder 1 maps to CC 12');
+    assert(msg.data2 === 64, 'value is 64');
+})();
+
+// ring sends correct value for different encoders
+(function() {
+    var out = fakeMidiOutput();
+    var painter = new TwisterPainter({ midiOutput: out });
+    painter.ring(13, 0);
+    assert(out.messages[0].status === 0xB0, 'ring sends on 0xB0');
+    assert(out.messages[0].data1 === 0, 'encoder 13 maps to CC 0');
+    assert(out.messages[0].data2 === 0, 'value is 0');
+    painter.ring(16, 127);
+    assert(out.messages[1].data1 === 3, 'encoder 16 maps to CC 3');
+    assert(out.messages[1].data2 === 127, 'value is 127');
+})();
+
 // ccToEncoder roundtrips with encoderToCC for all 16 encoders
 (function() {
     var painter = new TwisterPainter({ midiOutput: fakeMidiOutput() });

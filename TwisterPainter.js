@@ -27,6 +27,11 @@ TwisterPainter.prototype.paint = function(encoderNumber, color) {
     this._output.sendMidi(0xB2, cc, 47);
 };
 
+TwisterPainter.prototype.ring = function(encoderNumber, value) {
+    var cc = this.encoderToCC(encoderNumber);
+    this._output.sendMidi(0xB0, cc, value);
+};
+
 TwisterPainter.prototype.off = function(encoderNumber) {
     var cc = this.encoderToCC(encoderNumber);
     this._output.sendMidi(0xB2, cc, 17);
