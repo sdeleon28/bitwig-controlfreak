@@ -16,8 +16,10 @@ var FrequalizerMode = {
 var BAND_SOLO_STEPS = [
     null,
     FrequalizerBand.LOWEST, FrequalizerBand.LOW, FrequalizerBand.LOW_MIDS,
+    FrequalizerBand.HIGH_MIDS, FrequalizerBand.HIGH, FrequalizerBand.HIGHEST,
+    FrequalizerBand.LOWEST, FrequalizerBand.LOW, FrequalizerBand.LOW_MIDS,
     FrequalizerBand.HIGH_MIDS, FrequalizerBand.HIGH, FrequalizerBand.HIGHEST
-]; // resolution 19, steps 0–6 used
+]; // resolution 19, steps 0–6 stereo, 7–12 mid
 
 var MODE_STEPS = [
     FrequalizerMode.STEREO, FrequalizerMode.MID, FrequalizerMode.SIDE,
@@ -69,6 +71,46 @@ var FREQ_PARAM_IDS = {
     Q6_FREQ:      'CONTENTS/PID10d85b53',
     Q6_QUALITY:   'CONTENTS/PID1430a8b6',
     Q6_FILTER:    'CONTENTS/PID49039ae3',
+
+    // Band 7 (Lowest — Mid)
+    Q7_ACTIVE:    'CONTENTS/PID3ee4685d',
+    Q7_FREQ:      'CONTENTS/PID45b188a5',
+    Q7_QUALITY:   'CONTENTS/PID9b90288',
+    Q7_FILTER:    'CONTENTS/PIDdf3e251',
+
+    // Band 8 (Low — Mid)
+    Q8_ACTIVE:    'CONTENTS/PID7990dbb',
+    Q8_FREQ:      'CONTENTS/PID1ba97e87',
+    Q8_QUALITY:   'CONTENTS/PID579908ea',
+    Q8_GAIN:      'CONTENTS/PID5ba80374',
+    Q8_FILTER:    'CONTENTS/PID5bae472f',
+
+    // Band 9 (Low Mids — Mid)
+    Q9_ACTIVE:    'CONTENTS/PID4157fc58',
+    Q9_FREQ:      'CONTENTS/PIDda32eca',
+    Q9_QUALITY:   'CONTENTS/PID55b7eded',
+    Q9_GAIN:      'CONTENTS/PID29bf551',
+    Q9_FILTER:    'CONTENTS/PID2a2390c',
+
+    // Band 10 (High Mids — Mid)
+    Q10_ACTIVE:   'CONTENTS/PID54a646e6',
+    Q10_FREQ:     'CONTENTS/PID3179317c',
+    Q10_QUALITY:  'CONTENTS/PID2c32f51f',
+    Q10_GAIN:     'CONTENTS/PID1e778b5f',
+    Q10_FILTER:   'CONTENTS/PID1e7dcf1a',
+
+    // Band 11 (High — Mid)
+    Q11_ACTIVE:   'CONTENTS/PID7bede26d',
+    Q11_FREQ:     'CONTENTS/PID37851495',
+    Q11_QUALITY:  'CONTENTS/PID6ddeca78',
+    Q11_GAIN:     'CONTENTS/PID582e5ca6',
+    Q11_FILTER:   'CONTENTS/PID5834a061',
+
+    // Band 12 (Highest — Mid)
+    Q12_ACTIVE:   'CONTENTS/PID5abffe6b',
+    Q12_FREQ:     'CONTENTS/PID1c2c8fd7',
+    Q12_QUALITY:  'CONTENTS/PID69502e3a',
+    Q12_FILTER:   'CONTENTS/PID2439a3df',
 };
 
 // Reverse lookup: active param ID → FrequalizerBand

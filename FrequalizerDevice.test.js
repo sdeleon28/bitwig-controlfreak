@@ -94,13 +94,38 @@ function makeDevice(opts) {
     assert(received === Band.HIGHEST, 'band solo step 6 = Highest');
 })();
 
+// onBandSoloed fires with correct band for mid solo steps (7-12)
+(function() {
+    var dev = makeDevice();
+    var received = null;
+    dev.onBandSoloed(function(band) { received = band; });
+
+    dev.feed(PARAM_IDS.BAND_SOLO, 7 / 18);
+    assert(received === Band.LOWEST, 'band solo step 7 = Lowest (mid)');
+
+    dev.feed(PARAM_IDS.BAND_SOLO, 8 / 18);
+    assert(received === Band.LOW, 'band solo step 8 = Low (mid)');
+
+    dev.feed(PARAM_IDS.BAND_SOLO, 9 / 18);
+    assert(received === Band.LOW_MIDS, 'band solo step 9 = LowMids (mid)');
+
+    dev.feed(PARAM_IDS.BAND_SOLO, 10 / 18);
+    assert(received === Band.HIGH_MIDS, 'band solo step 10 = HighMids (mid)');
+
+    dev.feed(PARAM_IDS.BAND_SOLO, 11 / 18);
+    assert(received === Band.HIGH, 'band solo step 11 = High (mid)');
+
+    dev.feed(PARAM_IDS.BAND_SOLO, 12 / 18);
+    assert(received === Band.HIGHEST, 'band solo step 12 = Highest (mid)');
+})();
+
 // band solo out-of-range step returns null
 (function() {
     var dev = makeDevice();
     var received = 'NOT_CALLED';
     dev.onBandSoloed(function(band) { received = band; });
-    dev.feed(PARAM_IDS.BAND_SOLO, 7 / 18);
-    assert(received === null, 'band solo step 7 (out of range) = null');
+    dev.feed(PARAM_IDS.BAND_SOLO, 13 / 18);
+    assert(received === null, 'band solo step 13 (out of range) = null');
 })();
 
 // ===========================================================================
@@ -166,6 +191,23 @@ function makeDevice(opts) {
     dev.feed(PARAM_IDS.Q6_ACTIVE, 0.0);
     assert(receivedBand === Band.HIGHEST, 'Q6 active band = Highest');
     assert(receivedActive === false, 'Q6 active = false');
+})();
+
+// Q7-Q12 active params are not in ACTIVE_PARAM_TO_BAND (handled by mapper)
+(function() {
+    var dev = makeDevice();
+    var called = false;
+    dev.onBandActiveChanged(function() { called = true; });
+
+    var midActiveParams = [
+        PARAM_IDS.Q7_ACTIVE, PARAM_IDS.Q8_ACTIVE, PARAM_IDS.Q9_ACTIVE,
+        PARAM_IDS.Q10_ACTIVE, PARAM_IDS.Q11_ACTIVE, PARAM_IDS.Q12_ACTIVE
+    ];
+    for (var i = 0; i < midActiveParams.length; i++) {
+        var result = dev.feed(midActiveParams[i], 1.0);
+        assert(result === false, 'Q' + (i + 7) + '_ACTIVE returns false from device.feed');
+        assert(called === false, 'Q' + (i + 7) + '_ACTIVE does not fire onBandActiveChanged');
+    }
 })();
 
 process.exit(t.summary('FrequalizerDevice'));

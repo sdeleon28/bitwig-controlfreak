@@ -2,72 +2,118 @@
 // FrequalizerTwisterMapper — Wires FrequalizerDevice callbacks to TwisterPainter
 // ---------------------------------------------------------------------------
 
-var BAND_CONFIG = [
-    { band: 'Low',      paramId: 'Q2_ACTIVE', button: 9,  color: 'red1',     soloButton: 5, soloStep: 2,
-      encoderParams: [
-          { encoder: 1, param: 'Q2_FREQ' },
-          { encoder: 5, param: 'Q2_QUALITY' },
-          { encoder: 9, param: 'Q2_GAIN' },
+// Layout shared between stereo and mid band configs. Describes encoder/button
+// positions, colors, and solo assignments. Param suffixes are combined with a
+// Q-number prefix by makeBandConfig().
+var BAND_LAYOUT = [
+    { band: 'Low',      button: 9,  color: 'red1',     soloButton: 5,
+      encoders: [
+          { encoder: 1, suffix: 'FREQ' },
+          { encoder: 5, suffix: 'QUALITY' },
+          { encoder: 9, suffix: 'GAIN' },
       ],
-      holdTurn: { holdButton: 1, encoder: 5, param: 'Q2_FILTER' },
+      holdTurn: { holdButton: 1, encoder: 5, suffix: 'FILTER' },
     },
-    { band: 'LowMids',  paramId: 'Q3_ACTIVE', button: 10, color: 'green2',   soloButton: 6, soloStep: 3,
-      encoderParams: [
-          { encoder: 2, param: 'Q3_FREQ' },
-          { encoder: 6, param: 'Q3_QUALITY' },
-          { encoder: 10, param: 'Q3_GAIN' },
+    { band: 'LowMids',  button: 10, color: 'green2',   soloButton: 6,
+      encoders: [
+          { encoder: 2, suffix: 'FREQ' },
+          { encoder: 6, suffix: 'QUALITY' },
+          { encoder: 10, suffix: 'GAIN' },
       ],
-      holdTurn: { holdButton: 2, encoder: 6, param: 'Q3_FILTER' },
+      holdTurn: { holdButton: 2, encoder: 6, suffix: 'FILTER' },
     },
-    { band: 'HighMids', paramId: 'Q4_ACTIVE', button: 11, color: 'orange2',  soloButton: 7, soloStep: 4,
-      encoderParams: [
-          { encoder: 3, param: 'Q4_FREQ' },
-          { encoder: 7, param: 'Q4_QUALITY' },
-          { encoder: 11, param: 'Q4_GAIN' },
+    { band: 'HighMids', button: 11, color: 'orange2',  soloButton: 7,
+      encoders: [
+          { encoder: 3, suffix: 'FREQ' },
+          { encoder: 7, suffix: 'QUALITY' },
+          { encoder: 11, suffix: 'GAIN' },
       ],
-      holdTurn: { holdButton: 3, encoder: 7, param: 'Q4_FILTER' },
+      holdTurn: { holdButton: 3, encoder: 7, suffix: 'FILTER' },
     },
-    { band: 'High',     paramId: 'Q5_ACTIVE', button: 12, color: 'yellow11', soloButton: 8, soloStep: 5,
-      encoderParams: [
-          { encoder: 4, param: 'Q5_FREQ' },
-          { encoder: 8, param: 'Q5_QUALITY' },
-          { encoder: 12, param: 'Q5_GAIN' },
+    { band: 'High',     button: 12, color: 'yellow11', soloButton: 8,
+      encoders: [
+          { encoder: 4, suffix: 'FREQ' },
+          { encoder: 8, suffix: 'QUALITY' },
+          { encoder: 12, suffix: 'GAIN' },
       ],
-      holdTurn: { holdButton: 4, encoder: 8, param: 'Q5_FILTER' },
+      holdTurn: { holdButton: 4, encoder: 8, suffix: 'FILTER' },
     },
-    { band: 'Lowest',   paramId: 'Q1_ACTIVE', button: 13, color: 'blue1',
-      encoderParams: [
-          { encoder: 13, param: 'Q1_FREQ' },
-          { encoder: 14, param: 'Q1_QUALITY' },
+    { band: 'Lowest',   button: 13, color: 'blue1',
+      encoders: [
+          { encoder: 13, suffix: 'FREQ' },
+          { encoder: 14, suffix: 'QUALITY' },
       ]},
-    { band: 'Highest',  paramId: 'Q6_ACTIVE', button: 15, color: 'red7',
-      encoderParams: [
-          { encoder: 15, param: 'Q6_FREQ' },
-          { encoder: 16, param: 'Q6_QUALITY' },
+    { band: 'Highest',  button: 15, color: 'red7',
+      encoders: [
+          { encoder: 15, suffix: 'FREQ' },
+          { encoder: 16, suffix: 'QUALITY' },
       ]},
 ];
 
-class FrequalizerTwisterMapper {
-    constructor(deps) {
-        deps = deps || {};
-        this._device = deps.device;
+function makeBandConfig(qMap) {
+    var config = [];
+    for (var i = 0; i < BAND_LAYOUT.length; i++) {
+        var layout = BAND_LAYOUT[i];
+        var q = qMap[layout.band];
+        var entry = {
+            band: layout.band,
+            paramId: q + '_ACTIVE',
+            button: layout.button,
+            color: layout.color,
+            encoderParams: [],
+        };
+        if (layout.soloButton) {
+            entry.soloButton = layout.soloButton;
+            entry.soloStep = parseInt(q.substring(1));
+        }
+        for (var j = 0; j < layout.encoders.length; j++) {
+            var enc = layout.encoders[j];
+            entry.encoderParams.push({ encoder: enc.encoder, param: q + '_' + enc.suffix });
+        }
+        if (layout.holdTurn) {
+            entry.holdTurn = {
+                holdButton: layout.holdTurn.holdButton,
+                encoder: layout.holdTurn.encoder,
+                param: q + '_' + layout.holdTurn.suffix,
+            };
+        }
+        config.push(entry);
+    }
+    return config;
+}
+
+var STEREO_CONFIG = makeBandConfig({ Lowest:'Q1', Low:'Q2', LowMids:'Q3', HighMids:'Q4', High:'Q5', Highest:'Q6' });
+var MID_CONFIG    = makeBandConfig({ Lowest:'Q7', Low:'Q8', LowMids:'Q9', HighMids:'Q10', High:'Q11', Highest:'Q12' });
+
+// ---------------------------------------------------------------------------
+// FrequalizerTwisterBandMapper — handles a single set of 6 EQ bands
+// ---------------------------------------------------------------------------
+
+class FrequalizerTwisterBandMapper {
+    constructor(deps, bandConfig) {
         this._painter = deps.painter;
-        this.println = deps.println || function() {};
+        this._bandConfig = bandConfig;
         this._bandActive = {};
         this._bandByButton = {};
         this._bandByName = {};
         this._soloByButton = {};
-
         this._paramByEncoder = {};
         this._encoderByParam = {};
         this._heldButtons = {};
         this._holdTurnByEncoder = {};
+        this._activeParamToBand = {};
+        this._ringValues = {};
+        this.enabled = true;
 
-        for (var i = 0; i < BAND_CONFIG.length; i++) {
-            var cfg = BAND_CONFIG[i];
+        for (var i = 0; i < bandConfig.length; i++) {
+            var cfg = bandConfig[i];
             this._bandByButton[cfg.button] = cfg;
             this._bandByName[cfg.band] = cfg;
             if (cfg.soloButton) this._soloByButton[cfg.soloButton] = cfg;
+            var activeParamId = FrequalizerDevice.PARAM_IDS[cfg.paramId];
+            if (activeParamId) {
+                this._activeParamToBand[activeParamId] = cfg;
+            }
             for (var j = 0; j < cfg.encoderParams.length; j++) {
                 var ep = cfg.encoderParams[j];
                 this._paramByEncoder[ep.encoder] = FrequalizerDevice.PARAM_IDS[ep.param];
@@ -80,20 +126,13 @@ class FrequalizerTwisterMapper {
                 };
             }
         }
-
-        var self = this;
-        this._device.onBandActiveChanged(function(band, isActive) {
-            self._onBandActive(band, isActive);
-        });
-        this._device.onBandSoloed(function(band) {
-            self._onBandSoloed(band);
-        });
     }
 
     _onBandActive(band, isActive) {
         var cfg = this._bandByName[band];
         if (!cfg) return;
         this._bandActive[band] = isActive;
+        if (!this.enabled) return;
         for (var i = 0; i < cfg.encoderParams.length; i++) {
             var enc = cfg.encoderParams[i].encoder;
             if (isActive) {
@@ -105,9 +144,10 @@ class FrequalizerTwisterMapper {
     }
 
     _onBandSoloed(band) {
+        if (!this.enabled) return;
         if (band) {
-            for (var i = 0; i < BAND_CONFIG.length; i++) {
-                var cfg = BAND_CONFIG[i];
+            for (var i = 0; i < this._bandConfig.length; i++) {
+                var cfg = this._bandConfig[i];
                 for (var j = 0; j < cfg.encoderParams.length; j++) {
                     this._painter.off(cfg.encoderParams[j].encoder);
                 }
@@ -124,8 +164,8 @@ class FrequalizerTwisterMapper {
     }
 
     _repaintAll() {
-        for (var i = 0; i < BAND_CONFIG.length; i++) {
-            var cfg = BAND_CONFIG[i];
+        for (var i = 0; i < this._bandConfig.length; i++) {
+            var cfg = this._bandConfig[i];
             this._onBandActive(cfg.band, !!this._bandActive[cfg.band]);
         }
     }
@@ -135,6 +175,7 @@ class FrequalizerTwisterMapper {
     }
 
     encoderParamId(encoder) {
+        if (!this.enabled) return null;
         var ht = this._holdTurnByEncoder[encoder];
         if (ht && this._heldButtons[ht.holdButton]) {
             return ht.paramId;
@@ -145,13 +186,33 @@ class FrequalizerTwisterMapper {
     feed(id, value) {
         var encoder = this._encoderByParam[id];
         if (encoder !== undefined) {
-            this._painter.ring(encoder, Math.round(value * 127));
+            var ringValue = Math.round(value * 127);
+            this._ringValues[encoder] = ringValue;
+            if (this.enabled) {
+                this._painter.ring(encoder, ringValue);
+            }
             return true;
         }
-        return this._device.feed(id, value);
+
+        var activeCfg = this._activeParamToBand[id];
+        if (activeCfg) {
+            this._onBandActive(activeCfg.band, value >= 0.5);
+            return true;
+        }
+
+        return false;
+    }
+
+    _replayRings() {
+        var encoders = Object.keys(this._ringValues);
+        for (var i = 0; i < encoders.length; i++) {
+            var enc = parseInt(encoders[i]);
+            this._painter.ring(enc, this._ringValues[enc]);
+        }
     }
 
     handleClick(encoder) {
+        if (!this.enabled) return null;
         var cfg = this._bandByButton[encoder];
         if (!cfg) return null;
         return {
@@ -162,6 +223,7 @@ class FrequalizerTwisterMapper {
     }
 
     handleHold(encoder, pressed) {
+        if (!this.enabled) return null;
         var cfg = this._soloByButton[encoder];
         if (!cfg) return null;
         return {
@@ -169,6 +231,81 @@ class FrequalizerTwisterMapper {
             value: pressed ? cfg.soloStep : 0,
             resolution: 19
         };
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FrequalizerTwisterMapper — Container managing stereo + mid band mappers
+// ---------------------------------------------------------------------------
+
+class FrequalizerTwisterMapper {
+    constructor(deps) {
+        deps = deps || {};
+        this._device = deps.device;
+        this._painter = deps.painter;
+        this.println = deps.println || function() {};
+
+        this._stereo = new FrequalizerTwisterBandMapper(deps, STEREO_CONFIG);
+        this._mid = new FrequalizerTwisterBandMapper(deps, MID_CONFIG);
+        this._mid.enabled = false;
+        this._active = this._stereo;
+
+        var self = this;
+        this._device.onBandSoloed(function(band) {
+            self._stereo._onBandSoloed(band);
+            self._mid._onBandSoloed(band);
+        });
+        this._device.onModeChanged(function(mode) {
+            self._onModeChanged(mode);
+        });
+    }
+
+    _onModeChanged(mode) {
+        if (this._active) this._active.enabled = false;
+
+        for (var i = 1; i <= 16; i++) this._painter.off(i);
+
+        var Mode = FrequalizerDevice.Mode;
+        if (mode === Mode.STEREO) {
+            this._active = this._stereo;
+        } else if (mode === Mode.MID || mode === Mode.MID_SOLO) {
+            this._active = this._mid;
+        } else {
+            this._active = null;
+        }
+
+        if (this._active) {
+            this._active.enabled = true;
+            this._active._repaintAll();
+            this._active._replayRings();
+        }
+    }
+
+    notifyButtonState(encoder, pressed) {
+        this._stereo.notifyButtonState(encoder, pressed);
+        this._mid.notifyButtonState(encoder, pressed);
+    }
+
+    encoderParamId(encoder) {
+        if (!this._active) return null;
+        return this._active.encoderParamId(encoder);
+    }
+
+    handleClick(encoder) {
+        if (!this._active) return null;
+        return this._active.handleClick(encoder);
+    }
+
+    handleHold(encoder, pressed) {
+        if (!this._active) return null;
+        return this._active.handleHold(encoder, pressed);
+    }
+
+    feed(id, value) {
+        var stereoHandled = this._stereo.feed(id, value);
+        var midHandled = this._mid.feed(id, value);
+        if (stereoHandled || midHandled) return true;
+        return this._device.feed(id, value);
     }
 }
 

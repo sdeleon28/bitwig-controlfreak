@@ -13,6 +13,7 @@ var FrequalizerTwisterMapper = require('./FrequalizerTwisterMapper');
 
 var PARAM_IDS = FrequalizerDevice.PARAM_IDS;
 var Band = FrequalizerDevice.Band;
+var Mode = FrequalizerDevice.Mode;
 
 // ---- helpers ----
 
@@ -383,6 +384,361 @@ for (var hi = 0; hi < holdTurnTests.length; hi++) {
     var result = s.mapper.encoderParamId(5);
     assert(result === PARAM_IDS.Q2_QUALITY,
         'holding button 2 does not affect encoder 5, got ' + result);
+})();
+
+// ===========================================================================
+// Mid mode tests
+// ===========================================================================
+
+function switchToMid(mapper) {
+    mapper.feed(PARAM_IDS.MODE, 0.25); // step 1 = Mid
+}
+
+function switchToStereo(mapper) {
+    mapper.feed(PARAM_IDS.MODE, 0.0); // step 0 = Stereo
+}
+
+function switchToSide(mapper) {
+    mapper.feed(PARAM_IDS.MODE, 0.5); // step 2 = Side
+}
+
+// ---- mid encoder param ID tests ----
+
+var midTurnTests = [
+    { encoder: 1,  param: PARAM_IDS.Q8_FREQ,    name: 'Q8 freq' },
+    { encoder: 5,  param: PARAM_IDS.Q8_QUALITY,  name: 'Q8 Q' },
+    { encoder: 9,  param: PARAM_IDS.Q8_GAIN,     name: 'Q8 gain' },
+    { encoder: 2,  param: PARAM_IDS.Q9_FREQ,     name: 'Q9 freq' },
+    { encoder: 6,  param: PARAM_IDS.Q9_QUALITY,  name: 'Q9 Q' },
+    { encoder: 10, param: PARAM_IDS.Q9_GAIN,     name: 'Q9 gain' },
+    { encoder: 3,  param: PARAM_IDS.Q10_FREQ,    name: 'Q10 freq' },
+    { encoder: 7,  param: PARAM_IDS.Q10_QUALITY, name: 'Q10 Q' },
+    { encoder: 11, param: PARAM_IDS.Q10_GAIN,    name: 'Q10 gain' },
+    { encoder: 4,  param: PARAM_IDS.Q11_FREQ,    name: 'Q11 freq' },
+    { encoder: 8,  param: PARAM_IDS.Q11_QUALITY, name: 'Q11 Q' },
+    { encoder: 12, param: PARAM_IDS.Q11_GAIN,    name: 'Q11 gain' },
+    { encoder: 13, param: PARAM_IDS.Q7_FREQ,     name: 'Q7 freq' },
+    { encoder: 14, param: PARAM_IDS.Q7_QUALITY,  name: 'Q7 Q' },
+    { encoder: 15, param: PARAM_IDS.Q12_FREQ,    name: 'Q12 freq' },
+    { encoder: 16, param: PARAM_IDS.Q12_QUALITY, name: 'Q12 Q' },
+];
+
+// mid mode: encoderParamId routes to Q7-Q12 param IDs
+for (var mti = 0; mti < midTurnTests.length; mti++) {
+    (function(tt) {
+        var s = makeMapper();
+        switchToMid(s.mapper);
+        var result = s.mapper.encoderParamId(tt.encoder);
+        assert(result === tt.param,
+            'mid ' + tt.name + ': encoder ' + tt.encoder + ' -> ' + tt.param + ', got ' + result);
+    })(midTurnTests[mti]);
+}
+
+// ---- mid handleClick tests ----
+
+var midClickTests = [
+    { encoder: 9,  paramId: PARAM_IDS.Q8_ACTIVE,  activeId: PARAM_IDS.Q8_ACTIVE,  name: 'Mid Low' },
+    { encoder: 10, paramId: PARAM_IDS.Q9_ACTIVE,  activeId: PARAM_IDS.Q9_ACTIVE,  name: 'Mid LowMids' },
+    { encoder: 11, paramId: PARAM_IDS.Q10_ACTIVE, activeId: PARAM_IDS.Q10_ACTIVE, name: 'Mid HighMids' },
+    { encoder: 12, paramId: PARAM_IDS.Q11_ACTIVE, activeId: PARAM_IDS.Q11_ACTIVE, name: 'Mid High' },
+    { encoder: 13, paramId: PARAM_IDS.Q7_ACTIVE,  activeId: PARAM_IDS.Q7_ACTIVE,  name: 'Mid Lowest' },
+    { encoder: 15, paramId: PARAM_IDS.Q12_ACTIVE, activeId: PARAM_IDS.Q12_ACTIVE, name: 'Mid Highest' },
+];
+
+for (var mci = 0; mci < midClickTests.length; mci++) {
+    // mid handleClick returns toggle to active when band is inactive
+    (function(ct) {
+        var s = makeMapper();
+        switchToMid(s.mapper);
+        var result = s.mapper.handleClick(ct.encoder);
+        assert(result !== null, ct.name + ': encoder ' + ct.encoder + ' returns a toggle');
+        assert(result.paramId === ct.paramId, ct.name + ': paramId is ' + ct.paramId);
+        assert(result.value === 1, ct.name + ': default toggles to active (1)');
+        assert(result.resolution === 2, ct.name + ': resolution is 2');
+    })(midClickTests[mci]);
+
+    // mid handleClick returns toggle to inactive after band is activated
+    (function(ct) {
+        var s = makeMapper();
+        switchToMid(s.mapper);
+        s.mapper.feed(ct.activeId, 1.0);
+        var result = s.mapper.handleClick(ct.encoder);
+        assert(result !== null, ct.name + ': encoder ' + ct.encoder + ' returns a toggle after active');
+        assert(result.paramId === ct.paramId, ct.name + ': paramId is ' + ct.paramId);
+        assert(result.value === 0, ct.name + ': active toggles to inactive (0)');
+        assert(result.resolution === 2, ct.name + ': resolution is 2');
+    })(midClickTests[mci]);
+}
+
+// ---- mid hold-turn filter tests ----
+
+var midHoldTurnTests = [
+    { band: 'Mid Low',      holdButton: 1, encoder: 5, filterParam: PARAM_IDS.Q8_FILTER,  defaultParam: PARAM_IDS.Q8_QUALITY },
+    { band: 'Mid LowMids',  holdButton: 2, encoder: 6, filterParam: PARAM_IDS.Q9_FILTER,  defaultParam: PARAM_IDS.Q9_QUALITY },
+    { band: 'Mid HighMids', holdButton: 3, encoder: 7, filterParam: PARAM_IDS.Q10_FILTER, defaultParam: PARAM_IDS.Q10_QUALITY },
+    { band: 'Mid High',     holdButton: 4, encoder: 8, filterParam: PARAM_IDS.Q11_FILTER, defaultParam: PARAM_IDS.Q11_QUALITY },
+];
+
+for (var mhi = 0; mhi < midHoldTurnTests.length; mhi++) {
+    // mid hold-turn returns FILTER param
+    (function(ht) {
+        var s = makeMapper();
+        switchToMid(s.mapper);
+        s.mapper.notifyButtonState(ht.holdButton, true);
+        var result = s.mapper.encoderParamId(ht.encoder);
+        assert(result === ht.filterParam,
+            ht.band + ': hold button ' + ht.holdButton + ' + encoder ' + ht.encoder + ' returns FILTER, got ' + result);
+    })(midHoldTurnTests[mhi]);
+
+    // mid default (no hold) returns QUALITY param
+    (function(ht) {
+        var s = makeMapper();
+        switchToMid(s.mapper);
+        var result = s.mapper.encoderParamId(ht.encoder);
+        assert(result === ht.defaultParam,
+            ht.band + ': encoder ' + ht.encoder + ' default returns QUALITY, got ' + result);
+    })(midHoldTurnTests[mhi]);
+}
+
+// ---- mid handleHold solo tests ----
+
+var midSoloTests = [
+    { encoder: 5, soloStep: 8, name: 'Mid Low' },
+    { encoder: 6, soloStep: 9, name: 'Mid LowMids' },
+    { encoder: 7, soloStep: 10, name: 'Mid HighMids' },
+    { encoder: 8, soloStep: 11, name: 'Mid High' },
+];
+
+for (var msi = 0; msi < midSoloTests.length; msi++) {
+    // mid handleHold press returns mid solo step for BAND_SOLO
+    (function(st) {
+        var s = makeMapper();
+        switchToMid(s.mapper);
+        var result = s.mapper.handleHold(st.encoder, true);
+        assert(result !== null, st.name + ': encoder ' + st.encoder + ' press returns a hold action');
+        assert(result.paramId === PARAM_IDS.BAND_SOLO, st.name + ': paramId is BAND_SOLO');
+        assert(result.value === st.soloStep, st.name + ': press value is ' + st.soloStep + ', got ' + result.value);
+        assert(result.resolution === 19, st.name + ': resolution is 19');
+    })(midSoloTests[msi]);
+
+    // mid handleHold release returns 0 (unsolo)
+    (function(st) {
+        var s = makeMapper();
+        switchToMid(s.mapper);
+        var result = s.mapper.handleHold(st.encoder, false);
+        assert(result !== null, st.name + ': encoder ' + st.encoder + ' release returns a hold action');
+        assert(result.paramId === PARAM_IDS.BAND_SOLO, st.name + ': release paramId is BAND_SOLO');
+        assert(result.value === 0, st.name + ': release value is 0');
+        assert(result.resolution === 19, st.name + ': release resolution is 19');
+    })(midSoloTests[msi]);
+}
+
+// ===========================================================================
+// Mode switch tests
+// ===========================================================================
+
+// mode switch to Mid makes encoderParamId return mid params
+(function() {
+    var s = makeMapper();
+    assert(s.mapper.encoderParamId(1) === PARAM_IDS.Q2_FREQ, 'stereo: encoder 1 = Q2_FREQ');
+    switchToMid(s.mapper);
+    assert(s.mapper.encoderParamId(1) === PARAM_IDS.Q8_FREQ, 'mid: encoder 1 = Q8_FREQ');
+})();
+
+// mode switch preserves inactive band-active state
+(function() {
+    var s = makeMapper();
+    // activate stereo Low
+    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
+    // activate mid LowMids (tracked but not painted since mid is inactive)
+    s.mapper.feed(PARAM_IDS.Q9_ACTIVE, 1.0);
+
+    // switch to Mid
+    switchToMid(s.mapper);
+    s.output.messages.length = 0;
+
+    // handleClick on encoder 10 (LowMids) should toggle to inactive (was activated)
+    var result = s.mapper.handleClick(10);
+    assert(result !== null, 'mid mode: encoder 10 returns a toggle');
+    assert(result.value === 0, 'mid mode: LowMids was active, toggles to 0');
+
+    // switch back to Stereo
+    switchToStereo(s.mapper);
+    s.output.messages.length = 0;
+
+    // handleClick on encoder 9 (Low) should toggle to inactive (was activated in stereo)
+    result = s.mapper.handleClick(9);
+    assert(result !== null, 'stereo mode: encoder 9 returns a toggle');
+    assert(result.value === 0, 'stereo mode: Low was active, toggles to 0');
+})();
+
+// mode switch clears all 16 encoders then repaints from tracked state (cold-start)
+(function() {
+    var s = makeMapper();
+    // activate mid Low (Q8) while still in stereo (tracked silently)
+    s.mapper.feed(PARAM_IDS.Q8_ACTIVE, 1.0);
+    s.output.messages.length = 0;
+
+    switchToMid(s.mapper);
+    var msgs = s.output.messages;
+
+    // at least 16 off messages (clean slate) — repaintAll adds more for inactive bands
+    var offMsgs = msgs.filter(function(m) { return m.status === 0xB2 && m.data2 === 17; });
+    assert(offMsgs.length >= 16, 'mode switch: at least 16 off messages, got ' + offMsgs.length);
+
+    // 3 paint messages for mid Low (encoders 1, 5, 9) — repaint from tracked state
+    var paintColorMsgs = msgs.filter(function(m) { return m.status === 0xB1; });
+    assert(paintColorMsgs.length === 3,
+        'mode switch: 3 color msgs for mid Low, got ' + paintColorMsgs.length);
+    for (var i = 0; i < paintColorMsgs.length; i++) {
+        assert(paintColorMsgs[i].data2 === TwisterPalette.red1,
+            'mode switch: mid Low gets red1 color');
+    }
+})();
+
+// inactive mapper does not produce MIDI ring output
+(function() {
+    var s = makeMapper();
+    switchToMid(s.mapper);
+    s.output.messages.length = 0;
+
+    // feed stereo Q2_FREQ — stereo mapper is disabled, should not ring
+    s.mapper.feed(PARAM_IDS.Q2_FREQ, 0.5);
+    var ringMsgs = s.output.messages.filter(function(m) { return m.status === 0xB0; });
+    assert(ringMsgs.length === 0, 'inactive stereo mapper produces no ring output');
+
+    // feed mid Q8_FREQ — mid mapper is active, should ring
+    s.output.messages.length = 0;
+    s.mapper.feed(PARAM_IDS.Q8_FREQ, 0.5);
+    ringMsgs = s.output.messages.filter(function(m) { return m.status === 0xB0; });
+    assert(ringMsgs.length === 1, 'active mid mapper produces ring output');
+})();
+
+// inactive mapper does not produce LED paint output on band active change
+(function() {
+    var s = makeMapper();
+    switchToMid(s.mapper);
+    s.output.messages.length = 0;
+
+    // feed stereo Q2_ACTIVE — stereo mapper is disabled, should not paint
+    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
+    assert(s.output.messages.length === 0, 'inactive stereo mapper produces no LED output on band active');
+})();
+
+// switch to Side mode → all 16 encoders dark, interaction methods return null
+(function() {
+    var s = makeMapper();
+    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
+    s.output.messages.length = 0;
+
+    switchToSide(s.mapper);
+    var msgs = s.output.messages;
+
+    // 16 off messages
+    var offMsgs = msgs.filter(function(m) { return m.status === 0xB2 && m.data2 === 17; });
+    assert(offMsgs.length === 16, 'side mode: 16 off messages, got ' + offMsgs.length);
+
+    // no paint messages (no active mapper to repaint)
+    var paintColorMsgs = msgs.filter(function(m) { return m.status === 0xB1; });
+    assert(paintColorMsgs.length === 0, 'side mode: no color messages, got ' + paintColorMsgs.length);
+
+    // all interaction methods return null
+    assert(s.mapper.encoderParamId(1) === null, 'side mode: encoderParamId returns null');
+    assert(s.mapper.handleClick(9) === null, 'side mode: handleClick returns null');
+    assert(s.mapper.handleHold(5, true) === null, 'side mode: handleHold returns null');
+})();
+
+// switch Side → Stereo → correct repaint from tracked state
+(function() {
+    var s = makeMapper();
+    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0); // activate stereo Low
+    switchToSide(s.mapper); // all dark, stereo state preserved
+    s.output.messages.length = 0;
+
+    switchToStereo(s.mapper);
+    var msgs = s.output.messages;
+
+    // at least 16 off messages (clean slate) — repaintAll adds more for inactive bands
+    var offMsgs = msgs.filter(function(m) { return m.status === 0xB2 && m.data2 === 17; });
+    assert(offMsgs.length >= 16, 'side→stereo: at least 16 off messages, got ' + offMsgs.length);
+
+    var paintColorMsgs = msgs.filter(function(m) { return m.status === 0xB1; });
+    assert(paintColorMsgs.length === 3,
+        'side→stereo: 3 color msgs for Low, got ' + paintColorMsgs.length);
+    for (var i = 0; i < paintColorMsgs.length; i++) {
+        assert(paintColorMsgs[i].data2 === TwisterPalette.red1,
+            'side→stereo: Low gets red1 color');
+    }
+})();
+
+// Stereo → Mid → Stereo round-trip preserves LED state
+(function() {
+    var s = makeMapper();
+    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0); // activate stereo Low
+    s.mapper.feed(PARAM_IDS.Q5_ACTIVE, 1.0); // activate stereo High
+    switchToMid(s.mapper);
+    s.output.messages.length = 0;
+
+    switchToStereo(s.mapper);
+    var msgs = s.output.messages;
+
+    // at least 16 off messages (clean slate) — repaintAll adds more for inactive bands
+    var offMsgs = msgs.filter(function(m) { return m.status === 0xB2 && m.data2 === 17; });
+    assert(offMsgs.length >= 16, 'round-trip: at least 16 off messages, got ' + offMsgs.length);
+
+    var paintColorMsgs = msgs.filter(function(m) { return m.status === 0xB1; });
+    assert(paintColorMsgs.length === 6,
+        'round-trip: 6 color msgs (Low=3 + High=3), got ' + paintColorMsgs.length);
+})();
+
+// ===========================================================================
+// Ring value cache + replay tests
+// ===========================================================================
+
+// ring values cached while disabled — no ring output, then replayed on mode switch
+(function() {
+    var s = makeMapper();
+    // feed mid Q8_FREQ while in stereo (mid is disabled)
+    s.mapper.feed(PARAM_IDS.Q8_FREQ, 0.75);
+    var ringMsgs = s.output.messages.filter(function(m) { return m.status === 0xB0; });
+    assert(ringMsgs.length === 0, 'ring cache: no ring output while mid disabled');
+
+    s.output.messages.length = 0;
+    switchToMid(s.mapper);
+    ringMsgs = s.output.messages.filter(function(m) { return m.status === 0xB0; });
+    // encoder 1 maps to Q8_FREQ in mid config
+    var enc1Ring = ringMsgs.filter(function(m) { return m.data1 === 12; }); // encoder 1 -> CC 12
+    assert(enc1Ring.length === 1, 'ring cache: Q8_FREQ ring replayed on mid switch, got ' + enc1Ring.length);
+    assert(enc1Ring[0].data2 === 95, 'ring cache: 0.75 * 127 = 95, got ' + enc1Ring[0].data2);
+})();
+
+// ring replay sends all cached mid encoder values on mode switch
+(function() {
+    var s = makeMapper();
+    // feed several mid params while in stereo
+    s.mapper.feed(PARAM_IDS.Q8_FREQ, 0.5);
+    s.mapper.feed(PARAM_IDS.Q9_GAIN, 1.0);
+    s.mapper.feed(PARAM_IDS.Q10_QUALITY, 0.25);
+    s.output.messages.length = 0;
+
+    switchToMid(s.mapper);
+    var ringMsgs = s.output.messages.filter(function(m) { return m.status === 0xB0; });
+    assert(ringMsgs.length === 3, 'ring replay: 3 cached rings replayed, got ' + ringMsgs.length);
+})();
+
+// stereo ring replay after round-trip (stereo → mid → stereo)
+(function() {
+    var s = makeMapper();
+    // feed stereo params
+    s.mapper.feed(PARAM_IDS.Q2_FREQ, 0.5);
+    s.mapper.feed(PARAM_IDS.Q3_GAIN, 0.8);
+
+    switchToMid(s.mapper);
+    s.output.messages.length = 0;
+
+    switchToStereo(s.mapper);
+    var ringMsgs = s.output.messages.filter(function(m) { return m.status === 0xB0; });
+    assert(ringMsgs.length === 2, 'stereo round-trip: 2 cached rings replayed, got ' + ringMsgs.length);
 })();
 
 // ---- summary ----
