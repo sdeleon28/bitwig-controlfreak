@@ -39,13 +39,22 @@ function init() {
 
     // --- Twister MIDI input (encoder clicks) ---------------------------------
     host.getMidiInPort(0).setMidiCallback(function(status, data1, data2) {
-        if (status === 0xB1 && data2 > 0) {
-            var encoder = painter.ccToEncoder(data1);
+        if (status !== 0xB1) return;
+        var encoder = painter.ccToEncoder(data1);
+        var pressed = data2 > 0;
+
+        if (pressed) {
             var toggle = mapper.handleClick(encoder);
             if (toggle) {
-                cursorDevice.setDirectParameterValueNormalized(toggle.paramId, toggle.value * 127, 128);
+                cursorDevice.setDirectParameterValueNormalized(toggle.paramId, toggle.value, toggle.resolution);
                 trace("TOGGLE", "encoder " + encoder + " -> " + toggle.paramId + " = " + toggle.value);
             }
+        }
+
+        var hold = mapper.handleHold(encoder, pressed);
+        if (hold) {
+            cursorDevice.setDirectParameterValueNormalized(hold.paramId, hold.value, hold.resolution);
+            trace("SOLO", "encoder " + encoder + " -> " + hold.paramId + " = " + hold.value);
         }
     });
 

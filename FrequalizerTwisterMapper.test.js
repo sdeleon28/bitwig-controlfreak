@@ -97,7 +97,8 @@ for (var ci = 0; ci < clickTests.length; ci++) {
         var result = s.mapper.handleClick(ct.encoder);
         assert(result !== null, ct.name + ': encoder ' + ct.encoder + ' returns a toggle');
         assert(result.paramId === ct.paramId, ct.name + ': paramId is ' + ct.paramId);
-        assert(result.value === 1.0, ct.name + ': default toggles to active (1.0)');
+        assert(result.value === 127, ct.name + ': default toggles to active (127)');
+        assert(result.resolution === 128, ct.name + ': resolution is 128');
     })(clickTests[ci]);
 
     // handleClick returns toggle to inactive after band is activated
@@ -107,7 +108,8 @@ for (var ci = 0; ci < clickTests.length; ci++) {
         var result = s.mapper.handleClick(ct.encoder);
         assert(result !== null, ct.name + ': encoder ' + ct.encoder + ' returns a toggle after active');
         assert(result.paramId === ct.paramId, ct.name + ': paramId is ' + ct.paramId);
-        assert(result.value === 0.0, ct.name + ': active toggles to inactive (0.0)');
+        assert(result.value === 0, ct.name + ': active toggles to inactive (0)');
+        assert(result.resolution === 128, ct.name + ': resolution is 128');
     })(clickTests[ci]);
 }
 
@@ -126,6 +128,44 @@ for (var ci = 0; ci < clickTests.length; ci++) {
     var result = s.mapper.feed('CONTENTS/UNKNOWN', 0.5);
     assert(result === false, 'unknown param returns false');
     assert(s.output.messages.length === 0, 'unknown param produces no output');
+})();
+
+// ---- handleHold solo tests ----
+
+var soloTests = [
+    { encoder: 5, soloStep: 2, name: 'Low' },
+    { encoder: 6, soloStep: 3, name: 'LowMids' },
+    { encoder: 7, soloStep: 4, name: 'HighMids' },
+    { encoder: 8, soloStep: 5, name: 'High' },
+];
+
+for (var si = 0; si < soloTests.length; si++) {
+    // handleHold press returns solo step for BAND_SOLO
+    (function(st) {
+        var s = makeMapper();
+        var result = s.mapper.handleHold(st.encoder, true);
+        assert(result !== null, st.name + ': encoder ' + st.encoder + ' press returns a hold action');
+        assert(result.paramId === PARAM_IDS.BAND_SOLO, st.name + ': paramId is BAND_SOLO');
+        assert(result.value === st.soloStep, st.name + ': press value is ' + st.soloStep);
+        assert(result.resolution === 19, st.name + ': resolution is 19');
+    })(soloTests[si]);
+
+    // handleHold release returns 0 (unsolo)
+    (function(st) {
+        var s = makeMapper();
+        var result = s.mapper.handleHold(st.encoder, false);
+        assert(result !== null, st.name + ': encoder ' + st.encoder + ' release returns a hold action');
+        assert(result.paramId === PARAM_IDS.BAND_SOLO, st.name + ': release paramId is BAND_SOLO');
+        assert(result.value === 0, st.name + ': release value is 0');
+        assert(result.resolution === 19, st.name + ': release resolution is 19');
+    })(soloTests[si]);
+}
+
+// handleHold on unmapped encoder returns null
+(function() {
+    var s = makeMapper();
+    assert(s.mapper.handleHold(13, true) === null, 'encoder 13 hold returns null');
+    assert(s.mapper.handleHold(1, true) === null, 'encoder 1 hold returns null');
 })();
 
 // ---- summary ----
