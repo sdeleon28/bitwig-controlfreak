@@ -23,6 +23,11 @@ load('NanoKey2.js');
 load('Pager.js');
 load('Animations.js');
 
+// Layer 3.5: Mapper infrastructure
+load('TwisterPainter.js');
+load('FrequalizerDevice.js');
+load('FrequalizerTwisterMapper.js');
+
 // Layer 3.5: Device mapping behavior
 load('DeviceMapper.js');
 load('DeviceQuadrant.js');
@@ -229,6 +234,9 @@ function init() {
         Controller.onTwisterMidi(status, data1, data2);
     });
 
+    // Create TwisterPainter for mapper-based device control
+    var twisterPainter = new TwisterPainter({ midiOutput: twisterOut });
+
     // Create cursor track that follows selection (for select mode + remote controls)
     var cursorTrack = host.createCursorTrack("cursor", "Cursor", 0, 0, true);
     var cursorDevice = cursorTrack.createCursorDevice();
@@ -264,6 +272,7 @@ function init() {
     cursorDevice.addDirectParameterNormalizedValueObserver(function(id, value) {
         DeviceMapper.onParamValueChanged(id, value);
         DeviceQuadrant.onParamValueChanged(id, value);
+        Controller.onDeviceParamChanged(id, value);
     });
 
     // Observe cursor device name changes (for auto-remapping encoders)
@@ -784,6 +793,14 @@ function init() {
         println: println
     });
 
+    // Build mapper registry (mapper factory functions for polymorphic device control)
+    var mappers = {};
+    mappers['Frequalizer'] = function(deps) {
+        var device = new FrequalizerDevice({ println: deps.println });
+        return new FrequalizerTwisterMapper({ device: device, painter: deps.painter, println: deps.println });
+    };
+    mappers['Frequalizer Alt'] = mappers['Frequalizer'];
+
     // Initialize Controller (after all deps are ready)
     Controller = new ControllerHW({
         twister: Twister,
@@ -797,6 +814,8 @@ function init() {
         pageMainControl: Page_MainControl,
         deviceMapper: DeviceMapper,
         deviceQuadrant: DeviceQuadrant,
+        mappers: mappers,
+        painter: twisterPainter,
         host: host,
         debug: debug,
         println: println

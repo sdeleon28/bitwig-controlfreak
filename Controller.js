@@ -16,6 +16,8 @@ class ControllerHW {
      * @param {Object} deps.host - Bitwig host
      * @param {Object} deps.deviceMapper - DeviceMapper instance
      * @param {Object} deps.deviceQuadrant - DeviceQuadrant instance
+     * @param {Object} deps.mappers - Dict of device name → mapper factory function
+     * @param {Object} deps.painter - TwisterPainter instance
      * @param {boolean} deps.debug - Debug flag
      * @param {Function} deps.println - Print function
      */
@@ -33,11 +35,14 @@ class ControllerHW {
         this.host = deps.host || null;
         this.deviceMapper = deps.deviceMapper || null;
         this.deviceQuadrant = deps.deviceQuadrant || null;
+        this.mappers = deps.mappers || {};
+        this.painter = deps.painter || null;
         this.debug = deps.debug || false;
         this.println = deps.println || function() {};
 
         this.selectedGroup = null;
         this.deviceMode = false;
+        this._activeMapper = null;
     }
 
     /**
@@ -153,6 +158,7 @@ class ControllerHW {
 
         this.selectedGroup = groupNumber;
         this.deviceMode = false;
+        this._activeMapper = null;
         this.refreshGroupDisplay();
         this.refreshTrackGrid();
     }
@@ -519,6 +525,36 @@ class ControllerHW {
     onTwisterMidi(status, data1, data2) {
         var encoderNumber = this.twister.ccToEncoder(data1);
 
+        if (this._activeMapper) {
+            var device = this.bitwig.getCursorDevice();
+            if (status === 0xB0) {
+                var paramId = this._activeMapper.encoderParamId(encoderNumber);
+                if (paramId && device) {
+                    device.setDirectParameterValueNormalized(paramId, data2, 128);
+                }
+            }
+            if (status === 0xB1) {
+                var pressed = data2 > 0;
+                this._activeMapper.notifyButtonState(encoderNumber, pressed);
+                if (pressed) {
+                    var clickAction = this._activeMapper.handleClick(encoderNumber);
+                    if (clickAction && device) {
+                        device.setDirectParameterValueNormalized(clickAction.paramId, clickAction.value, clickAction.resolution);
+                    }
+                    var holdAction = this._activeMapper.handleHold(encoderNumber, true);
+                    if (holdAction && device) {
+                        device.setDirectParameterValueNormalized(holdAction.paramId, holdAction.value, holdAction.resolution);
+                    }
+                } else {
+                    var holdRelease = this._activeMapper.handleHold(encoderNumber, false);
+                    if (holdRelease && device) {
+                        device.setDirectParameterValueNormalized(holdRelease.paramId, holdRelease.value, holdRelease.resolution);
+                    }
+                }
+            }
+            return;
+        }
+
         if (status === 0xB0) {
             this.twister.handleEncoderTurn(encoderNumber, data2);
         }
@@ -548,7 +584,17 @@ class ControllerHW {
         if (!deviceName) return;
 
         var padConfig = null;
-        if (this.deviceMapper && this.deviceMapper.hasMapping(deviceName)) {
+        this._activeMapper = null;
+
+        if (this.mappers[deviceName]) {
+            this.deviceMode = true;
+            this._activeMapper = this.mappers[deviceName]({
+                painter: this.painter,
+                println: this.println
+            });
+            padConfig = this._activeMapper.getPadConfig ? this._activeMapper.getPadConfig() : null;
+            this.twister.unlinkAll();
+        } else if (this.deviceMapper && this.deviceMapper.hasMapping(deviceName)) {
             this.deviceMode = true;
             this.deviceMapper.applyMapping(deviceName);
             padConfig = this.deviceMapper.getPadConfig(deviceName);
@@ -582,6 +628,18 @@ class ControllerHW {
             if (name && name.length > 0) return true;
         }
         return false;
+    }
+
+    /**
+     * Handle device parameter value changes (feeds active mapper)
+     * @param {string} id - Parameter ID
+     * @param {number} value - Normalized value (0-1)
+     */
+    onDeviceParamChanged(id, value) {
+        if (this._activeMapper) {
+            var normalizedId = id.replace('ROOT_GENERIC_MODULE/', '');
+            this._activeMapper.feed(normalizedId, value);
+        }
     }
 
     /**

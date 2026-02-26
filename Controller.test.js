@@ -264,6 +264,29 @@ function fakeDeviceQuadrant() {
     };
 }
 
+function fakeMapper() {
+    var calls = [];
+    var _encoderParams = {};
+    var _clicks = {};
+    var _holds = {};
+    var _fedParams = [];
+    var obj = {
+        calls: calls,
+        _encoderParams: _encoderParams,
+        _clicks: _clicks,
+        _holds: _holds,
+        _fedParams: _fedParams,
+        _padConfig: null,
+        encoderParamId: function(enc) { calls.push({ method: 'encoderParamId', encoder: enc }); return _encoderParams[enc] || null; },
+        handleClick: function(enc) { calls.push({ method: 'handleClick', encoder: enc }); return _clicks[enc] || null; },
+        handleHold: function(enc, pressed) { calls.push({ method: 'handleHold', encoder: enc, pressed: pressed }); return _holds[enc] || null; },
+        notifyButtonState: function(enc, pressed) { calls.push({ method: 'notifyButtonState', encoder: enc, pressed: pressed }); },
+        feed: function(id, value) { _fedParams.push({ id: id, value: value }); calls.push({ method: 'feed', id: id, value: value }); return true; },
+        getPadConfig: function() { return obj._padConfig; }
+    };
+    return obj;
+}
+
 function makeController(opts) {
     opts = opts || {};
     return new ControllerHW({
@@ -277,6 +300,8 @@ function makeController(opts) {
         pages: opts.pages || fakePages(),
         pageMainControl: opts.pageMainControl || { pageNumber: 1 },
         deviceQuadrant: opts.deviceQuadrant || null,
+        mappers: opts.mappers || {},
+        painter: opts.painter || null,
         host: opts.host || fakeHost(),
         debug: false,
         println: function() {}
@@ -1156,6 +1181,229 @@ function makeController(opts) {
     var ctrl = makeController({ deviceQuadrant: dq, pages: pg, launchpadTopButtons: fakeTopButtons() });
     ctrl.onLaunchpadMidi(0x90, 21, 100);
     assert(dq._handleModePadPressedCalls.length === 0, 'should not call handleModePadPressed when inactive');
+})();
+
+// ---- mapper integration tests ----
+
+// onDeviceChanged creates mapper when registered factory exists
+(function() {
+    var createdMapper = fakeMapper();
+    var mappers = {
+        'TestMapper': function() { return createdMapper; }
+    };
+    var ctrl = makeController({ mappers: mappers });
+    ctrl.onDeviceChanged('TestMapper');
+    assert(ctrl._activeMapper === createdMapper, "should create and store active mapper");
+    assert(ctrl.deviceMode === true, "deviceMode should be true");
+})();
+
+// onDeviceChanged: mapper takes priority over deviceMapper
+(function() {
+    var createdMapper = fakeMapper();
+    var mappers = { 'MyDevice': function() { return createdMapper; } };
+    var applyCalls = [];
+    var fakeDeviceMapper = {
+        hasMapping: function(name) { return name === 'MyDevice'; },
+        applyMapping: function(name) { applyCalls.push(name); },
+        getPadConfig: function() { return null; }
+    };
+    var ctrl = makeController({ mappers: mappers });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged('MyDevice');
+    assert(ctrl._activeMapper === createdMapper, "mapper should take priority over deviceMapper");
+    assert(applyCalls.length === 0, "should NOT call deviceMapper.applyMapping");
+})();
+
+// onDeviceChanged: mapper gets pad config from mapper.getPadConfig()
+(function() {
+    var testPads = [{ pad: 9, paramName: 'Mode' }];
+    var createdMapper = fakeMapper();
+    createdMapper._padConfig = testPads;
+    var mappers = { 'PadDevice': function() { return createdMapper; } };
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ mappers: mappers, deviceQuadrant: dq });
+    ctrl.onDeviceChanged('PadDevice');
+    assert(dq._lastPadConfig === testPads, "should pass mapper pad config to device quadrant");
+})();
+
+// onDeviceChanged: non-mapper device falls through (no _activeMapper)
+(function() {
+    var mappers = { 'MappedDevice': function() { return fakeMapper(); } };
+    var genericCalls = [];
+    var fakeDeviceMapper = {
+        hasMapping: function() { return false; },
+        applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
+        getPadConfig: function() { return null; }
+    };
+    var ctrl = makeController({ mappers: mappers });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged('UnmappedDevice');
+    assert(ctrl._activeMapper === null, "should not set _activeMapper for non-mapper device");
+    assert(genericCalls.length === 1, "should fall through to generic mapping");
+})();
+
+// onDeviceChanged: mapper factory receives painter dep
+(function() {
+    var receivedDeps = null;
+    var mappers = {
+        'DepDevice': function(deps) { receivedDeps = deps; return fakeMapper(); }
+    };
+    var fakePainterObj = { paint: function() {} };
+    var ctrl = makeController({ mappers: mappers, painter: fakePainterObj });
+    ctrl.onDeviceChanged('DepDevice');
+    assert(receivedDeps !== null, "factory should receive deps");
+    assert(receivedDeps.painter === fakePainterObj, "factory should receive painter");
+})();
+
+// onTwisterMidi: turn routes through active mapper
+(function() {
+    var paramCalls = [];
+    var createdMapper = fakeMapper();
+    createdMapper._encoderParams[6] = 'CONTENTS/PIDtest';
+    var bw = fakeBitwig();
+    bw.getCursorDevice = function() {
+        return {
+            selectNone: function() {},
+            setDirectParameterValueNormalized: function(id, val, res) {
+                paramCalls.push({ id: id, value: val, resolution: res });
+            }
+        };
+    };
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl._activeMapper = createdMapper;
+    ctrl.onTwisterMidi(0xB0, 5, 100); // CC 5 → encoder 6
+    assert(paramCalls.length === 1, "should route turn to cursor device");
+    assert(paramCalls[0].id === 'CONTENTS/PIDtest', "should use param from mapper");
+    assert(paramCalls[0].value === 100, "should pass MIDI value");
+    // Should NOT fall through to twister.handleEncoderTurn
+    var turnCalls = tw.calls.filter(function(c) { return c.method === 'handleEncoderTurn'; });
+    assert(turnCalls.length === 0, "should not fall through to twister.handleEncoderTurn");
+})();
+
+// onTwisterMidi: press routes click through active mapper
+(function() {
+    var paramCalls = [];
+    var createdMapper = fakeMapper();
+    createdMapper._clicks[6] = { paramId: 'CONTENTS/PIDactive', value: 1, resolution: 2 };
+    var bw = fakeBitwig();
+    bw.getCursorDevice = function() {
+        return {
+            selectNone: function() {},
+            setDirectParameterValueNormalized: function(id, val, res) {
+                paramCalls.push({ id: id, value: val, resolution: res });
+            }
+        };
+    };
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl._activeMapper = createdMapper;
+    ctrl.onTwisterMidi(0xB1, 5, 127); // press encoder 6
+    // Should notify button state
+    var notifyCalls = createdMapper.calls.filter(function(c) { return c.method === 'notifyButtonState'; });
+    assert(notifyCalls.length === 1, "should call notifyButtonState");
+    assert(notifyCalls[0].pressed === true, "should pass pressed=true");
+    // Should set param from click action
+    assert(paramCalls.length >= 1, "should call setDirectParameterValueNormalized for click");
+    assert(paramCalls[0].id === 'CONTENTS/PIDactive', "should use click paramId");
+    assert(paramCalls[0].value === 1, "should use click value");
+})();
+
+// onTwisterMidi: release routes hold through active mapper
+(function() {
+    var paramCalls = [];
+    var createdMapper = fakeMapper();
+    createdMapper._holds[6] = { paramId: 'CONTENTS/PIDsolo', value: 0, resolution: 19 };
+    var bw = fakeBitwig();
+    bw.getCursorDevice = function() {
+        return {
+            selectNone: function() {},
+            setDirectParameterValueNormalized: function(id, val, res) {
+                paramCalls.push({ id: id, value: val, resolution: res });
+            }
+        };
+    };
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl._activeMapper = createdMapper;
+    ctrl.onTwisterMidi(0xB1, 5, 0); // release encoder 6
+    // Should set param from hold release action
+    assert(paramCalls.length === 1, "should call setDirectParameterValueNormalized for hold release");
+    assert(paramCalls[0].id === 'CONTENTS/PIDsolo', "should use hold paramId");
+    assert(paramCalls[0].value === 0, "should use hold release value");
+})();
+
+// onTwisterMidi: without mapper, falls through to twister.handleEncoderTurn
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl._activeMapper = null;
+    ctrl.onTwisterMidi(0xB0, 5, 64);
+    var turnCalls = tw.calls.filter(function(c) { return c.method === 'handleEncoderTurn'; });
+    assert(turnCalls.length === 1, "should fall through to twister without mapper");
+})();
+
+// onDeviceParamChanged feeds active mapper
+(function() {
+    var createdMapper = fakeMapper();
+    var ctrl = makeController({});
+    ctrl._activeMapper = createdMapper;
+    ctrl.onDeviceParamChanged('CONTENTS/PIDfoo', 0.75);
+    assert(createdMapper._fedParams.length === 1, "should feed param to mapper");
+    assert(createdMapper._fedParams[0].id === 'CONTENTS/PIDfoo', "should pass param id");
+    assert(createdMapper._fedParams[0].value === 0.75, "should pass param value");
+})();
+
+// onDeviceParamChanged is no-op without active mapper
+(function() {
+    var ctrl = makeController({});
+    ctrl._activeMapper = null;
+    ctrl.onDeviceParamChanged('CONTENTS/PIDfoo', 0.5); // should not throw
+    assert(true, "onDeviceParamChanged should be no-op without mapper");
+})();
+
+// selectGroup clears active mapper
+(function() {
+    var createdMapper = fakeMapper();
+    var ctrl = makeController({});
+    ctrl._activeMapper = createdMapper;
+    ctrl.selectGroup(16);
+    assert(ctrl._activeMapper === null, "selectGroup should clear active mapper");
+})();
+
+// onDeviceChanged: switching to mapper clears previous mapper
+(function() {
+    var mapper1 = fakeMapper();
+    var mapper2 = fakeMapper();
+    var callCount = 0;
+    var mappers = {
+        'DeviceA': function() { callCount++; return callCount === 1 ? mapper1 : mapper2; },
+    };
+    var ctrl = makeController({ mappers: mappers });
+    ctrl.onDeviceChanged('DeviceA');
+    assert(ctrl._activeMapper === mapper1, "first call should use mapper1");
+    ctrl.onDeviceChanged('DeviceA');
+    assert(ctrl._activeMapper === mapper2, "second call should create fresh mapper2");
+})();
+
+// onDeviceChanged: mapper calls twister.unlinkAll
+(function() {
+    var tw = fakeTwister();
+    var mappers = { 'Device': function() { return fakeMapper(); } };
+    var ctrl = makeController({ twister: tw, mappers: mappers });
+    tw.calls.length = 0;
+    ctrl.onDeviceChanged('Device');
+    assert(tw.calls.indexOf('unlinkAll') !== -1, "should call twister.unlinkAll when activating mapper");
+})();
+
+// onDeviceParamChanged strips ROOT_GENERIC_MODULE/ prefix before feeding mapper
+(function() {
+    var createdMapper = fakeMapper();
+    var ctrl = makeController({});
+    ctrl._activeMapper = createdMapper;
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PIDfoo', 0.5);
+    assert(createdMapper._fedParams[0].id === 'CONTENTS/PIDfoo',
+        "should strip ROOT_GENERIC_MODULE/ prefix before feeding mapper");
 })();
 
 process.exit(t.summary('Controller'));
