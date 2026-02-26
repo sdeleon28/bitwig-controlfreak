@@ -82,6 +82,19 @@ function fakeBitwig(opts) {
     };
 }
 
+function fakePadMapper() {
+    var calls = [];
+    return {
+        calls: calls,
+        _activateApi: null,
+        activate: function(api) { this._activateApi = api; calls.push('activate'); },
+        deactivate: function() { calls.push('deactivate'); },
+        onParamValueChanged: function(id, value) { calls.push({ method: 'onParamValueChanged', id: id, value: value }); },
+        onDirectParamNameChanged: function(id, name) { calls.push({ method: 'onDirectParamNameChanged', id: id, name: name }); },
+        handlePadPressed: function(padIndex) { calls.push({ method: 'handlePadPressed', padIndex: padIndex }); }
+    };
+}
+
 function makeSubject(opts) {
     opts = opts || {};
     return new DeviceQuadrantHW({
@@ -281,130 +294,6 @@ function makeSubject(opts) {
     assert(lp.behaviors[44].page === 7, 'exit pad behavior should use correct page number');
 })();
 
-// ---- pad config tests ----
-
-function makePadConfig() {
-    return [
-        { pad: 9, paramName: 'Mode', value: 0, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [0] },
-        { pad: 5, paramName: 'Mode', value: 1, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [1, 3] },
-        { pad: 6, paramName: 'Mode', value: 2, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [2, 4] },
-    ];
-}
-
-function fakeBitwigWithMode() {
-    return fakeBitwig({ paramNames: { 'CONTENTS/PIDmode123': 'Mode' } });
-}
-
-// activate with padConfig resolves param names and registers behaviors
-(function() {
-    var lp = fakeLaunchpad();
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ launchpad: lp, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    var pads = fakeQuadrant().bottomLeft.pads;
-    // pad 9 = index 8 = note 31, pad 5 = index 4 = note 21, pad 6 = index 5 = note 22
-    assert(lp.behaviors[31], 'pad 9 should have behavior registered');
-    assert(lp.behaviors[21], 'pad 5 should have behavior registered');
-    assert(lp.behaviors[22], 'pad 6 should have behavior registered');
-})();
-
-// pad config click sets the correct normalized value on the device
-(function() {
-    var lp = fakeLaunchpad();
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ launchpad: lp, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    // Click pad 5 (value=1, resolution=5 → raw value=1)
-    lp.behaviors[21].click();
-    assert(bw._paramCalls.length === 1, 'should call setDirectParameterValueNormalized');
-    assert(bw._paramCalls[0].id === 'CONTENTS/PIDmode123', 'should use resolved param ID');
-    assert(bw._paramCalls[0].value === 1, 'should set raw value 1');
-    assert(bw._paramCalls[0].resolution === 5, 'should pass resolution');
-})();
-
-// pad config paints pads with deselectedColor initially
-(function() {
-    var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ pager: pager, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    // pad 9 (index 8 = note 31) should be painted with deselectedColor (1)
-    var pad9Paint = pager.paints.filter(function(p) { return p.pad === 31 && p.color === 1; });
-    assert(pad9Paint.length > 0, 'pad 9 should be painted with deselectedColor');
-    // pad 5 (index 4 = note 21) should be painted with deselectedColor (1)
-    var pad5Paint = pager.paints.filter(function(p) { return p.pad === 21 && p.color === 1; });
-    assert(pad5Paint.length > 0, 'pad 5 should be painted with deselectedColor');
-})();
-
-// onParamValueChanged highlights the active mode pad, deselects others
-(function() {
-    var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ pager: pager, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    var paintsBefore = pager.paints.length;
-    // Simulate mode changed to value 1 (normalized 0.25 = Mid)
-    dq.onParamValueChanged('CONTENTS/PIDmode123', 0.25);
-    var newPaints = pager.paints.slice(paintsBefore);
-    // pad 5 (selectedWhen includes 1, norm=0.25) should be selectedColor
-    var pad5 = newPaints.filter(function(p) { return p.pad === 21; });
-    assert(pad5.length > 0, 'pad 5 should be repainted');
-    assert(pad5[0].color === 21, 'active mode pad should use selectedColor');
-    // pad 9 (selectedWhen [0], norm=0) should be deselectedColor
-    var pad9 = newPaints.filter(function(p) { return p.pad === 31; });
-    assert(pad9.length > 0, 'pad 9 should be repainted');
-    assert(pad9[0].color === 1, 'inactive mode pad should use deselectedColor');
-})();
-
-// onParamValueChanged is no-op when inactive
-(function() {
-    var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ pager: pager, bitwig: bw });
-    var paintsBefore = pager.paints.length;
-    dq.onParamValueChanged('CONTENTS/PIDmode123', 0.25);
-    assert(pager.paints.length === paintsBefore, 'should not paint when inactive');
-})();
-
-// onParamValueChanged ignores unrelated param IDs
-(function() {
-    var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ pager: pager, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    var paintsBefore = pager.paints.length;
-    dq.onParamValueChanged('CONTENTS/PIDother', 0.5);
-    assert(pager.paints.length === paintsBefore, 'should not repaint for unrelated param');
-})();
-
-// deactivate clears pad config state
-(function() {
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ bitwig: bw });
-    dq.activate(null, makePadConfig());
-    dq.deactivate();
-    assert(dq._padEntries.length === 0, 'pad entries should be cleared on deactivate');
-    assert(dq._modeParamId === null, 'mode param ID should be cleared on deactivate');
-})();
-
-// activate without padConfig does not set up pad entries
-(function() {
-    var dq = makeSubject();
-    dq.activate();
-    assert(dq._padEntries.length === 0, 'should have no pad entries without config');
-    assert(dq._modeParamId === null, 'should have no mode param without config');
-})();
-
-// unresolvable param name is skipped gracefully
-(function() {
-    var lp = fakeLaunchpad();
-    var bw = fakeBitwig({ paramNames: {} }); // no params registered
-    var dq = makeSubject({ launchpad: lp, bitwig: bw });
-    dq.activate(null, [{ pad: 1, paramName: 'Missing', value: 0, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [0] }]);
-    assert(dq._padEntries.length === 0, 'should skip unresolvable params');
-    assert(!lp.behaviors[11], 'should not register behavior for unresolvable param');
-})();
-
 // activate clears stale pad behaviors from track grid
 (function() {
     var lp = fakeLaunchpad();
@@ -430,250 +319,271 @@ function fakeBitwigWithMode() {
     assert(!lp.behaviors[44], 'deactivate should clear exit pad behavior');
 })();
 
-// applyPadConfig clears old device pads and applies new config
+// activate without padMapper is fine
 (function() {
-    var lp = fakeLaunchpad();
+    var dq = makeSubject();
+    dq.activate();
+    assert(dq._activePadMapper === null, 'should have no pad mapper without one provided');
+    assert(dq.isActive() === true, 'should still be active');
+})();
+
+// ---- pad mapper delegation tests ----
+
+// activate with padMapper calls padMapper.activate with QuadrantAPI
+(function() {
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.activate(null, pm);
+    assert(pm.calls.indexOf('activate') !== -1, 'should call padMapper.activate');
+    assert(pm._activateApi !== null, 'should pass QuadrantAPI to padMapper');
+    assert(typeof pm._activateApi.paintPad === 'function', 'QuadrantAPI should have paintPad');
+    assert(typeof pm._activateApi.registerPadBehavior === 'function', 'QuadrantAPI should have registerPadBehavior');
+    assert(typeof pm._activateApi.resolveParamName === 'function', 'QuadrantAPI should have resolveParamName');
+    assert(typeof pm._activateApi.setDeviceParam === 'function', 'QuadrantAPI should have setDeviceParam');
+})();
+
+// deactivate calls padMapper.deactivate and clears reference
+(function() {
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.activate(null, pm);
+    dq.deactivate();
+    assert(pm.calls.indexOf('deactivate') !== -1, 'should call padMapper.deactivate');
+    assert(dq._activePadMapper === null, 'should clear pad mapper reference');
+})();
+
+// onParamValueChanged forwards to padMapper
+(function() {
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.activate(null, pm);
+    dq.onParamValueChanged('PID_MODE', 0.25);
+    var paramCalls = pm.calls.filter(function(c) { return c.method === 'onParamValueChanged'; });
+    assert(paramCalls.length === 1, 'should forward onParamValueChanged to padMapper');
+    assert(paramCalls[0].id === 'PID_MODE', 'should pass correct param ID');
+    assert(paramCalls[0].value === 0.25, 'should pass correct value');
+})();
+
+// onParamValueChanged is no-op when inactive
+(function() {
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    // not activated
+    dq.onParamValueChanged('PID_MODE', 0.25);
+    assert(pm.calls.length === 0, 'should not forward when inactive');
+})();
+
+// onParamValueChanged is no-op when no padMapper
+(function() {
     var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ launchpad: lp, pager: pager, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    assert(dq._padEntries.length === 3, 'precondition: 3 pad entries');
-    assert(lp.behaviors[31], 'precondition: pad 9 has behavior');
-    // Re-apply with null = clear all device pads
-    dq.applyPadConfig(null);
-    assert(dq._padEntries.length === 0, 'applyPadConfig(null) should clear pad entries');
-    assert(dq._modeParamId === null, 'applyPadConfig(null) should clear mode param');
-    assert(!lp.behaviors[31], 'applyPadConfig(null) should clear old pad behaviors');
+    var dq = makeSubject({ pager: pager });
+    dq.activate(); // no padMapper
+    var paintsBefore = pager.paints.length;
+    dq.onParamValueChanged('PID_MODE', 0.25);
+    assert(pager.paints.length === paintsBefore, 'should not repaint without padMapper');
 })();
 
-// applyPadConfig replaces old config with new config
+// onDirectParamNameChanged forwards to padMapper
 (function() {
-    var lp = fakeLaunchpad();
-    var pager = fakePager(1);
-    var bw = fakeBitwig({ paramNames: { 'PID_A': 'Mode', 'PID_B': 'Other' } });
-    var dq = makeSubject({ launchpad: lp, pager: pager, bitwig: bw });
-    dq.activate(null, [{ pad: 1, paramName: 'Mode', value: 0, resolution: 2, selectedColor: 21, deselectedColor: 1, selectedWhen: [0] }]);
-    assert(dq._padEntries.length === 1, 'precondition: 1 pad entry');
-    // Replace with different config
-    dq.applyPadConfig([{ pad: 3, paramName: 'Other', value: 0, resolution: 2, selectedColor: 21, deselectedColor: 1, selectedWhen: [0] }]);
-    assert(dq._padEntries.length === 1, 'should have 1 new pad entry');
-    assert(dq._modeParamId === 'PID_B', 'should track new param ID');
-    // Old pad 1 behavior should be gone, new pad 3 should exist
-    assert(!lp.behaviors[11], 'old pad 1 behavior should be cleared');
-    var pads = fakeQuadrant().bottomLeft.pads;
-    assert(lp.behaviors[pads[2]], 'new pad 3 should have behavior');
-})();
-
-// applyPadConfig is no-op when inactive
-(function() {
-    var lp = fakeLaunchpad();
-    var dq = makeSubject({ launchpad: lp });
-    dq.applyPadConfig(makePadConfig());
-    assert(dq._padEntries.length === 0, 'should not apply config when inactive');
-})();
-
-// ---- deferred resolution tests ----
-
-// unresolvable param names are stashed as pending entries
-(function() {
-    var lp = fakeLaunchpad();
-    var bw = fakeBitwig({ paramNames: {} }); // no params registered yet
-    var dq = makeSubject({ launchpad: lp, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    assert(dq._padEntries.length === 0, 'no entries should be resolved yet');
-    assert(dq._pendingPadEntries.length === 3, 'all 3 entries should be pending');
-})();
-
-// onDirectParamNameChanged resolves pending entries
-(function() {
-    var lp = fakeLaunchpad();
-    var pager = fakePager(1);
-    var bw = fakeBitwig({ paramNames: {} });
-    var dq = makeSubject({ launchpad: lp, pager: pager, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    assert(dq._pendingPadEntries.length === 3, 'precondition: 3 pending');
-    // Simulate name observer firing
-    dq.onDirectParamNameChanged('CONTENTS/PIDmode123', 'Mode');
-    assert(dq._padEntries.length === 3, 'all 3 entries should now be resolved');
-    assert(dq._pendingPadEntries.length === 0, 'no entries should remain pending');
-    assert(dq._modeParamId === 'CONTENTS/PIDmode123', 'mode param should be tracked');
-    // Behaviors should be registered
-    assert(lp.behaviors[31], 'pad 9 should have behavior after deferred resolve');
-    assert(lp.behaviors[21], 'pad 5 should have behavior after deferred resolve');
-    assert(lp.behaviors[22], 'pad 6 should have behavior after deferred resolve');
-})();
-
-// deferred resolution click sends raw value (not normalized)
-(function() {
-    var lp = fakeLaunchpad();
-    var bw = fakeBitwig({ paramNames: {} });
-    var dq = makeSubject({ launchpad: lp, bitwig: bw });
-    dq.activate(null, makePadConfig());
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.activate(null, pm);
     dq.onDirectParamNameChanged('PID_MODE', 'Mode');
-    // Click pad 5 (value=1, resolution=5)
-    lp.behaviors[21].click();
-    assert(bw._paramCalls[0].value === 1, 'deferred click should send raw value');
-    assert(bw._paramCalls[0].resolution === 5, 'deferred click should pass resolution');
+    var nameCalls = pm.calls.filter(function(c) { return c.method === 'onDirectParamNameChanged'; });
+    assert(nameCalls.length === 1, 'should forward onDirectParamNameChanged to padMapper');
+    assert(nameCalls[0].id === 'PID_MODE', 'should pass correct param ID');
+    assert(nameCalls[0].name === 'Mode', 'should pass correct name');
 })();
 
 // onDirectParamNameChanged is no-op when inactive
 (function() {
-    var lp = fakeLaunchpad();
-    var bw = fakeBitwig({ paramNames: {} });
-    var dq = makeSubject({ launchpad: lp, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    dq.deactivate();
-    dq.onDirectParamNameChanged('CONTENTS/PIDmode123', 'Mode');
-    assert(dq._padEntries.length === 0, 'should not resolve when inactive');
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.onDirectParamNameChanged('PID_MODE', 'Mode');
+    assert(pm.calls.length === 0, 'should not forward when inactive');
 })();
 
-// onDirectParamNameChanged is no-op when no pending entries
+// onDirectParamNameChanged is no-op when no padMapper
 (function() {
-    var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ pager: pager, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    var entriesBefore = dq._padEntries.length;
-    // All already resolved, no pending
-    dq.onDirectParamNameChanged('CONTENTS/PIDmode123', 'Mode');
-    assert(dq._padEntries.length === entriesBefore, 'should not add duplicate entries');
+    var dq = makeSubject();
+    dq.activate(); // no padMapper
+    dq.onDirectParamNameChanged('PID_MODE', 'Mode'); // should not throw
+    assert(true, 'should be no-op without padMapper');
 })();
 
-// deactivate clears pending entries
+// handleModePadPressed translates MIDI note to padIndex and forwards
 (function() {
-    var bw = fakeBitwig({ paramNames: {} });
-    var dq = makeSubject({ bitwig: bw });
-    dq.activate(null, makePadConfig());
-    assert(dq._pendingPadEntries.length === 3, 'precondition: 3 pending');
-    dq.deactivate();
-    assert(dq._pendingPadEntries.length === 0, 'pending entries should be cleared on deactivate');
-})();
-
-// applyPadConfig(null) clears pending entries
-(function() {
-    var bw = fakeBitwig({ paramNames: {} });
-    var dq = makeSubject({ bitwig: bw });
-    dq.activate(null, makePadConfig());
-    assert(dq._pendingPadEntries.length === 3, 'precondition: 3 pending');
-    dq.applyPadConfig(null);
-    assert(dq._pendingPadEntries.length === 0, 'pending entries should be cleared on applyPadConfig(null)');
-})();
-
-// onDirectParamNameChanged ignores unrelated param names
-(function() {
-    var bw = fakeBitwig({ paramNames: {} });
-    var dq = makeSubject({ bitwig: bw });
-    dq.activate(null, makePadConfig());
-    dq.onDirectParamNameChanged('PID_OTHER', 'Frequency');
-    assert(dq._pendingPadEntries.length === 3, 'unrelated name should not resolve pending entries');
-    assert(dq._padEntries.length === 0, 'no entries should be resolved');
-})();
-
-// Mid pad (selectedWhen: [1, 3]) highlights when mode = MidSolo (value 3, normalized 0.75)
-(function() {
-    var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ pager: pager, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    var paintsBefore = pager.paints.length;
-    // MidSolo = value 3, normalized 3/4 = 0.75
-    dq.onParamValueChanged('CONTENTS/PIDmode123', 0.75);
-    var newPaints = pager.paints.slice(paintsBefore);
-    var pad5 = newPaints.filter(function(p) { return p.pad === 21; });
-    assert(pad5.length > 0, 'Mid pad should be repainted');
-    assert(pad5[0].color === 21, 'Mid pad should highlight when MidSolo is active');
-})();
-
-// Side pad (selectedWhen: [2, 4]) highlights when mode = SideSolo (value 4, normalized 1.0)
-(function() {
-    var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ pager: pager, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    var paintsBefore = pager.paints.length;
-    // SideSolo = value 4, normalized 4/4 = 1.0
-    dq.onParamValueChanged('CONTENTS/PIDmode123', 1.0);
-    var newPaints = pager.paints.slice(paintsBefore);
-    var pad6 = newPaints.filter(function(p) { return p.pad === 22; });
-    assert(pad6.length > 0, 'Side pad should be repainted');
-    assert(pad6[0].color === 21, 'Side pad should highlight when SideSolo is active');
-})();
-
-// Stereo pad does NOT highlight when mode = Mid
-(function() {
-    var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ pager: pager, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    var paintsBefore = pager.paints.length;
-    // Mid = value 1, normalized 0.25
-    dq.onParamValueChanged('CONTENTS/PIDmode123', 0.25);
-    var newPaints = pager.paints.slice(paintsBefore);
-    var pad9 = newPaints.filter(function(p) { return p.pad === 31; });
-    assert(pad9.length > 0, 'Stereo pad should be repainted');
-    assert(pad9[0].color === 1, 'Stereo pad should NOT highlight when Mid is active');
-})();
-
-// ---- handleModePadPressed tests ----
-
-// handleModePadPressed optimistically repaints all highlights
-(function() {
-    var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ pager: pager, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    var paintsBefore = pager.paints.length;
-    // Press pad 5 (note 21, value=1, resolution=5 → normalized 0.25)
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.activate(null, pm);
+    // pad 5 = index 4 = MIDI note 21 (from fakeQuadrant pads array)
     dq.handleModePadPressed(21);
-    var newPaints = pager.paints.slice(paintsBefore);
-    var pad5 = newPaints.filter(function(p) { return p.pad === 21; });
-    var pad9 = newPaints.filter(function(p) { return p.pad === 31; });
-    var pad6 = newPaints.filter(function(p) { return p.pad === 22; });
-    assert(pad5.length > 0 && pad5[0].color === 21, 'pressed pad should get selectedColor');
-    assert(pad9.length > 0 && pad9[0].color === 1, 'other pad should get deselectedColor');
-    assert(pad6.length > 0 && pad6[0].color === 1, 'other pad should get deselectedColor');
+    var pressCalls = pm.calls.filter(function(c) { return c.method === 'handlePadPressed'; });
+    assert(pressCalls.length === 1, 'should forward handlePadPressed');
+    assert(pressCalls[0].padIndex === 5, 'should translate MIDI note 21 to padIndex 5');
 })();
 
-// handleModePadPressed switches highlight when pressing different pads
+// handleModePadPressed translates different pad notes correctly
 (function() {
-    var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ pager: pager, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    // Press pad 9 (Stereo, note 31, value=0, normalized 0)
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.activate(null, pm);
+    // pad 1 = index 0 = MIDI note 11
+    dq.handleModePadPressed(11);
+    // pad 9 = index 8 = MIDI note 31
     dq.handleModePadPressed(31);
-    var paintsBefore = pager.paints.length;
-    // Now press pad 6 (Side, note 22, value=2, normalized 0.5)
-    dq.handleModePadPressed(22);
-    var newPaints = pager.paints.slice(paintsBefore);
-    var pad6 = newPaints.filter(function(p) { return p.pad === 22; });
-    var pad9 = newPaints.filter(function(p) { return p.pad === 31; });
-    var pad5 = newPaints.filter(function(p) { return p.pad === 21; });
-    assert(pad6.length > 0 && pad6[0].color === 21, 'newly pressed pad should get selectedColor');
-    assert(pad9.length > 0 && pad9[0].color === 1, 'previously active pad should get deselectedColor');
-    assert(pad5.length > 0 && pad5[0].color === 1, 'other pad should get deselectedColor');
+    // pad 13 = index 12 = MIDI note 41
+    dq.handleModePadPressed(41);
+    var pressCalls = pm.calls.filter(function(c) { return c.method === 'handlePadPressed'; });
+    assert(pressCalls.length === 3, 'should forward all three presses');
+    assert(pressCalls[0].padIndex === 1, 'MIDI note 11 should be padIndex 1');
+    assert(pressCalls[1].padIndex === 9, 'MIDI note 31 should be padIndex 9');
+    assert(pressCalls[2].padIndex === 13, 'MIDI note 41 should be padIndex 13');
 })();
 
-// handleModePadPressed is no-op for unrelated pad note
+// handleModePadPressed is no-op for pad notes outside 1-13
 (function() {
-    var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ pager: pager, bitwig: bw });
-    dq.activate(null, makePadConfig());
-    var paintsBefore = pager.paints.length;
-    dq.handleModePadPressed(99); // not a configured pad
-    assert(pager.paints.length === paintsBefore, 'unrelated pad should not trigger repaint');
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.activate(null, pm);
+    // pad 14 = MIDI note 42 (solo pad, not forwarded to mapper)
+    dq.handleModePadPressed(42);
+    // unrelated note
+    dq.handleModePadPressed(99);
+    var pressCalls = pm.calls.filter(function(c) { return c.method === 'handlePadPressed'; });
+    assert(pressCalls.length === 0, 'should not forward pads outside 1-13');
+})();
+
+// handleModePadPressed is no-op when no padMapper
+(function() {
+    var dq = makeSubject();
+    dq.activate(); // no padMapper
+    dq.handleModePadPressed(21); // should not throw
+    assert(true, 'should be no-op without padMapper');
 })();
 
 // handleModePadPressed is no-op when inactive
 (function() {
-    var pager = fakePager(1);
-    var bw = fakeBitwigWithMode();
-    var dq = makeSubject({ pager: pager, bitwig: bw });
-    // Not activated
-    var paintsBefore = pager.paints.length;
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    // not activated
     dq.handleModePadPressed(21);
-    assert(pager.paints.length === paintsBefore, 'should not repaint when inactive');
+    assert(pm.calls.length === 0, 'should not forward when inactive');
+})();
+
+// ---- applyPadMapper tests ----
+
+// applyPadMapper deactivates old mapper and activates new one
+(function() {
+    var pm1 = fakePadMapper();
+    var pm2 = fakePadMapper();
+    var dq = makeSubject();
+    dq.activate(null, pm1);
+    dq.applyPadMapper(pm2);
+    assert(pm1.calls.indexOf('deactivate') !== -1, 'should deactivate old mapper');
+    assert(pm2.calls.indexOf('activate') !== -1, 'should activate new mapper');
+    assert(dq._activePadMapper === pm2, 'should store new mapper');
+})();
+
+// applyPadMapper clears pads 1-13 before applying new mapper
+(function() {
+    var lp = fakeLaunchpad();
+    var pager = fakePager(1);
+    var pm = fakePadMapper();
+    var dq = makeSubject({ launchpad: lp, pager: pager });
+    dq.activate(null, pm);
+    var clearsBefore = lp.calls.filter(function(c) { return c.method === 'clearPadBehavior'; }).length;
+    dq.applyPadMapper(fakePadMapper());
+    var clearsAfter = lp.calls.filter(function(c) { return c.method === 'clearPadBehavior'; }).length;
+    assert(clearsAfter - clearsBefore === 13, 'should clear behaviors on pads 1-13');
+})();
+
+// applyPadMapper(null) clears without adding new mapper
+(function() {
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.activate(null, pm);
+    dq.applyPadMapper(null);
+    assert(pm.calls.indexOf('deactivate') !== -1, 'should deactivate old mapper');
+    assert(dq._activePadMapper === null, 'should have no active mapper');
+})();
+
+// applyPadMapper is no-op when inactive
+(function() {
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.applyPadMapper(pm);
+    assert(pm.calls.length === 0, 'should not activate mapper when inactive');
+    assert(dq._activePadMapper === null, 'should not store mapper when inactive');
+})();
+
+// ---- QuadrantAPI integration tests ----
+
+// QuadrantAPI.paintPad maps padIndex to correct pad note
+(function() {
+    var pager = fakePager(1);
+    var pm = fakePadMapper();
+    var dq = makeSubject({ pager: pager });
+    dq.activate(null, pm);
+    var paintsBefore = pager.paints.length;
+    // padIndex 5 → pads[4] = 21
+    pm._activateApi.paintPad(5, 42);
+    var newPaints = pager.paints.slice(paintsBefore);
+    assert(newPaints.length === 1, 'should paint one pad');
+    assert(newPaints[0].pad === 21, 'padIndex 5 should map to MIDI note 21');
+    assert(newPaints[0].color === 42, 'should use the specified color');
+})();
+
+// QuadrantAPI.registerPadBehavior uses correct page number
+(function() {
+    var lp = fakeLaunchpad();
+    var pm = fakePadMapper();
+    var dq = makeSubject({ launchpad: lp, pageNumber: 7 });
+    dq.activate(null, pm);
+    var clicked = false;
+    // padIndex 1 → pads[0] = 11
+    pm._activateApi.registerPadBehavior(1, function() { clicked = true; });
+    assert(lp.behaviors[11], 'padIndex 1 should register on MIDI note 11');
+    assert(lp.behaviors[11].page === 7, 'should use correct page number');
+    lp.behaviors[11].click();
+    assert(clicked === true, 'callback should be invocable');
+})();
+
+// QuadrantAPI.resolveParamName delegates to _resolveParamName
+(function() {
+    var bw = fakeBitwig({ paramNames: { 'PID_MODE': 'Mode' } });
+    var pm = fakePadMapper();
+    var dq = makeSubject({ bitwig: bw });
+    dq.activate(null, pm);
+    var result = pm._activateApi.resolveParamName('Mode');
+    assert(result === 'PID_MODE', 'should resolve param name through Bitwig');
+    var missing = pm._activateApi.resolveParamName('Missing');
+    assert(missing === null, 'should return null for unknown param');
+})();
+
+// QuadrantAPI.setDeviceParam calls cursor device
+(function() {
+    var bw = fakeBitwig();
+    var pm = fakePadMapper();
+    var dq = makeSubject({ bitwig: bw });
+    dq.activate(null, pm);
+    pm._activateApi.setDeviceParam('PID_MODE', 1, 5);
+    assert(bw._paramCalls.length === 1, 'should call setDirectParameterValueNormalized');
+    assert(bw._paramCalls[0].id === 'PID_MODE', 'should pass param ID');
+    assert(bw._paramCalls[0].value === 1, 'should pass value');
+    assert(bw._paramCalls[0].resolution === 5, 'should pass resolution');
+})();
+
+// pad 16 exit deactivates pad mapper
+(function() {
+    var lp = fakeLaunchpad();
+    var pm = fakePadMapper();
+    var exitCalled = false;
+    var dq = makeSubject({ launchpad: lp });
+    dq.activate(function() { exitCalled = true; }, pm);
+    lp.behaviors[44].click();
+    assert(pm.calls.indexOf('deactivate') !== -1, 'exit should deactivate pad mapper');
+    assert(exitCalled === true, 'should call exit callback');
 })();
 
 process.exit(t.summary('DeviceQuadrant'));

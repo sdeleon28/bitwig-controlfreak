@@ -315,16 +315,6 @@ class FrequalizerTwisterMapper {
         if (stereoHandled || midHandled || sideHandled) return true;
         return this._device.feed(id, value);
     }
-
-    getPadConfig() {
-        return [
-            { pad: 9, paramName: 'Mode', value: 0, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [0] },
-            { pad: 5, paramName: 'Mode', value: 1, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [1, 3] },
-            { pad: 6, paramName: 'Mode', value: 2, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [2, 4] },
-            { pad: 1, paramName: 'Mode', value: 3, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [3] },
-            { pad: 2, paramName: 'Mode', value: 4, resolution: 5, selectedColor: 21, deselectedColor: 1, selectedWhen: [4] },
-        ];
-    }
 }
 
 if (typeof module !== 'undefined') module.exports = FrequalizerTwisterMapper;

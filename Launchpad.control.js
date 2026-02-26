@@ -27,6 +27,7 @@ load('Animations.js');
 load('TwisterPainter.js');
 load('FrequalizerDevice.js');
 load('FrequalizerTwisterMapper.js');
+load('FrequalizerPadMapper.js');
 
 // Layer 3.5: Device mapping behavior
 load('DeviceMapper.js');
@@ -801,6 +802,13 @@ function init() {
     };
     mappers['Frequalizer Alt'] = mappers['Frequalizer'];
 
+    // Build pad mapper registry (pad mapper factory functions for Launchpad pad control)
+    var padMappers = {};
+    padMappers['Frequalizer'] = function() {
+        return new FrequalizerPadMapper();
+    };
+    padMappers['Frequalizer Alt'] = padMappers['Frequalizer'];
+
     // Initialize Controller (after all deps are ready)
     Controller = new ControllerHW({
         twister: Twister,
@@ -815,6 +823,7 @@ function init() {
         deviceMapper: DeviceMapper,
         deviceQuadrant: DeviceQuadrant,
         mappers: mappers,
+        padMappers: padMappers,
         painter: twisterPainter,
         host: host,
         debug: debug,

@@ -254,11 +254,11 @@ function fakeDeviceQuadrant() {
     return {
         calls: calls,
         _exitCallback: null,
-        _lastPadConfig: null,
+        _lastPadMapper: null,
         _handleModePadPressedCalls: _handleModePadPressedCalls,
-        activate: function(cb, padConfig) { _active = true; this._exitCallback = cb; this._lastPadConfig = padConfig || null; calls.push('activate'); },
+        activate: function(cb, padMapper) { _active = true; this._exitCallback = cb; this._lastPadMapper = padMapper || null; calls.push('activate'); },
         deactivate: function() { _active = false; calls.push('deactivate'); },
-        applyPadConfig: function(padConfig) { this._lastPadConfig = padConfig || null; calls.push('applyPadConfig'); },
+        applyPadMapper: function(padMapper) { this._lastPadMapper = padMapper || null; calls.push('applyPadMapper'); },
         handleModePadPressed: function(padNote) { _handleModePadPressedCalls.push(padNote); },
         isActive: function() { return _active; }
     };
@@ -276,15 +276,22 @@ function fakeMapper() {
         _clicks: _clicks,
         _holds: _holds,
         _fedParams: _fedParams,
-        _padConfig: null,
         encoderParamId: function(enc) { calls.push({ method: 'encoderParamId', encoder: enc }); return _encoderParams[enc] || null; },
         handleClick: function(enc) { calls.push({ method: 'handleClick', encoder: enc }); return _clicks[enc] || null; },
         handleHold: function(enc, pressed) { calls.push({ method: 'handleHold', encoder: enc, pressed: pressed }); return _holds[enc] || null; },
         notifyButtonState: function(enc, pressed) { calls.push({ method: 'notifyButtonState', encoder: enc, pressed: pressed }); },
-        feed: function(id, value) { _fedParams.push({ id: id, value: value }); calls.push({ method: 'feed', id: id, value: value }); return true; },
-        getPadConfig: function() { return obj._padConfig; }
+        feed: function(id, value) { _fedParams.push({ id: id, value: value }); calls.push({ method: 'feed', id: id, value: value }); return true; }
     };
     return obj;
+}
+
+function fakePadMapper() {
+    var calls = [];
+    return {
+        calls: calls,
+        activate: function(api) { calls.push('activate'); },
+        deactivate: function() { calls.push('deactivate'); }
+    };
 }
 
 function makeController(opts) {
@@ -301,6 +308,7 @@ function makeController(opts) {
         pageMainControl: opts.pageMainControl || { pageNumber: 1 },
         deviceQuadrant: opts.deviceQuadrant || null,
         mappers: opts.mappers || {},
+        padMappers: opts.padMappers || {},
         painter: opts.painter || null,
         host: opts.host || fakeHost(),
         debug: false,
@@ -806,7 +814,6 @@ function makeController(opts) {
     var fakeDeviceMapper = {
         hasMapping: function(name) { return name === "Frequalizer Alt"; },
         applyMapping: function(name) { applyCalls.push(name); },
-        getPadConfig: function() { return null; },
         clearParamValues: function() {}
     };
     var ctrl = makeController({});
@@ -824,7 +831,6 @@ function makeController(opts) {
         hasMapping: function() { return false; },
         applyMapping: function() {},
         applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
-        getPadConfig: function() { return null; },
         clearParamValues: function() {}
     };
     var ctrl = makeController({});
@@ -843,7 +849,6 @@ function makeController(opts) {
         hasMapping: function(name) { return name === "Frequalizer Alt"; },
         applyMapping: function() {},
         applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
-        getPadConfig: function() { return null; },
         clearParamValues: function() {}
     };
     var ctrl = makeController({});
@@ -954,7 +959,6 @@ function makeController(opts) {
     var fakeDeviceMapper = {
         hasMapping: function() { return false; },
         applyGenericMapping: function() {},
-        getPadConfig: function() { return null; }
     };
     var ctrl = makeController({ deviceQuadrant: dq });
     ctrl.deviceMapper = fakeDeviceMapper;
@@ -968,7 +972,6 @@ function makeController(opts) {
     var fakeDeviceMapper = {
         hasMapping: function() { return false; },
         applyGenericMapping: function() {},
-        getPadConfig: function() { return null; }
     };
     var ctrl = makeController({ deviceQuadrant: dq });
     ctrl.deviceMapper = fakeDeviceMapper;
@@ -1005,7 +1008,6 @@ function makeController(opts) {
     var fakeDeviceMapper = {
         hasMapping: function() { return false; },
         applyGenericMapping: function() {},
-        getPadConfig: function() { return null; }
     };
     var tw = fakeTwister();
     var bw = fakeBitwig({
@@ -1062,7 +1064,6 @@ function makeController(opts) {
     var fakeDeviceMapper = {
         hasMapping: function() { return false; },
         applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
-        getPadConfig: function() { return null; }
     };
     var ctrl = makeController({ twister: tw, bitwig: bw });
     ctrl.deviceMapper = fakeDeviceMapper;
@@ -1081,7 +1082,6 @@ function makeController(opts) {
     var fakeDeviceMapper = {
         hasMapping: function(name) { return name === "Frequalizer Alt"; },
         applyMapping: function(name) { applyCalls.push(name); },
-        getPadConfig: function() { return null; }
     };
     var ctrl = makeController({ twister: tw, bitwig: bw });
     ctrl.deviceMapper = fakeDeviceMapper;
@@ -1097,7 +1097,6 @@ function makeController(opts) {
     var fakeDeviceMapper = {
         hasMapping: function() { return false; },
         applyGenericMapping: function() {},
-        getPadConfig: function() { return null; }
     };
     var bw = fakeBitwig({
         groups: { 5: 10 },
@@ -1112,54 +1111,53 @@ function makeController(opts) {
     assert(bw._selectNoneCalls === 1, "exit callback should call selectNone on cursor device");
 })();
 
-// onDeviceChanged passes pad config from mapped device to device quadrant
+// onDeviceChanged passes pad mapper from padMappers registry to device quadrant
 (function() {
     var dq = fakeDeviceQuadrant();
-    var testPads = [{ pad: 1, paramName: 'Mode', value: 0, resolution: 5, color: 'white' }];
+    var testPadMapper = fakePadMapper();
+    var padMappers = { 'TestDevice': function() { return testPadMapper; } };
     var fakeDeviceMapper = {
         hasMapping: function(name) { return name === "TestDevice"; },
-        applyMapping: function() {},
-        getPadConfig: function(name) { return name === "TestDevice" ? testPads : null; }
+        applyMapping: function() {}
     };
-    var ctrl = makeController({ deviceQuadrant: dq });
+    var ctrl = makeController({ deviceQuadrant: dq, padMappers: padMappers });
     ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.onDeviceChanged("TestDevice");
-    assert(dq._lastPadConfig === testPads, "should pass pad config to device quadrant activate");
+    assert(dq._lastPadMapper === testPadMapper, "should pass pad mapper to device quadrant activate");
 })();
 
-// onDeviceChanged passes null pad config for non-mapped device
+// onDeviceChanged passes null pad mapper when no padMappers entry exists
 (function() {
     var dq = fakeDeviceQuadrant();
     var fakeDeviceMapper = {
         hasMapping: function() { return false; },
-        applyGenericMapping: function() {},
-        getPadConfig: function() { return null; }
+        applyGenericMapping: function() {}
     };
     var ctrl = makeController({ deviceQuadrant: dq });
     ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.onDeviceChanged("SomePlugin");
-    assert(dq._lastPadConfig === null, "should pass null pad config for non-mapped device");
+    assert(dq._lastPadMapper === null, "should pass null pad mapper for non-mapped device");
 })();
 
-// switching devices while already active calls applyPadConfig instead of activate
+// switching devices while already active calls applyPadMapper instead of activate
 (function() {
     var dq = fakeDeviceQuadrant();
-    var testPads = [{ pad: 1 }];
+    var testPadMapper = fakePadMapper();
+    var padMappers = { 'DeviceA': function() { return testPadMapper; } };
     var fakeDeviceMapper = {
         hasMapping: function(name) { return name === "DeviceA"; },
         applyMapping: function() {},
-        applyGenericMapping: function() {},
-        getPadConfig: function(name) { return name === "DeviceA" ? testPads : null; }
+        applyGenericMapping: function() {}
     };
-    var ctrl = makeController({ deviceQuadrant: dq });
+    var ctrl = makeController({ deviceQuadrant: dq, padMappers: padMappers });
     ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.onDeviceChanged("DeviceA");
     assert(dq.calls.filter(function(c) { return c === 'activate'; }).length === 1, "first device should activate");
     // Switch to a different device while already active
     ctrl.onDeviceChanged("OtherDevice");
     assert(dq.calls.filter(function(c) { return c === 'activate'; }).length === 1, "should NOT re-activate");
-    assert(dq.calls.filter(function(c) { return c === 'applyPadConfig'; }).length === 1, "should call applyPadConfig for second device");
-    assert(dq._lastPadConfig === null, "second device has no pad config");
+    assert(dq.calls.filter(function(c) { return c === 'applyPadMapper'; }).length === 1, "should call applyPadMapper for second device");
+    assert(dq._lastPadMapper === null, "second device has no pad mapper");
 })();
 
 // onLaunchpadMidi note-on calls deviceQuadrant.handleModePadPressed when active
@@ -1205,7 +1203,6 @@ function makeController(opts) {
     var fakeDeviceMapper = {
         hasMapping: function(name) { return name === 'MyDevice'; },
         applyMapping: function(name) { applyCalls.push(name); },
-        getPadConfig: function() { return null; }
     };
     var ctrl = makeController({ mappers: mappers });
     ctrl.deviceMapper = fakeDeviceMapper;
@@ -1214,16 +1211,17 @@ function makeController(opts) {
     assert(applyCalls.length === 0, "should NOT call deviceMapper.applyMapping");
 })();
 
-// onDeviceChanged: mapper gets pad config from mapper.getPadConfig()
+// onDeviceChanged: padMappers factory creates pad mapper independently of twister mapper
 (function() {
-    var testPads = [{ pad: 9, paramName: 'Mode' }];
     var createdMapper = fakeMapper();
-    createdMapper._padConfig = testPads;
+    var createdPadMapper = fakePadMapper();
     var mappers = { 'PadDevice': function() { return createdMapper; } };
+    var padMappers = { 'PadDevice': function() { return createdPadMapper; } };
     var dq = fakeDeviceQuadrant();
-    var ctrl = makeController({ mappers: mappers, deviceQuadrant: dq });
+    var ctrl = makeController({ mappers: mappers, padMappers: padMappers, deviceQuadrant: dq });
     ctrl.onDeviceChanged('PadDevice');
-    assert(dq._lastPadConfig === testPads, "should pass mapper pad config to device quadrant");
+    assert(dq._lastPadMapper === createdPadMapper, "should pass pad mapper to device quadrant");
+    assert(ctrl._activeMapper === createdMapper, "twister mapper should also be active");
 })();
 
 // onDeviceChanged: non-mapper device falls through (no _activeMapper)
@@ -1233,7 +1231,6 @@ function makeController(opts) {
     var fakeDeviceMapper = {
         hasMapping: function() { return false; },
         applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
-        getPadConfig: function() { return null; }
     };
     var ctrl = makeController({ mappers: mappers });
     ctrl.deviceMapper = fakeDeviceMapper;

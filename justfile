@@ -28,3 +28,4 @@ test:
     node FrequalizerDevice.test.js
     node TwisterPainter.test.js
     node FrequalizerTwisterMapper.test.js
+    node FrequalizerPadMapper.test.js

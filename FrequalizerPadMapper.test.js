@@ -1,0 +1,234 @@
+var FrequalizerPadMapper = require('./FrequalizerPadMapper');
+var t = require('./test-assert');
+var assert = t.assert;
+
+// ---- helpers ----
+
+function fakeApi(opts) {
+    opts = opts || {};
+    var paints = [];
+    var behaviors = {};
+    var paramNames = opts.paramNames || {};
+    var paramCalls = [];
+    return {
+        paints: paints,
+        behaviors: behaviors,
+        paramCalls: paramCalls,
+        paintPad: function(padIndex, color) { paints.push({ padIndex: padIndex, color: color }); },
+        registerPadBehavior: function(padIndex, callback) { behaviors[padIndex] = callback; },
+        resolveParamName: function(name) {
+            for (var id in paramNames) {
+                if (paramNames[id] === name) return id;
+            }
+            return null;
+        },
+        setDeviceParam: function(paramId, value, resolution) {
+            paramCalls.push({ id: paramId, value: value, resolution: resolution });
+        }
+    };
+}
+
+// ---- tests ----
+
+// activate resolves param names and registers behaviors for all 5 pads
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    assert(api.behaviors[9], 'pad 9 (Stereo) should have behavior');
+    assert(api.behaviors[5], 'pad 5 (Mid) should have behavior');
+    assert(api.behaviors[6], 'pad 6 (Side) should have behavior');
+    assert(api.behaviors[1], 'pad 1 (MidSolo) should have behavior');
+    assert(api.behaviors[2], 'pad 2 (SideSolo) should have behavior');
+})();
+
+// activate paints pads with deselectedColor initially
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    var pad9Paint = api.paints.filter(function(p) { return p.padIndex === 9 && p.color === 1; });
+    assert(pad9Paint.length > 0, 'pad 9 should be painted with deselectedColor');
+    var pad5Paint = api.paints.filter(function(p) { return p.padIndex === 5 && p.color === 1; });
+    assert(pad5Paint.length > 0, 'pad 5 should be painted with deselectedColor');
+    var pad1Paint = api.paints.filter(function(p) { return p.padIndex === 1 && p.color === 1; });
+    assert(pad1Paint.length > 0, 'pad 1 should be painted with deselectedColor');
+})();
+
+// click sets the correct value on the device
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    api.behaviors[5](); // pad 5: value=1, resolution=5
+    assert(api.paramCalls.length === 1, 'should call setDeviceParam');
+    assert(api.paramCalls[0].id === 'PID_MODE', 'should use resolved param ID');
+    assert(api.paramCalls[0].value === 1, 'should set raw value 1');
+    assert(api.paramCalls[0].resolution === 5, 'should pass resolution');
+})();
+
+// onParamValueChanged highlights the active mode pad, deselects others
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    var paintsBefore = api.paints.length;
+    mapper.onParamValueChanged('PID_MODE', 0.25); // Mid = value 1, normalized 1/4
+    var newPaints = api.paints.slice(paintsBefore);
+    var pad5 = newPaints.filter(function(p) { return p.padIndex === 5; });
+    assert(pad5.length > 0 && pad5[0].color === 21, 'Mid pad should get selectedColor');
+    var pad9 = newPaints.filter(function(p) { return p.padIndex === 9; });
+    assert(pad9.length > 0 && pad9[0].color === 1, 'Stereo pad should get deselectedColor');
+})();
+
+// onParamValueChanged ignores unrelated param
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    var paintsBefore = api.paints.length;
+    mapper.onParamValueChanged('PID_OTHER', 0.5);
+    assert(api.paints.length === paintsBefore, 'should not repaint for unrelated param');
+})();
+
+// deactivate clears state
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    mapper.deactivate();
+    assert(mapper._padEntries.length === 0, 'pad entries should be cleared');
+    assert(mapper._modeParamId === null, 'mode param should be cleared');
+    assert(mapper._pendingPadEntries.length === 0, 'pending entries should be cleared');
+    assert(mapper._api === null, 'api reference should be cleared');
+})();
+
+// deferred resolution: unresolvable names stashed as pending
+(function() {
+    var api = fakeApi({ paramNames: {} });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    assert(mapper._padEntries.length === 0, 'no entries should be resolved');
+    assert(mapper._pendingPadEntries.length === 5, 'all 5 entries should be pending');
+})();
+
+// onDirectParamNameChanged resolves pending entries
+(function() {
+    var api = fakeApi({ paramNames: {} });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    mapper.onDirectParamNameChanged('PID_MODE', 'Mode');
+    assert(mapper._padEntries.length === 5, 'all 5 entries should be resolved');
+    assert(mapper._pendingPadEntries.length === 0, 'no entries should remain pending');
+    assert(mapper._modeParamId === 'PID_MODE', 'mode param should be tracked');
+    assert(api.behaviors[9], 'pad 9 should have behavior after deferred resolve');
+    assert(api.behaviors[5], 'pad 5 should have behavior after deferred resolve');
+})();
+
+// deferred resolution click sends correct value
+(function() {
+    var api = fakeApi({ paramNames: {} });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    mapper.onDirectParamNameChanged('PID_MODE', 'Mode');
+    api.behaviors[5](); // pad 5: value=1, resolution=5
+    assert(api.paramCalls[0].value === 1, 'deferred click should send raw value');
+    assert(api.paramCalls[0].resolution === 5, 'deferred click should pass resolution');
+})();
+
+// onDirectParamNameChanged ignores unrelated names
+(function() {
+    var api = fakeApi({ paramNames: {} });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    mapper.onDirectParamNameChanged('PID_OTHER', 'Frequency');
+    assert(mapper._pendingPadEntries.length === 5, 'unrelated name should not resolve pending entries');
+    assert(mapper._padEntries.length === 0, 'no entries should be resolved');
+})();
+
+// onDirectParamNameChanged is no-op when no pending entries
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    var entriesBefore = mapper._padEntries.length;
+    mapper.onDirectParamNameChanged('PID_MODE', 'Mode');
+    assert(mapper._padEntries.length === entriesBefore, 'should not add duplicate entries');
+})();
+
+// handlePadPressed optimistically repaints all highlights
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    var paintsBefore = api.paints.length;
+    mapper.handlePadPressed(5); // pad 5: value=1, normalized=0.25
+    var newPaints = api.paints.slice(paintsBefore);
+    var pad5 = newPaints.filter(function(p) { return p.padIndex === 5; });
+    assert(pad5.length > 0 && pad5[0].color === 21, 'pressed pad should get selectedColor');
+    var pad9 = newPaints.filter(function(p) { return p.padIndex === 9; });
+    assert(pad9.length > 0 && pad9[0].color === 1, 'other pad should get deselectedColor');
+})();
+
+// handlePadPressed switches highlight when pressing different pads
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    mapper.handlePadPressed(9); // Stereo first
+    var paintsBefore = api.paints.length;
+    mapper.handlePadPressed(6); // now Side
+    var newPaints = api.paints.slice(paintsBefore);
+    var pad6 = newPaints.filter(function(p) { return p.padIndex === 6; });
+    var pad9 = newPaints.filter(function(p) { return p.padIndex === 9; });
+    assert(pad6.length > 0 && pad6[0].color === 21, 'newly pressed pad should get selectedColor');
+    assert(pad9.length > 0 && pad9[0].color === 1, 'previously active pad should get deselectedColor');
+})();
+
+// handlePadPressed is no-op for unrelated pad index
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    var paintsBefore = api.paints.length;
+    mapper.handlePadPressed(13); // not a configured pad
+    assert(api.paints.length === paintsBefore, 'unrelated pad should not trigger repaint');
+})();
+
+// selectedWhen multi-value: Mid pad highlights for MidSolo (value 3, normalized 0.75)
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    var paintsBefore = api.paints.length;
+    mapper.onParamValueChanged('PID_MODE', 0.75); // MidSolo = 3/4
+    var newPaints = api.paints.slice(paintsBefore);
+    var pad5 = newPaints.filter(function(p) { return p.padIndex === 5; });
+    assert(pad5.length > 0 && pad5[0].color === 21, 'Mid pad should highlight for MidSolo');
+})();
+
+// selectedWhen multi-value: Side pad highlights for SideSolo (value 4, normalized 1.0)
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    var paintsBefore = api.paints.length;
+    mapper.onParamValueChanged('PID_MODE', 1.0); // SideSolo = 4/4
+    var newPaints = api.paints.slice(paintsBefore);
+    var pad6 = newPaints.filter(function(p) { return p.padIndex === 6; });
+    assert(pad6.length > 0 && pad6[0].color === 21, 'Side pad should highlight for SideSolo');
+})();
+
+// Stereo pad does NOT highlight when mode = Mid
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    var paintsBefore = api.paints.length;
+    mapper.onParamValueChanged('PID_MODE', 0.25); // Mid = 1/4
+    var newPaints = api.paints.slice(paintsBefore);
+    var pad9 = newPaints.filter(function(p) { return p.padIndex === 9; });
+    assert(pad9.length > 0 && pad9[0].color === 1, 'Stereo pad should NOT highlight when Mid active');
+})();
+
+process.exit(t.summary('FrequalizerPadMapper'));

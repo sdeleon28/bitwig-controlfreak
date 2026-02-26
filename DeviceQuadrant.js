@@ -1,7 +1,7 @@
 /**
  * Device control quadrant - replaces bottom-left track grid when a device is focused.
  * Provides exit, bypass, and solo buttons on pads 14-16, with pads 1-13 available
- * for device-specific behaviors.
+ * for device-specific behaviors via a pad mapper.
  */
 class DeviceQuadrantHW {
     /**
@@ -28,21 +28,19 @@ class DeviceQuadrantHW {
         this._onExitCallback = null;
         this._deviceEnabled = true;
         this._cursorTrackSoloed = false;
-        this._padEntries = [];       // resolved pad config entries [{padNote, paramId, value, resolution, color}]
-        this._pendingPadEntries = []; // unresolved entries awaiting param name resolution
-        this._modeParamId = null;    // tracked param ID for mode highlight
-        this._currentModeValue = -1; // current normalized mode value
+        this._activePadMapper = null;
     }
 
     /**
      * Activate device quadrant mode.
      * Unlinks track grid pads, registers device control behaviors, paints pads.
      * @param {Function} onExitCallback - Called when user exits device mode (pad 16)
-     * @param {Array} [padConfig] - Optional device-specific pad configuration
+     * @param {Object} [padMapper] - Optional pad mapper instance with activate/deactivate/etc.
      */
-    activate(onExitCallback, padConfig) {
+    activate(onExitCallback, padMapper) {
         this._active = true;
         this._onExitCallback = onExitCallback || null;
+        this._activePadMapper = padMapper || null;
 
         var pads = this.launchpadQuadrant.bottomLeft.pads;
         var page = this.pager.getActivePage();
@@ -79,9 +77,9 @@ class DeviceQuadrantHW {
             if (cb) cb();
         }, null, this.pageNumber);
 
-        // Apply device-specific pad config (mode buttons etc.)
-        if (padConfig) {
-            this._applyPadConfig(padConfig);
+        // Activate pad mapper if provided
+        if (this._activePadMapper) {
+            this._activePadMapper.activate(this._buildQuadrantApi());
         }
 
         if (this.debug) this.println("DeviceQuadrant activated");
@@ -95,10 +93,11 @@ class DeviceQuadrantHW {
         if (!this._active) return;
         this._active = false;
         this._onExitCallback = null;
-        this._padEntries = [];
-        this._pendingPadEntries = [];
-        this._modeParamId = null;
-        this._currentModeValue = -1;
+
+        if (this._activePadMapper) {
+            this._activePadMapper.deactivate();
+            this._activePadMapper = null;
+        }
 
         var pads = this.launchpadQuadrant.bottomLeft.pads;
         var page = this.pager.getActivePage();
@@ -120,44 +119,47 @@ class DeviceQuadrantHW {
 
     /**
      * Optimistic pad color update triggered directly from the MIDI handler.
-     * Runs the moment MIDI arrives — no Bitwig API dependency.
+     * Translates MIDI note to 1-based pad index and forwards to pad mapper.
      * @param {number} padNote - MIDI note of the pressed pad
      */
     handleModePadPressed(padNote) {
-        if (!this._active) return;
-        for (var i = 0; i < this._padEntries.length; i++) {
-            if (this._padEntries[i].padNote === padNote) {
-                this._currentModeValue = this._padEntries[i].setNormalized;
-                this._repaintPadHighlights();
+        if (!this._active || !this._activePadMapper) return;
+        var pads = this.launchpadQuadrant.bottomLeft.pads;
+        for (var i = 0; i < 13; i++) {
+            if (pads[i] === padNote) {
+                this._activePadMapper.handlePadPressed(i + 1);
                 return;
             }
         }
     }
 
     /**
-     * Re-apply pad config while already active (e.g. when switching devices).
-     * Clears old device pad entries and applies new config on pads 1-13.
-     * @param {Array|null} padConfig - New pad config, or null to clear
+     * Replace the active pad mapper while already active (e.g. when switching devices).
+     * Deactivates old mapper, clears pads 1-13, activates new mapper.
+     * @param {Object|null} padMapper - New pad mapper instance, or null to clear
      */
-    applyPadConfig(padConfig) {
-        if (this.debug) this.println("applyPadConfig active=" + this._active + " padConfig=" + (padConfig ? padConfig.length + " entries" : "null"));
+    applyPadMapper(padMapper) {
+        if (this.debug) this.println("applyPadMapper active=" + this._active + " padMapper=" + (padMapper ? "present" : "null"));
         if (!this._active) return;
+
+        // Deactivate old mapper
+        if (this._activePadMapper) {
+            this._activePadMapper.deactivate();
+        }
 
         var pads = this.launchpadQuadrant.bottomLeft.pads;
         var page = this.pager.getActivePage();
 
-        // Clear old device pads (1-13)
+        // Clear device pads (1-13)
         for (var i = 0; i < 13; i++) {
             this.launchpad.clearPadBehavior(pads[i]);
             this.pager.requestPaint(page, pads[i], this.launchpad.colors.off);
         }
-        this._padEntries = [];
-        this._pendingPadEntries = [];
-        this._modeParamId = null;
-        this._currentModeValue = -1;
 
-        if (padConfig) {
-            this._applyPadConfig(padConfig);
+        this._activePadMapper = padMapper || null;
+
+        if (this._activePadMapper) {
+            this._activePadMapper.activate(this._buildQuadrantApi());
         }
     }
 
@@ -185,15 +187,13 @@ class DeviceQuadrantHW {
 
     /**
      * Called by Bitwig observer when a direct parameter normalized value changes.
-     * Updates pad highlights when the tracked mode param changes.
+     * Forwards to active pad mapper.
      * @param {string} id - Parameter ID
      * @param {number} value - Normalized value (0-1)
      */
     onParamValueChanged(id, value) {
-        if (!this._active) return;
-        if (!this._modeParamId || id !== this._modeParamId) return;
-        this._currentModeValue = value;
-        this._repaintPadHighlights();
+        if (!this._active || !this._activePadMapper) return;
+        this._activePadMapper.onParamValueChanged(id, value);
     }
 
     /**
@@ -211,123 +211,38 @@ class DeviceQuadrantHW {
 
     /**
      * Called by Bitwig observer when a direct parameter name is resolved.
-     * Registers any pending pad entries that match this name.
+     * Forwards to active pad mapper.
      * @param {string} id - Parameter ID
      * @param {string} name - Parameter display name
      */
     onDirectParamNameChanged(id, name) {
-        if (!this._active || this._pendingPadEntries.length === 0) return;
-
-        var remaining = [];
-        var resolved = false;
-        for (var i = 0; i < this._pendingPadEntries.length; i++) {
-            var entry = this._pendingPadEntries[i];
-            if (entry.paramName === name) {
-                this._registerPadEntry(entry, id);
-                resolved = true;
-            } else {
-                remaining.push(entry);
-            }
-        }
-        this._pendingPadEntries = remaining;
-
-        if (resolved && this._padEntries.length > 0 && this._currentModeValue >= 0) {
-            this._repaintPadHighlights();
-        }
+        if (!this._active || !this._activePadMapper) return;
+        this._activePadMapper.onDirectParamNameChanged(id, name);
     }
 
     /**
-     * Apply device-specific pad configuration.
-     * Registers click behaviors for each pad and paints them.
-     * Entries whose param name can't be resolved yet are stashed in _pendingPadEntries.
-     * @param {Array} padConfig - Array of {pad, paramName, value, resolution, color}
+     * Build a constrained API object for pad mappers.
+     * Only exposes pads 1-13 via 1-based indices.
+     * @returns {Object} QuadrantAPI
      */
-    _applyPadConfig(padConfig) {
-        this._padEntries = [];
-        this._pendingPadEntries = [];
-        this._modeParamId = null;
-
-        for (var i = 0; i < padConfig.length; i++) {
-            var entry = padConfig[i];
-            var paramId = this._resolveParamName(entry.paramName);
-            if (!paramId) {
-                this._pendingPadEntries.push(entry);
-                continue;
-            }
-            this._registerPadEntry(entry, paramId);
-        }
-
-        if (this._padEntries.length > 0 && this._currentModeValue >= 0) {
-            this._repaintPadHighlights();
-        }
-    }
-
-    /**
-     * Register a single pad entry: store state, register click behavior, paint deselected.
-     * @param {Object} entry - {pad, paramName, value, resolution, selectedColor, deselectedColor, selectedWhen}
-     * @param {string} paramId - Resolved parameter ID
-     */
-    _registerPadEntry(entry, paramId) {
-        var pads = this.launchpadQuadrant.bottomLeft.pads;
-        var page = this.pager.getActivePage();
-        var device = this.bitwig.getCursorDevice();
-
-        var padIndex = entry.pad - 1;
-        var padNote = pads[padIndex];
-        var resolution = entry.resolution;
-
-        // Pre-normalize selectedWhen values
-        var selectedWhenNormalized = [];
-        var selectedWhen = entry.selectedWhen || [entry.value];
-        for (var i = 0; i < selectedWhen.length; i++) {
-            selectedWhenNormalized.push(selectedWhen[i] / (resolution - 1));
-        }
-
-        this._padEntries.push({
-            padNote: padNote,
-            paramId: paramId,
-            setNormalized: entry.value / (resolution - 1),
-            selectedColor: entry.selectedColor,
-            deselectedColor: entry.deselectedColor,
-            selectedWhenNormalized: selectedWhenNormalized
-        });
-
-        // Track the mode param (all entries share the same param)
-        if (!this._modeParamId) {
-            this._modeParamId = paramId;
-        }
-
-        // Register click: set the parameter to this pad's raw value
+    _buildQuadrantApi() {
         var self = this;
-        (function(pid, rawValue, res) {
-            self.launchpad.registerPadBehavior(padNote, function() {
-                device.setDirectParameterValueNormalized(pid, rawValue, res);
-            }, null, self.pageNumber);
-        })(paramId, entry.value, entry.resolution);
+        var pads = this.launchpadQuadrant.bottomLeft.pads;
 
-        // Paint deselected initially
-        this.pager.requestPaint(page, padNote, entry.deselectedColor);
-    }
-
-    /**
-     * Repaint all configured pad highlights based on current mode value.
-     * Checks if current mode matches any value in selectedWhenNormalized.
-     */
-    _repaintPadHighlights() {
-        var page = this.pager.getActivePage();
-        var EPSILON = 0.01;
-        for (var i = 0; i < this._padEntries.length; i++) {
-            var entry = this._padEntries[i];
-            var isActive = false;
-            for (var j = 0; j < entry.selectedWhenNormalized.length; j++) {
-                if (Math.abs(entry.selectedWhenNormalized[j] - this._currentModeValue) < EPSILON) {
-                    isActive = true;
-                    break;
-                }
+        return {
+            paintPad: function(padIndex, color) {
+                self.pager.requestPaint(self.pager.getActivePage(), pads[padIndex - 1], color);
+            },
+            registerPadBehavior: function(padIndex, callback) {
+                self.launchpad.registerPadBehavior(pads[padIndex - 1], callback, null, self.pageNumber);
+            },
+            resolveParamName: function(name) {
+                return self._resolveParamName(name);
+            },
+            setDeviceParam: function(paramId, value, resolution) {
+                self.bitwig.getCursorDevice().setDirectParameterValueNormalized(paramId, value, resolution);
             }
-            var color = isActive ? entry.selectedColor : entry.deselectedColor;
-            this.pager.requestPaint(page, entry.padNote, color);
-        }
+        };
     }
 
     _paintBypassPad() {

@@ -16,7 +16,8 @@ class ControllerHW {
      * @param {Object} deps.host - Bitwig host
      * @param {Object} deps.deviceMapper - DeviceMapper instance
      * @param {Object} deps.deviceQuadrant - DeviceQuadrant instance
-     * @param {Object} deps.mappers - Dict of device name → mapper factory function
+     * @param {Object} deps.mappers - Dict of device name → twister mapper factory function
+     * @param {Object} deps.padMappers - Dict of device name → pad mapper factory function
      * @param {Object} deps.painter - TwisterPainter instance
      * @param {boolean} deps.debug - Debug flag
      * @param {Function} deps.println - Print function
@@ -36,6 +37,7 @@ class ControllerHW {
         this.deviceMapper = deps.deviceMapper || null;
         this.deviceQuadrant = deps.deviceQuadrant || null;
         this.mappers = deps.mappers || {};
+        this.padMappers = deps.padMappers || {};
         this.painter = deps.painter || null;
         this.debug = deps.debug || false;
         this.println = deps.println || function() {};
@@ -583,7 +585,6 @@ class ControllerHW {
     onDeviceChanged(deviceName) {
         if (!deviceName) return;
 
-        var padConfig = null;
         this._activeMapper = null;
 
         if (this.mappers[deviceName]) {
@@ -592,18 +593,22 @@ class ControllerHW {
                 painter: this.painter,
                 println: this.println
             });
-            padConfig = this._activeMapper.getPadConfig ? this._activeMapper.getPadConfig() : null;
             this.twister.unlinkAll();
         } else if (this.deviceMapper && this.deviceMapper.hasMapping(deviceName)) {
             this.deviceMode = true;
             this.deviceMapper.applyMapping(deviceName);
-            padConfig = this.deviceMapper.getPadConfig(deviceName);
         } else if (this._deviceHasRemoteControls()) {
             this.deviceMode = true;
             this.twister.linkEncodersToRemoteControls();
         } else if (this.deviceMapper) {
             this.deviceMode = true;
             this.deviceMapper.applyGenericMapping();
+        }
+
+        // Independent pad mapper lookup
+        var padMapper = null;
+        if (this.padMappers[deviceName]) {
+            padMapper = this.padMappers[deviceName]();
         }
 
         if (this.deviceQuadrant) {
@@ -613,9 +618,9 @@ class ControllerHW {
                     self.deviceMode = false;
                     self.bitwig.getCursorDevice().selectNone();
                     self.selectGroup(self.selectedGroup);
-                }, padConfig);
+                }, padMapper);
             } else {
-                this.deviceQuadrant.applyPadConfig(padConfig);
+                this.deviceQuadrant.applyPadMapper(padMapper);
             }
         }
     }
