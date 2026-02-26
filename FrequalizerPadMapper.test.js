@@ -156,45 +156,6 @@ function fakeApi(opts) {
     assert(mapper._padEntries.length === entriesBefore, 'should not add duplicate entries');
 })();
 
-// handlePadPressed optimistically repaints all highlights
-(function() {
-    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
-    var mapper = new FrequalizerPadMapper();
-    mapper.activate(api);
-    var paintsBefore = api.paints.length;
-    mapper.handlePadPressed(5); // pad 5: value=1, normalized=0.25
-    var newPaints = api.paints.slice(paintsBefore);
-    var pad5 = newPaints.filter(function(p) { return p.padIndex === 5; });
-    assert(pad5.length > 0 && pad5[0].color === 21, 'pressed pad should get selectedColor');
-    var pad9 = newPaints.filter(function(p) { return p.padIndex === 9; });
-    assert(pad9.length > 0 && pad9[0].color === 1, 'other pad should get deselectedColor');
-})();
-
-// handlePadPressed switches highlight when pressing different pads
-(function() {
-    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
-    var mapper = new FrequalizerPadMapper();
-    mapper.activate(api);
-    mapper.handlePadPressed(9); // Stereo first
-    var paintsBefore = api.paints.length;
-    mapper.handlePadPressed(6); // now Side
-    var newPaints = api.paints.slice(paintsBefore);
-    var pad6 = newPaints.filter(function(p) { return p.padIndex === 6; });
-    var pad9 = newPaints.filter(function(p) { return p.padIndex === 9; });
-    assert(pad6.length > 0 && pad6[0].color === 21, 'newly pressed pad should get selectedColor');
-    assert(pad9.length > 0 && pad9[0].color === 1, 'previously active pad should get deselectedColor');
-})();
-
-// handlePadPressed is no-op for unrelated pad index
-(function() {
-    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
-    var mapper = new FrequalizerPadMapper();
-    mapper.activate(api);
-    var paintsBefore = api.paints.length;
-    mapper.handlePadPressed(13); // not a configured pad
-    assert(api.paints.length === paintsBefore, 'unrelated pad should not trigger repaint');
-})();
-
 // selectedWhen multi-value: Mid pad highlights for MidSolo (value 3, normalized 0.75)
 (function() {
     var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });

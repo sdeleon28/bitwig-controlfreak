@@ -97,20 +97,6 @@ class FrequalizerPadMapper {
     }
 
     /**
-     * Optimistic pad highlight update triggered directly from the MIDI handler.
-     * @param {number} padIndex - 1-based pad index
-     */
-    handlePadPressed(padIndex) {
-        for (var i = 0; i < this._padEntries.length; i++) {
-            if (this._padEntries[i].padIndex === padIndex) {
-                this._currentModeValue = this._padEntries[i].setNormalized;
-                this._repaintPadHighlights();
-                return;
-            }
-        }
-    }
-
-    /**
      * Register a single pad entry: store state, register click behavior, paint deselected.
      * @param {Object} entry - Config entry from FREQ_PAD_CONFIG
      * @param {string} paramId - Resolved parameter ID

@@ -505,9 +505,6 @@ class ControllerHW {
         }
 
         if (status === 0x90 && data2 > 0) {
-            if (this.deviceQuadrant && this.deviceQuadrant.isActive()) {
-                this.deviceQuadrant.handleModePadPressed(data1);
-            }
             if (this.pages.handlePadPress(data1)) {
                 return;
             }

@@ -118,22 +118,6 @@ class DeviceQuadrantHW {
     }
 
     /**
-     * Optimistic pad color update triggered directly from the MIDI handler.
-     * Translates MIDI note to 1-based pad index and forwards to pad mapper.
-     * @param {number} padNote - MIDI note of the pressed pad
-     */
-    handleModePadPressed(padNote) {
-        if (!this._active || !this._activePadMapper) return;
-        var pads = this.launchpadQuadrant.bottomLeft.pads;
-        for (var i = 0; i < 13; i++) {
-            if (pads[i] === padNote) {
-                this._activePadMapper.handlePadPressed(i + 1);
-                return;
-            }
-        }
-    }
-
-    /**
      * Replace the active pad mapper while already active (e.g. when switching devices).
      * Deactivates old mapper, clears pads 1-13, activates new mapper.
      * @param {Object|null} padMapper - New pad mapper instance, or null to clear
@@ -193,7 +177,8 @@ class DeviceQuadrantHW {
      */
     onParamValueChanged(id, value) {
         if (!this._active || !this._activePadMapper) return;
-        this._activePadMapper.onParamValueChanged(id, value);
+        var normalizedId = id.replace('ROOT_GENERIC_MODULE/', '');
+        this._activePadMapper.onParamValueChanged(normalizedId, value);
     }
 
     /**
@@ -217,7 +202,8 @@ class DeviceQuadrantHW {
      */
     onDirectParamNameChanged(id, name) {
         if (!this._active || !this._activePadMapper) return;
-        this._activePadMapper.onDirectParamNameChanged(id, name);
+        var normalizedId = id.replace('ROOT_GENERIC_MODULE/', '');
+        this._activePadMapper.onDirectParamNameChanged(normalizedId, name);
     }
 
     /**

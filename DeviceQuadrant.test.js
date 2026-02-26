@@ -90,8 +90,7 @@ function fakePadMapper() {
         activate: function(api) { this._activateApi = api; calls.push('activate'); },
         deactivate: function() { calls.push('deactivate'); },
         onParamValueChanged: function(id, value) { calls.push({ method: 'onParamValueChanged', id: id, value: value }); },
-        onDirectParamNameChanged: function(id, name) { calls.push({ method: 'onDirectParamNameChanged', id: id, name: name }); },
-        handlePadPressed: function(padIndex) { calls.push({ method: 'handlePadPressed', padIndex: padIndex }); }
+        onDirectParamNameChanged: function(id, name) { calls.push({ method: 'onDirectParamNameChanged', id: id, name: name }); }
     };
 }
 
@@ -364,6 +363,17 @@ function makeSubject(opts) {
     assert(paramCalls[0].value === 0.25, 'should pass correct value');
 })();
 
+// onParamValueChanged strips ROOT_GENERIC_MODULE/ prefix before forwarding
+(function() {
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.activate(null, pm);
+    dq.onParamValueChanged('ROOT_GENERIC_MODULE/CONTENTS/PID3339a3', 0.5);
+    var paramCalls = pm.calls.filter(function(c) { return c.method === 'onParamValueChanged'; });
+    assert(paramCalls.length === 1, 'should forward onParamValueChanged');
+    assert(paramCalls[0].id === 'CONTENTS/PID3339a3', 'should strip ROOT_GENERIC_MODULE/ prefix');
+})();
+
 // onParamValueChanged is no-op when inactive
 (function() {
     var pm = fakePadMapper();
@@ -395,6 +405,17 @@ function makeSubject(opts) {
     assert(nameCalls[0].name === 'Mode', 'should pass correct name');
 })();
 
+// onDirectParamNameChanged strips ROOT_GENERIC_MODULE/ prefix before forwarding
+(function() {
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.activate(null, pm);
+    dq.onDirectParamNameChanged('ROOT_GENERIC_MODULE/CONTENTS/PID3339a3', 'Mode');
+    var nameCalls = pm.calls.filter(function(c) { return c.method === 'onDirectParamNameChanged'; });
+    assert(nameCalls.length === 1, 'should forward onDirectParamNameChanged');
+    assert(nameCalls[0].id === 'CONTENTS/PID3339a3', 'should strip ROOT_GENERIC_MODULE/ prefix');
+})();
+
 // onDirectParamNameChanged is no-op when inactive
 (function() {
     var pm = fakePadMapper();
@@ -409,66 +430,6 @@ function makeSubject(opts) {
     dq.activate(); // no padMapper
     dq.onDirectParamNameChanged('PID_MODE', 'Mode'); // should not throw
     assert(true, 'should be no-op without padMapper');
-})();
-
-// handleModePadPressed translates MIDI note to padIndex and forwards
-(function() {
-    var pm = fakePadMapper();
-    var dq = makeSubject();
-    dq.activate(null, pm);
-    // pad 5 = index 4 = MIDI note 21 (from fakeQuadrant pads array)
-    dq.handleModePadPressed(21);
-    var pressCalls = pm.calls.filter(function(c) { return c.method === 'handlePadPressed'; });
-    assert(pressCalls.length === 1, 'should forward handlePadPressed');
-    assert(pressCalls[0].padIndex === 5, 'should translate MIDI note 21 to padIndex 5');
-})();
-
-// handleModePadPressed translates different pad notes correctly
-(function() {
-    var pm = fakePadMapper();
-    var dq = makeSubject();
-    dq.activate(null, pm);
-    // pad 1 = index 0 = MIDI note 11
-    dq.handleModePadPressed(11);
-    // pad 9 = index 8 = MIDI note 31
-    dq.handleModePadPressed(31);
-    // pad 13 = index 12 = MIDI note 41
-    dq.handleModePadPressed(41);
-    var pressCalls = pm.calls.filter(function(c) { return c.method === 'handlePadPressed'; });
-    assert(pressCalls.length === 3, 'should forward all three presses');
-    assert(pressCalls[0].padIndex === 1, 'MIDI note 11 should be padIndex 1');
-    assert(pressCalls[1].padIndex === 9, 'MIDI note 31 should be padIndex 9');
-    assert(pressCalls[2].padIndex === 13, 'MIDI note 41 should be padIndex 13');
-})();
-
-// handleModePadPressed is no-op for pad notes outside 1-13
-(function() {
-    var pm = fakePadMapper();
-    var dq = makeSubject();
-    dq.activate(null, pm);
-    // pad 14 = MIDI note 42 (solo pad, not forwarded to mapper)
-    dq.handleModePadPressed(42);
-    // unrelated note
-    dq.handleModePadPressed(99);
-    var pressCalls = pm.calls.filter(function(c) { return c.method === 'handlePadPressed'; });
-    assert(pressCalls.length === 0, 'should not forward pads outside 1-13');
-})();
-
-// handleModePadPressed is no-op when no padMapper
-(function() {
-    var dq = makeSubject();
-    dq.activate(); // no padMapper
-    dq.handleModePadPressed(21); // should not throw
-    assert(true, 'should be no-op without padMapper');
-})();
-
-// handleModePadPressed is no-op when inactive
-(function() {
-    var pm = fakePadMapper();
-    var dq = makeSubject();
-    // not activated
-    dq.handleModePadPressed(21);
-    assert(pm.calls.length === 0, 'should not forward when inactive');
 })();
 
 // ---- applyPadMapper tests ----
