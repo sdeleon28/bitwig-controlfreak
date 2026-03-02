@@ -83,4 +83,6 @@ Files are loaded in this specific order via `load()` in `Launchpad.control.js`:
 - Markers accessed via `arranger.createCueMarkerBank(32)`
 - All Bitwig properties need `.markInterested()` before reading and observers added in `init()`
 - Use `host.scheduleTask(callback, null, delayMs)` for delayed execution
-- **API Reference**: file:///Applications/Bitwig%20Studio.app/Contents/Resources/Documentation/control-surface/api/index.html
+- API Reference: /Applications/Bitwig%20Studio.app/Contents/Resources/Documentation/control-surface/api/index.html
+- Pre-loaded API scripts: /Applications/Bitwig Studio.app/Contents/Resources/ControllerScripts/api
+- Example code at ../bitwig-tutorials
