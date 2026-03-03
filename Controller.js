@@ -45,6 +45,8 @@ class ControllerHW {
         this.selectedGroup = null;
         this.deviceMode = false;
         this._activeMapper = null;
+        this._deviceChangeSeq = 0;
+        this._pendingRCCheck = false;
     }
 
     /**
@@ -583,6 +585,11 @@ class ControllerHW {
         if (!deviceName) return;
 
         this._activeMapper = null;
+        this.twister.unlinkAll();
+        if (this.deviceMapper) this.deviceMapper.resetGenericMode();
+        this._pendingRCCheck = false;
+        this._deviceChangeSeq++;
+        var seq = this._deviceChangeSeq;
 
         if (this.mappers[deviceName]) {
             this.deviceMode = true;
@@ -590,16 +597,23 @@ class ControllerHW {
                 painter: this.painter,
                 println: this.println
             });
-            this.twister.unlinkAll();
-        } else if (this.deviceMapper && this.deviceMapper.hasMapping(deviceName)) {
+        } else {
             this.deviceMode = true;
-            this.deviceMapper.applyMapping(deviceName);
-        } else if (this._deviceHasRemoteControls()) {
-            this.deviceMode = true;
-            this.twister.linkEncodersToRemoteControls();
-        } else if (this.deviceMapper) {
-            this.deviceMode = true;
-            this.deviceMapper.applyGenericMapping();
+            this._pendingRCCheck = true;
+            var self = this;
+            if (this.host) {
+                this.host.scheduleTask(function() {
+                    if (self._deviceChangeSeq !== seq) return;
+                    if (!self._pendingRCCheck) return;
+                    self._pendingRCCheck = false;
+                    var hasRC = self._deviceHasRemoteControls();
+                    if (hasRC) {
+                        self.twister.linkEncodersToRemoteControls();
+                    } else if (self.deviceMapper) {
+                        self.deviceMapper.applyGenericMapping();
+                    }
+                }, null, 100);
+            }
         }
 
         // Independent pad mapper lookup
@@ -630,6 +644,18 @@ class ControllerHW {
             if (name && name.length > 0) return true;
         }
         return false;
+    }
+
+    /**
+     * Handle remote control name changes for reactive linking
+     * @param {number} paramIndex - RC parameter index (0-7)
+     * @param {string} name - Parameter name
+     */
+    onRemoteControlNameChanged(paramIndex, name) {
+        if (!this._pendingRCCheck) return;
+        if (!name || name.length === 0) return;
+        this._pendingRCCheck = false;
+        this.twister.linkEncodersToRemoteControls();
     }
 
     /**

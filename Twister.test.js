@@ -50,12 +50,26 @@ function fakeTrack(opts) {
     };
 }
 
-function fakeBitwig(tracks) {
+function fakeBitwig(tracks, opts) {
     tracks = tracks || {};
+    opts = opts || {};
     return {
         getTrack: function(id) { return tracks[id] || null; },
         getFxTracks: function() { return []; },
-        getRemoteControls: function() { return null; }
+        getRemoteControls: function() {
+            if (!opts.remoteControls) return null;
+            var names = opts.remoteControls;
+            var params = {};
+            for (var i = 0; i < 8; i++) {
+                (function(idx) {
+                    params[idx] = {
+                        name: function() { return { get: function() { return names[idx] || ""; } }; },
+                        value: function() { return { get: function() { return 0; }, set: function() {} }; }
+                    };
+                })(i);
+            }
+            return { getParameter: function(i) { return params[i]; } };
+        }
     };
 }
 
@@ -327,6 +341,36 @@ function makeTwister(opts) {
     tw.setEncoderLED(1, 64);  // should not throw
     tw.setEncoderColor(1, 255, 0, 0);  // should not throw
     assert(true, 'no output does not throw');
+})();
+
+// linkEncodersToRemoteControls sets red color on active encoders
+(function() {
+    var out = fakeMidiOutput();
+    var bw = fakeBitwig({}, { remoteControls: ['Cutoff', 'Resonance', '', '', '', '', '', ''] });
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    // Clear messages from construction, then call linkEncodersToRemoteControls
+    out.messages.length = 0;
+    tw.linkEncodersToRemoteControls();
+    // unlinkAll sends clearEncoder for 16 encoders (each sends 0xB0 LED + 0xB1 color + 0xB2 brightness)
+    // then 8 remote control encoders get setEncoderLED + setEncoderColor (0xB1 + 0xB2)
+    // Filter for color messages with the red index (not the clear messages which use index 0)
+    var redIndex = tw.findClosestColorIndex(255, 0, 0);
+    var redColorMsgs = out.messages.filter(function(m) { return m.status === 0xB1 && m.data2 === redIndex; });
+    assert(redColorMsgs.length === 8, "should send 8 red color messages, got " + redColorMsgs.length);
+})();
+
+// findClosestColorIndex: pure blue (0,0,255) maps to index 0 (known edge case)
+(function() {
+    var tw = makeTwister();
+    var idx = tw.findClosestColorIndex(0, 0, 255);
+    assert(idx === 0, 'pure blue (0,0,255) maps to index 0 (edge case), got ' + idx);
+})();
+
+// findClosestColorIndex: shifted blue (0,50,255) returns visible non-zero index
+(function() {
+    var tw = makeTwister();
+    var idx = tw.findClosestColorIndex(0, 50, 255);
+    assert(idx > 0, 'shifted blue (0,50,255) should return non-zero index, got ' + idx);
 })();
 
 // ---- summary ----

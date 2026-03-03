@@ -393,13 +393,13 @@ function makeMapper(opts) {
     assert(directParamCalls[1].id === 'PARAM/Gain', "should target second param");
 })();
 
-// applyGenericMapping uses white color
+// applyGenericMapping uses blue color (slightly shifted to avoid Twister index 0)
 (function() {
     var tw = fakeTwister();
     var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A']) });
     mapper.applyGenericMapping();
-    assert(tw.behaviors[1].color.r === 255 && tw.behaviors[1].color.g === 255 && tw.behaviors[1].color.b === 255,
-        "generic mapping should use white color");
+    assert(tw.behaviors[1].color.r === 0 && tw.behaviors[1].color.g === 50 && tw.behaviors[1].color.b === 255,
+        "generic mapping should use blue color (0, 50, 255)");
 })();
 
 // applyGenericMapping sets initial LEDs from tracked param values
@@ -709,6 +709,29 @@ function makeMapper(opts) {
         "short-form ID should still work, got " + tw.ledValues[1]);
     assert(mapper._paramValues['CONTENTS/PIDaaa'] === 0.5,
         "short-form ID should store correctly");
+})();
+
+// resetGenericMode clears _genericMode without affecting param values
+(function() {
+    var tw = fakeTwister();
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A']) });
+    mapper.applyGenericMapping(); // sets _genericMode = true
+    mapper.onParamValueChanged('PARAM/A', 0.5);
+    mapper.resetGenericMode();
+    assert(mapper._genericMode === false, "_genericMode should be false after resetGenericMode");
+    assert(mapper._paramValues['PARAM/A'] === 0.5, "param values should be preserved");
+})();
+
+// onDirectParamsChanged is no-op after resetGenericMode
+(function() {
+    var tw = fakeTwister();
+    var paramIds = ['PARAM/A'];
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], paramIds) });
+    mapper.applyGenericMapping(); // sets _genericMode = true
+    var callsBefore = tw.calls.length;
+    mapper.resetGenericMode();
+    mapper.onDirectParamsChanged();
+    assert(tw.calls.length === callsBefore, "onDirectParamsChanged should be no-op after resetGenericMode");
 })();
 
 process.exit(t.summary('DeviceMapper'));

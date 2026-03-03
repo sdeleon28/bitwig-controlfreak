@@ -301,18 +301,14 @@ class TwisterHW {
         this.unlinkAll();
         this._remoteControlMode = true;
         var remoteControls = this.bitwig.getRemoteControls();
-        if (!remoteControls) {
-            if (this.debug) this.println("No remote controls available");
-            return;
-        }
+        if (!remoteControls) return;
         for (var i = 0; i < 8; i++) {
             var param = remoteControls.getParameter(i);
             var encoderNum = ((i + 4) % 8) + 1;
             var value = param.value().get();
             this.setEncoderLED(encoderNum, Math.round(value * 127));
-            this.setEncoderColor(encoderNum, 80, 80, 255);
+            this.setEncoderColor(encoderNum, 255, 0, 0);
         }
-        if (this.debug) this.println("Remote control mode activated");
     }
 
     // ---- LED refresh ----

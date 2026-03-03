@@ -805,53 +805,40 @@ function makeController(opts) {
     assert(tw.calls.length === 0, "empty device name should be ignored");
 })();
 
-// onDeviceChanged: mapped device delegates to deviceMapper.applyMapping, sets deviceMode
-(function() {
-    var applyCalls = [];
-    var fakeDeviceMapper = {
-        hasMapping: function(name) { return name === "Frequalizer Alt"; },
-        applyMapping: function(name) { applyCalls.push(name); },
-        clearParamValues: function() {}
-    };
-    var ctrl = makeController({});
-    ctrl.deviceMapper = fakeDeviceMapper;
-    ctrl.onDeviceChanged("Frequalizer Alt");
-    assert(ctrl.deviceMode === true, "deviceMode should be true after entering mapped device");
-    assert(applyCalls.length === 1, "should call applyMapping once");
-    assert(applyCalls[0] === "Frequalizer Alt", "should pass device name to applyMapping");
-})();
-
-// onDeviceChanged: non-mapped device applies generic mapping
+// onDeviceChanged: non-mapped device applies generic mapping (via scheduleTask)
 (function() {
     var genericCalls = [];
     var fakeDeviceMapper = {
-        hasMapping: function() { return false; },
-        applyMapping: function() {},
         applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
-        clearParamValues: function() {}
+        resetGenericMode: function() {}
     };
-    var ctrl = makeController({});
+    var h = fakeHost();
+    var ctrl = makeController({ host: h });
     ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.selectedGroup = 16;
     ctrl.deviceMode = false;
     ctrl.onDeviceChanged("SomeOtherPlugin");
-    assert(genericCalls.length === 1, "should call applyGenericMapping for non-mapped device");
+    assert(h.scheduled.length === 1, "should schedule a task");
+    assert(genericCalls.length === 0, "should not call applyGenericMapping synchronously");
+    h.scheduled[0].fn();
+    assert(genericCalls.length === 1, "should call applyGenericMapping after scheduled task runs");
     assert(ctrl.deviceMode === true, "deviceMode should be true after generic mapping");
 })();
 
-// onDeviceChanged: switching from mapped device to non-mapped applies generic mapping
+// onDeviceChanged: switching from mapped device to non-mapped applies generic mapping (via scheduleTask)
 (function() {
     var genericCalls = [];
     var fakeDeviceMapper = {
-        hasMapping: function(name) { return name === "Frequalizer Alt"; },
-        applyMapping: function() {},
         applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
-        clearParamValues: function() {}
+        resetGenericMode: function() {}
     };
-    var ctrl = makeController({});
+    var h = fakeHost();
+    var ctrl = makeController({ host: h });
     ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.deviceMode = true; // was in Frequalizer mode
     ctrl.onDeviceChanged("SomeOtherPlugin");
+    assert(h.scheduled.length === 1, "should schedule a task");
+    h.scheduled[0].fn();
     assert(genericCalls.length === 1, "should call applyGenericMapping when leaving mapped device");
     assert(ctrl.deviceMode === true, "deviceMode should remain true");
 })();
@@ -953,12 +940,7 @@ function makeController(opts) {
 // onDeviceChanged activates device quadrant
 (function() {
     var dq = fakeDeviceQuadrant();
-    var fakeDeviceMapper = {
-        hasMapping: function() { return false; },
-        applyGenericMapping: function() {},
-    };
     var ctrl = makeController({ deviceQuadrant: dq });
-    ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.onDeviceChanged("SomePlugin");
     assert(dq.calls.indexOf('activate') !== -1, "onDeviceChanged should activate device quadrant");
 })();
@@ -966,12 +948,7 @@ function makeController(opts) {
 // onDeviceChanged does not re-activate if already active
 (function() {
     var dq = fakeDeviceQuadrant();
-    var fakeDeviceMapper = {
-        hasMapping: function() { return false; },
-        applyGenericMapping: function() {},
-    };
     var ctrl = makeController({ deviceQuadrant: dq });
-    ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.onDeviceChanged("Plugin1");
     ctrl.onDeviceChanged("Plugin2");
     var activateCalls = dq.calls.filter(function(c) { return c === 'activate'; });
@@ -1002,10 +979,6 @@ function makeController(opts) {
 // exit callback from device quadrant re-selects group to restore full state
 (function() {
     var dq = fakeDeviceQuadrant();
-    var fakeDeviceMapper = {
-        hasMapping: function() { return false; },
-        applyGenericMapping: function() {},
-    };
     var tw = fakeTwister();
     var bw = fakeBitwig({
         groups: { 5: 10 },
@@ -1018,7 +991,6 @@ function makeController(opts) {
     });
     var lp = fakeLaunchpad();
     var ctrl = makeController({ deviceQuadrant: dq, twister: tw, bitwig: bw, launchpad: lp });
-    ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.selectedGroup = 5;
     ctrl.onDeviceChanged("SomePlugin");
     assert(ctrl.deviceMode === true, "deviceMode should be true");
@@ -1053,55 +1025,36 @@ function makeController(opts) {
     assert(ctrl.selectedGroup === 16, "selectGroup(16) should work without master track");
 })();
 
-// onDeviceChanged: non-mapped device with remote controls uses remote controls
+// onDeviceChanged: non-mapped device with remote controls uses remote controls (via scheduleTask)
 (function() {
     var tw = fakeTwister();
     var bw = fakeBitwig({ remoteControlNames: ['Cutoff', 'Resonance', '', '', '', '', '', ''] });
     var genericCalls = [];
     var fakeDeviceMapper = {
-        hasMapping: function() { return false; },
         applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
+        resetGenericMode: function() {}
     };
-    var ctrl = makeController({ twister: tw, bitwig: bw });
+    var h = fakeHost();
+    var ctrl = makeController({ twister: tw, bitwig: bw, host: h });
     ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.onDeviceChanged("SomePlugin");
+    assert(h.scheduled.length === 1, "should schedule a task");
+    h.scheduled[0].fn();
     var rcCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToRemoteControls'; });
     assert(rcCalls.length === 1, "should call linkEncodersToRemoteControls for device with remote controls");
     assert(genericCalls.length === 0, "should NOT call applyGenericMapping when remote controls exist");
     assert(ctrl.deviceMode === true, "deviceMode should be true");
 })();
 
-// onDeviceChanged: declarative mapping takes priority over remote controls
-(function() {
-    var applyCalls = [];
-    var tw = fakeTwister();
-    var bw = fakeBitwig({ remoteControlNames: ['Cutoff', 'Resonance', '', '', '', '', '', ''] });
-    var fakeDeviceMapper = {
-        hasMapping: function(name) { return name === "Frequalizer Alt"; },
-        applyMapping: function(name) { applyCalls.push(name); },
-    };
-    var ctrl = makeController({ twister: tw, bitwig: bw });
-    ctrl.deviceMapper = fakeDeviceMapper;
-    ctrl.onDeviceChanged("Frequalizer Alt");
-    assert(applyCalls.length === 1, "should use declarative mapping even when remote controls exist");
-    var rcCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToRemoteControls'; });
-    assert(rcCalls.length === 0, "should NOT call linkEncodersToRemoteControls when declarative mapping exists");
-})();
-
 // exit callback calls selectNone on cursor device
 (function() {
     var dq = fakeDeviceQuadrant();
-    var fakeDeviceMapper = {
-        hasMapping: function() { return false; },
-        applyGenericMapping: function() {},
-    };
     var bw = fakeBitwig({
         groups: { 5: 10 },
         groupChildren: { 10: [11] },
         tracks: { 10: fakeTrack("Guitars (5)", { isGroup: true }), 11: fakeTrack("Clean (1)") }
     });
     var ctrl = makeController({ deviceQuadrant: dq, bitwig: bw });
-    ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.selectedGroup = 5;
     ctrl.onDeviceChanged("SomePlugin");
     dq._exitCallback();
@@ -1113,12 +1066,7 @@ function makeController(opts) {
     var dq = fakeDeviceQuadrant();
     var testPadMapper = fakePadMapper();
     var padMappers = { 'TestDevice': function() { return testPadMapper; } };
-    var fakeDeviceMapper = {
-        hasMapping: function(name) { return name === "TestDevice"; },
-        applyMapping: function() {}
-    };
     var ctrl = makeController({ deviceQuadrant: dq, padMappers: padMappers });
-    ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.onDeviceChanged("TestDevice");
     assert(dq._lastPadMapper === testPadMapper, "should pass pad mapper to device quadrant activate");
 })();
@@ -1126,12 +1074,7 @@ function makeController(opts) {
 // onDeviceChanged passes null pad mapper when no padMappers entry exists
 (function() {
     var dq = fakeDeviceQuadrant();
-    var fakeDeviceMapper = {
-        hasMapping: function() { return false; },
-        applyGenericMapping: function() {}
-    };
     var ctrl = makeController({ deviceQuadrant: dq });
-    ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.onDeviceChanged("SomePlugin");
     assert(dq._lastPadMapper === null, "should pass null pad mapper for non-mapped device");
 })();
@@ -1141,13 +1084,7 @@ function makeController(opts) {
     var dq = fakeDeviceQuadrant();
     var testPadMapper = fakePadMapper();
     var padMappers = { 'DeviceA': function() { return testPadMapper; } };
-    var fakeDeviceMapper = {
-        hasMapping: function(name) { return name === "DeviceA"; },
-        applyMapping: function() {},
-        applyGenericMapping: function() {}
-    };
     var ctrl = makeController({ deviceQuadrant: dq, padMappers: padMappers });
-    ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.onDeviceChanged("DeviceA");
     assert(dq.calls.filter(function(c) { return c === 'activate'; }).length === 1, "first device should activate");
     // Switch to a different device while already active
@@ -1171,20 +1108,15 @@ function makeController(opts) {
     assert(ctrl.deviceMode === true, "deviceMode should be true");
 })();
 
-// onDeviceChanged: mapper takes priority over deviceMapper
+// onDeviceChanged: mapper takes priority and does not schedule task
 (function() {
     var createdMapper = fakeMapper();
     var mappers = { 'MyDevice': function() { return createdMapper; } };
-    var applyCalls = [];
-    var fakeDeviceMapper = {
-        hasMapping: function(name) { return name === 'MyDevice'; },
-        applyMapping: function(name) { applyCalls.push(name); },
-    };
-    var ctrl = makeController({ mappers: mappers });
-    ctrl.deviceMapper = fakeDeviceMapper;
+    var h = fakeHost();
+    var ctrl = makeController({ mappers: mappers, host: h });
     ctrl.onDeviceChanged('MyDevice');
-    assert(ctrl._activeMapper === createdMapper, "mapper should take priority over deviceMapper");
-    assert(applyCalls.length === 0, "should NOT call deviceMapper.applyMapping");
+    assert(ctrl._activeMapper === createdMapper, "mapper should be active");
+    assert(h.scheduled.length === 0, "should NOT schedule a task for mapped device");
 })();
 
 // onDeviceChanged: padMappers factory creates pad mapper independently of twister mapper
@@ -1200,18 +1132,21 @@ function makeController(opts) {
     assert(ctrl._activeMapper === createdMapper, "twister mapper should also be active");
 })();
 
-// onDeviceChanged: non-mapper device falls through (no _activeMapper)
+// onDeviceChanged: non-mapper device falls through (no _activeMapper, via scheduleTask)
 (function() {
     var mappers = { 'MappedDevice': function() { return fakeMapper(); } };
     var genericCalls = [];
     var fakeDeviceMapper = {
-        hasMapping: function() { return false; },
         applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
+        resetGenericMode: function() {}
     };
-    var ctrl = makeController({ mappers: mappers });
+    var h = fakeHost();
+    var ctrl = makeController({ mappers: mappers, host: h });
     ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.onDeviceChanged('UnmappedDevice');
     assert(ctrl._activeMapper === null, "should not set _activeMapper for non-mapper device");
+    assert(h.scheduled.length === 1, "should schedule a task");
+    h.scheduled[0].fn();
     assert(genericCalls.length === 1, "should fall through to generic mapping");
 })();
 
@@ -1377,6 +1312,154 @@ function makeController(opts) {
     ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PIDfoo', 0.5);
     assert(createdMapper._fedParams[0].id === 'CONTENTS/PIDfoo',
         "should strip ROOT_GENERIC_MODULE/ prefix before feeding mapper");
+})();
+
+// onDeviceChanged: unlinkAll is always the first call (even for mapper path)
+(function() {
+    var tw = fakeTwister();
+    var mappers = { 'Device': function() { return fakeMapper(); } };
+    var ctrl = makeController({ twister: tw, mappers: mappers });
+    tw.calls.length = 0;
+    ctrl.onDeviceChanged('Device');
+    assert(tw.calls[0] === 'unlinkAll', "unlinkAll should be the very first call");
+})();
+
+// onDeviceChanged: mapper path does NOT schedule a task
+(function() {
+    var h = fakeHost();
+    var mappers = { 'Device': function() { return fakeMapper(); } };
+    var ctrl = makeController({ mappers: mappers, host: h });
+    ctrl.onDeviceChanged('Device');
+    assert(h.scheduled.length === 0, "mapper path should not schedule any task");
+})();
+
+// onDeviceChanged: rapid device switching discards stale scheduled task (sequence counter guard)
+(function() {
+    var h = fakeHost();
+    var genericCalls = [];
+    var fakeDeviceMapper = {
+        applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
+        resetGenericMode: function() {}
+    };
+    var ctrl = makeController({ host: h });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged("Plugin1");
+    assert(h.scheduled.length === 1, "first device schedules a task");
+    var staleTask = h.scheduled[0].fn;
+    ctrl.onDeviceChanged("Plugin2");
+    assert(h.scheduled.length === 2, "second device schedules another task");
+    // Run the stale task from Plugin1 — should be discarded
+    staleTask();
+    assert(genericCalls.length === 0, "stale task should be discarded by sequence counter");
+    // Run the fresh task from Plugin2 — should execute
+    h.scheduled[1].fn();
+    assert(genericCalls.length === 1, "fresh task should execute");
+})();
+
+// onDeviceChanged calls resetGenericMode on deviceMapper
+(function() {
+    var resetCalls = [];
+    var fakeDeviceMapper = {
+        applyGenericMapping: function() {},
+        resetGenericMode: function() { resetCalls.push('resetGenericMode'); }
+    };
+    var ctrl = makeController({});
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged("SomePlugin");
+    assert(resetCalls.length === 1, "onDeviceChanged should call resetGenericMode on deviceMapper");
+})();
+
+// switching from generic to mapper clears _genericMode
+(function() {
+    var resetCalls = [];
+    var fakeDeviceMapper = {
+        applyGenericMapping: function() {},
+        resetGenericMode: function() { resetCalls.push('resetGenericMode'); }
+    };
+    var mappers = { 'MappedDevice': function() { return fakeMapper(); } };
+    var h = fakeHost();
+    var ctrl = makeController({ mappers: mappers, host: h });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    // First: go to generic device
+    ctrl.onDeviceChanged("SomePlugin");
+    h.scheduled[0].fn(); // applies generic mapping
+    // Second: switch to mapper device
+    ctrl.onDeviceChanged("MappedDevice");
+    assert(resetCalls.length === 2, "second onDeviceChanged should also call resetGenericMode");
+    assert(ctrl._activeMapper !== null, "should have active mapper");
+})();
+
+// onRemoteControlNameChanged links to RC when pending
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl._pendingRCCheck = true;
+    ctrl.onRemoteControlNameChanged(0, "Cutoff");
+    var rcCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToRemoteControls'; });
+    assert(rcCalls.length === 1, "should call linkEncodersToRemoteControls when pending");
+    assert(ctrl._pendingRCCheck === false, "_pendingRCCheck should be cleared");
+})();
+
+// onRemoteControlNameChanged is no-op when not pending
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl._pendingRCCheck = false;
+    ctrl.onRemoteControlNameChanged(0, "Cutoff");
+    var rcCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToRemoteControls'; });
+    assert(rcCalls.length === 0, "should not call linkEncodersToRemoteControls when not pending");
+})();
+
+// onRemoteControlNameChanged ignores empty names
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl._pendingRCCheck = true;
+    ctrl.onRemoteControlNameChanged(0, "");
+    assert(ctrl._pendingRCCheck === true, "_pendingRCCheck should remain true for empty name");
+    ctrl.onRemoteControlNameChanged(0, null);
+    assert(ctrl._pendingRCCheck === true, "_pendingRCCheck should remain true for null name");
+})();
+
+// scheduled task skipped when RC observer already linked
+(function() {
+    var tw = fakeTwister();
+    var genericCalls = [];
+    var fakeDeviceMapper = {
+        applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
+        resetGenericMode: function() {}
+    };
+    var h = fakeHost();
+    var ctrl = makeController({ twister: tw, host: h });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged("SomePlugin");
+    // Simulate RC observer firing before scheduled task
+    ctrl.onRemoteControlNameChanged(0, "Cutoff");
+    var rcCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToRemoteControls'; });
+    assert(rcCalls.length === 1, "RC observer should link");
+    // Now run the scheduled task — should be skipped
+    h.scheduled[0].fn();
+    assert(genericCalls.length === 0, "scheduled task should skip when RC observer already linked");
+    // Should not have called linkEncodersToRemoteControls again
+    var rcCallsAfter = tw.calls.filter(function(c) { return c === 'linkEncodersToRemoteControls'; });
+    assert(rcCallsAfter.length === 1, "should not double-link");
+})();
+
+// _pendingRCCheck cleared and re-set across device switches
+(function() {
+    var resetCalls = [];
+    var fakeDeviceMapper = {
+        applyGenericMapping: function() {},
+        resetGenericMode: function() { resetCalls.push('resetGenericMode'); }
+    };
+    var h = fakeHost();
+    var ctrl = makeController({ host: h });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl.onDeviceChanged("Plugin1");
+    assert(ctrl._pendingRCCheck === true, "should be pending after first switch");
+    ctrl.onDeviceChanged("Plugin2");
+    assert(ctrl._pendingRCCheck === true, "should be re-set to pending after second switch");
+    assert(resetCalls.length === 2, "should call resetGenericMode on each switch");
 })();
 
 process.exit(t.summary('Controller'));

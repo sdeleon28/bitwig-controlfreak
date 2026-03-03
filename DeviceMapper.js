@@ -191,14 +191,11 @@ class DeviceMapperHW {
         this._activeParamToEncoder = {};
 
         var paramIds = this.bitwig.getDirectParamIds();
-        if (!paramIds || paramIds.length === 0) {
-            if (this.debug) this.println("Generic device mapping: waiting for params...");
-            return;
-        }
+        if (!paramIds || paramIds.length === 0) return;
 
         var device = this.bitwig.getCursorDevice();
         var self = this;
-        var color = { r: 255, g: 255, b: 255 };
+        var color = { r: 0, g: 50, b: 255 };
         var count = Math.min(paramIds.length, 16);
 
         for (var i = 0; i < count; i++) {
@@ -219,14 +216,16 @@ class DeviceMapperHW {
             }
             self._activeParamToEncoder[paramId] = encoderNum;
         }
-
-        if (this.debug) this.println("Applied generic device mapping: " + count + " params");
     }
 
     onDirectParamsChanged() {
         if (this._genericMode) {
             this.applyGenericMapping();
         }
+    }
+
+    resetGenericMode() {
+        this._genericMode = false;
     }
 
     clearParamValues() {

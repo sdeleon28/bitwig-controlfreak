@@ -241,7 +241,7 @@ function init() {
     // Create cursor track that follows selection (for select mode + remote controls)
     var cursorTrack = host.createCursorTrack("cursor", "Cursor", 0, 0, true);
     var cursorDevice = cursorTrack.createCursorDevice();
-    var remoteControls = cursorTrack.createCursorRemoteControlsPage(8);
+    var remoteControls = cursorDevice.createCursorRemoteControlsPage(8);
 
     // Mark remote control parameters as interested and add observers
     for (var rc = 0; rc < 8; rc++) {
@@ -253,6 +253,15 @@ function init() {
         (function(paramIndex) {
             param.value().addValueObserver(function(value) {
                 Twister.updateRemoteControlLED(paramIndex, value);
+            });
+        })(rc);
+    }
+
+    // Add remote control name observers for reactive linking
+    for (var rc = 0; rc < 8; rc++) {
+        (function(paramIndex) {
+            remoteControls.getParameter(paramIndex).name().addValueObserver(function(name) {
+                Controller.onRemoteControlNameChanged(paramIndex, name);
             });
         })(rc);
     }
