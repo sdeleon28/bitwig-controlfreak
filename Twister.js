@@ -28,7 +28,8 @@ class TwisterHW {
         this._sendToEncoder = {};
         this._effectTrackToEncoder = {};
         this._encoderBehaviors = {};
-        this._remoteControlMode = false;
+        this._rcParamToEncoder = {};
+        this._rcToggleParams = {};
 
         // Constants
         this.colors = TwisterHW.COLORS;
@@ -59,7 +60,7 @@ class TwisterHW {
     }
 
     isInRemoteControlMode() {
-        return this._remoteControlMode;
+        return Object.keys(this._rcParamToEncoder).length > 0;
     }
 
     getSendModeTrackId() {
@@ -143,7 +144,8 @@ class TwisterHW {
             this.unlinkEncoder(i);
         }
         this._sendModeTrackId = null;
-        this._remoteControlMode = false;
+        this._rcParamToEncoder = {};
+        this._rcToggleParams = {};
     }
 
     unlinkEncoder(encoderNumber) {
@@ -299,15 +301,38 @@ class TwisterHW {
 
     linkEncodersToRemoteControls() {
         this.unlinkAll();
-        this._remoteControlMode = true;
+        this._rcParamToEncoder = {};
+        this._rcToggleParams = {};
         var remoteControls = this.bitwig.getRemoteControls();
         if (!remoteControls) return;
+        var color = { r: 255, g: 0, b: 0 };
+
         for (var i = 0; i < 8; i++) {
             var param = remoteControls.getParameter(i);
             var encoderNum = ((i + 4) % 8) + 1;
             var value = param.value().get();
-            this.setEncoderLED(encoderNum, Math.round(value * 127));
-            this.setEncoderColor(encoderNum, 255, 0, 0);
+            var stepCount = param.discreteValueCount().get();
+            this._rcParamToEncoder[i] = encoderNum;
+
+            if (stepCount === 2) {
+                this._rcToggleParams[i] = true;
+                var turnCb = null;
+                var pressCb = (function(p) {
+                    return function(pressed) {
+                        if (!pressed) return;
+                        var cur = p.value().get();
+                        p.value().set(cur >= 0.5 ? 0 : 1);
+                    };
+                })(param);
+                this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
+                this.setEncoderLED(encoderNum, value >= 0.5 ? 127 : 0);
+            } else {
+                var turnCb = (function(p) {
+                    return function(val) { p.value().set(val / 127.0); };
+                })(param);
+                this.linkEncoderToBehavior(encoderNum, turnCb, null, color);
+                this.setEncoderLED(encoderNum, Math.round(value * 127));
+            }
         }
     }
 
@@ -336,10 +361,13 @@ class TwisterHW {
     }
 
     updateRemoteControlLED(paramIndex, value) {
-        if (!this._remoteControlMode) return;
-        if (paramIndex < 0 || paramIndex > 7) return;
-        var encoderNum = ((paramIndex + 4) % 8) + 1;
-        this.setEncoderLED(encoderNum, Math.round(value * 127));
+        var encoderNum = this._rcParamToEncoder[paramIndex];
+        if (encoderNum === undefined) return;
+        if (this._rcToggleParams[paramIndex]) {
+            this.setEncoderLED(encoderNum, value >= 0.5 ? 127 : 0);
+        } else {
+            this.setEncoderLED(encoderNum, Math.round(value * 127));
+        }
     }
 
     // ---- Input handling ----
@@ -350,15 +378,6 @@ class TwisterHW {
     }
 
     handleEncoderTurn(encoderNumber, value) {
-        if (this._remoteControlMode && encoderNumber <= 8) {
-            var remoteControls = this.bitwig.getRemoteControls();
-            if (remoteControls) {
-                var paramIndex = ((encoderNumber + 3) % 8);
-                remoteControls.getParameter(paramIndex).value().set(value / 127.0);
-            }
-            return;
-        }
-
         var behavior = this._encoderBehaviors[encoderNumber];
         if (behavior && behavior.turnCallback) {
             behavior.turnCallback(value);

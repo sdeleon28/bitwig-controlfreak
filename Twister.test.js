@@ -53,22 +53,30 @@ function fakeTrack(opts) {
 function fakeBitwig(tracks, opts) {
     tracks = tracks || {};
     opts = opts || {};
+    var cachedRC = null;
     return {
         getTrack: function(id) { return tracks[id] || null; },
         getFxTracks: function() { return []; },
         getRemoteControls: function() {
             if (!opts.remoteControls) return null;
+            if (cachedRC) return cachedRC;
             var names = opts.remoteControls;
+            var values = opts.remoteControlValues || [];
+            var discreteValueCounts = opts.discreteValueCounts || [];
             var params = {};
             for (var i = 0; i < 8; i++) {
                 (function(idx) {
+                    var val = values[idx] !== undefined ? values[idx] : 0;
+                    var stepCount = discreteValueCounts[idx] !== undefined ? discreteValueCounts[idx] : -1;
                     params[idx] = {
                         name: function() { return { get: function() { return names[idx] || ""; } }; },
-                        value: function() { return { get: function() { return 0; }, set: function() {} }; }
+                        value: function() { return { get: function() { return val; }, set: function(v) { val = v; } }; },
+                        discreteValueCount: function() { return { get: function() { return stepCount; } }; }
                     };
                 })(i);
             }
-            return { getParameter: function(i) { return params[i]; } };
+            cachedRC = { getParameter: function(i) { return params[i]; } };
+            return cachedRC;
         }
     };
 }
@@ -343,20 +351,16 @@ function makeTwister(opts) {
     assert(true, 'no output does not throw');
 })();
 
-// linkEncodersToRemoteControls sets red color on active encoders
+// linkEncodersToRemoteControls falls back to red when no cursor track color
 (function() {
     var out = fakeMidiOutput();
     var bw = fakeBitwig({}, { remoteControls: ['Cutoff', 'Resonance', '', '', '', '', '', ''] });
     var tw = makeTwister({ midiOutput: out, bitwig: bw });
-    // Clear messages from construction, then call linkEncodersToRemoteControls
     out.messages.length = 0;
     tw.linkEncodersToRemoteControls();
-    // unlinkAll sends clearEncoder for 16 encoders (each sends 0xB0 LED + 0xB1 color + 0xB2 brightness)
-    // then 8 remote control encoders get setEncoderLED + setEncoderColor (0xB1 + 0xB2)
-    // Filter for color messages with the red index (not the clear messages which use index 0)
     var redIndex = tw.findClosestColorIndex(255, 0, 0);
     var redColorMsgs = out.messages.filter(function(m) { return m.status === 0xB1 && m.data2 === redIndex; });
-    assert(redColorMsgs.length === 8, "should send 8 red color messages, got " + redColorMsgs.length);
+    assert(redColorMsgs.length === 8, "should send 8 red color messages (fallback), got " + redColorMsgs.length);
 })();
 
 // findClosestColorIndex: pure blue (0,0,255) maps to index 0 (known edge case)
@@ -371,6 +375,217 @@ function makeTwister(opts) {
     var tw = makeTwister();
     var idx = tw.findClosestColorIndex(0, 50, 255);
     assert(idx > 0, 'shifted blue (0,50,255) should return non-zero index, got ' + idx);
+})();
+
+// toggle param (stepCount=2) maps to press behavior, not turn
+(function() {
+    var out = fakeMidiOutput();
+    var bw = fakeBitwig({}, {
+        remoteControls: ['Use 16ths', '', '', '', '', '', '', ''],
+        discreteValueCounts: [2, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    // Param 0 maps to encoder ((0+4)%8)+1 = 5
+    var behavior = tw._encoderBehaviors[5];
+    assert(behavior !== undefined, 'toggle param should create a behavior on encoder 5');
+    assert(behavior.pressCallback !== null, 'toggle param should have a press callback');
+    assert(behavior.turnCallback === null, 'toggle param should NOT have a turn callback');
+})();
+
+// pressing toggle encoder toggles value between 0 and 1
+(function() {
+    var bw = fakeBitwig({}, {
+        remoteControls: ['Toggle', '', '', '', '', '', '', ''],
+        remoteControlValues: [0, 0, 0, 0, 0, 0, 0, 0],
+        discreteValueCounts: [2, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    var behavior = tw._encoderBehaviors[5];
+    // Press to toggle on
+    behavior.pressCallback(true);
+    var param = bw.getRemoteControls().getParameter(0);
+    assert(param.value().get() === 1, 'pressing toggle should set value to 1, got ' + param.value().get());
+    // Press to toggle off
+    behavior.pressCallback(true);
+    assert(param.value().get() === 0, 'pressing again should set value to 0, got ' + param.value().get());
+})();
+
+// pressing toggle encoder with pressed=false is ignored
+(function() {
+    var bw = fakeBitwig({}, {
+        remoteControls: ['Toggle', '', '', '', '', '', '', ''],
+        remoteControlValues: [0, 0, 0, 0, 0, 0, 0, 0],
+        discreteValueCounts: [2, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    var behavior = tw._encoderBehaviors[5];
+    behavior.pressCallback(false);
+    var param = bw.getRemoteControls().getParameter(0);
+    assert(param.value().get() === 0, 'release should be ignored, value should stay 0');
+})();
+
+// toggle LED is binary (0 or 127)
+(function() {
+    var out = fakeMidiOutput();
+    var bw = fakeBitwig({}, {
+        remoteControls: ['Toggle', '', '', '', '', '', '', ''],
+        remoteControlValues: [0.8, 0, 0, 0, 0, 0, 0, 0],
+        discreteValueCounts: [2, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    // Encoder 5, CC = encoderToCC(5) = 8
+    var cc = tw.encoderToCC(5);
+    var ledMsgs = out.messages.filter(function(m) { return m.status === 0xB0 && m.data1 === cc; });
+    var lastLed = ledMsgs[ledMsgs.length - 1];
+    assert(lastLed.data2 === 127, 'toggle LED should be 127 when value >= 0.5, got ' + lastLed.data2);
+})();
+
+// toggle LED is 0 when value < 0.5
+(function() {
+    var out = fakeMidiOutput();
+    var bw = fakeBitwig({}, {
+        remoteControls: ['Toggle', '', '', '', '', '', '', ''],
+        remoteControlValues: [0.3, 0, 0, 0, 0, 0, 0, 0],
+        discreteValueCounts: [2, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    var cc = tw.encoderToCC(5);
+    var ledMsgs = out.messages.filter(function(m) { return m.status === 0xB0 && m.data1 === cc; });
+    var lastLed = ledMsgs[ledMsgs.length - 1];
+    assert(lastLed.data2 === 0, 'toggle LED should be 0 when value < 0.5, got ' + lastLed.data2);
+})();
+
+// continuous param (stepCount=-1) maps to turn behavior
+(function() {
+    var bw = fakeBitwig({}, {
+        remoteControls: ['Cutoff', '', '', '', '', '', '', ''],
+        discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    var behavior = tw._encoderBehaviors[5];
+    assert(behavior !== undefined, 'continuous param should create a behavior');
+    assert(behavior.turnCallback !== null, 'continuous param should have a turn callback');
+    assert(behavior.pressCallback === null || behavior.pressCallback === undefined, 'continuous param should NOT have a press callback');
+})();
+
+// continuous param turn callback sets value
+(function() {
+    var bw = fakeBitwig({}, {
+        remoteControls: ['Cutoff', '', '', '', '', '', '', ''],
+        remoteControlValues: [0, 0, 0, 0, 0, 0, 0, 0],
+        discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    var behavior = tw._encoderBehaviors[5];
+    behavior.turnCallback(100);
+    var param = bw.getRemoteControls().getParameter(0);
+    assert(Math.abs(param.value().get() - 100/127) < 0.01, 'turn should set value to ~0.787');
+})();
+
+// multi-step param (stepCount=4) maps to turn behavior
+(function() {
+    var bw = fakeBitwig({}, {
+        remoteControls: ['Mode', '', '', '', '', '', '', ''],
+        discreteValueCounts: [4, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    var behavior = tw._encoderBehaviors[5];
+    assert(behavior !== undefined, 'multi-step param should create a behavior');
+    assert(behavior.turnCallback !== null, 'multi-step param should have a turn callback');
+})();
+
+// updateRemoteControlLED uses binary LED for toggles
+(function() {
+    var out = fakeMidiOutput();
+    var bw = fakeBitwig({}, {
+        remoteControls: ['Toggle', 'Knob', '', '', '', '', '', ''],
+        remoteControlValues: [0, 0, 0, 0, 0, 0, 0, 0],
+        discreteValueCounts: [2, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    out.messages.length = 0;
+    // Update toggle param (index 0) with value 0.8 → should be binary 127
+    tw.updateRemoteControlLED(0, 0.8);
+    var cc5 = tw.encoderToCC(5);
+    var ledMsgs = out.messages.filter(function(m) { return m.status === 0xB0 && m.data1 === cc5; });
+    assert(ledMsgs[0].data2 === 127, 'toggle LED update should be binary 127, got ' + ledMsgs[0].data2);
+    out.messages.length = 0;
+    // Update continuous param (index 1) with value 0.5 → should be 64
+    tw.updateRemoteControlLED(1, 0.5);
+    var cc6 = tw.encoderToCC(6);
+    var contMsgs = out.messages.filter(function(m) { return m.status === 0xB0 && m.data1 === cc6; });
+    assert(contMsgs[0].data2 === 64, 'continuous LED update should be 64, got ' + contMsgs[0].data2);
+})();
+
+// isInRemoteControlMode returns true when RC active
+(function() {
+    var bw = fakeBitwig({}, {
+        remoteControls: ['A', '', '', '', '', '', '', ''],
+        discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ bitwig: bw });
+    assert(tw.isInRemoteControlMode() === false, 'should be false before linking');
+    tw.linkEncodersToRemoteControls();
+    assert(tw.isInRemoteControlMode() === true, 'should be true after linking');
+})();
+
+// after unlinkAll, isInRemoteControlMode returns false
+(function() {
+    var bw = fakeBitwig({}, {
+        remoteControls: ['A', '', '', '', '', '', '', ''],
+        discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    assert(tw.isInRemoteControlMode() === true, 'should be true after linking');
+    tw.unlinkAll();
+    assert(tw.isInRemoteControlMode() === false, 'should be false after unlinkAll');
+})();
+
+// updateRemoteControlLED is no-op when not in RC mode
+(function() {
+    var out = fakeMidiOutput();
+    var tw = makeTwister({ midiOutput: out });
+    out.messages.length = 0;
+    tw.updateRemoteControlLED(0, 0.5);
+    assert(out.messages.length === 0, 'should send no messages when not in RC mode');
+})();
+
+// handleEncoderTurn routes through behavior for RC continuous param
+(function() {
+    var bw = fakeBitwig({}, {
+        remoteControls: ['Cutoff', '', '', '', '', '', '', ''],
+        remoteControlValues: [0, 0, 0, 0, 0, 0, 0, 0],
+        discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    tw.handleEncoderTurn(5, 100);
+    var param = bw.getRemoteControls().getParameter(0);
+    assert(Math.abs(param.value().get() - 100/127) < 0.01, 'encoder turn should route through behavior to set param value');
+})();
+
+// handleEncoderPress routes through behavior for RC toggle param
+(function() {
+    var bw = fakeBitwig({}, {
+        remoteControls: ['Toggle', '', '', '', '', '', '', ''],
+        remoteControlValues: [0, 0, 0, 0, 0, 0, 0, 0],
+        discreteValueCounts: [2, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    tw.handleEncoderPress(5, true);
+    var param = bw.getRemoteControls().getParameter(0);
+    assert(param.value().get() === 1, 'encoder press should toggle value to 1');
 })();
 
 // ---- summary ----

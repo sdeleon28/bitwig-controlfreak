@@ -249,6 +249,7 @@ function init() {
         param.markInterested();
         param.value().markInterested();
         param.name().markInterested();
+        param.discreteValueCount().markInterested();
         // Add observer for bi-directional sync with Twister
         (function(paramIndex) {
             param.value().addValueObserver(function(value) {
