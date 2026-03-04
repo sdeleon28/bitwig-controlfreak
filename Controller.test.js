@@ -592,6 +592,101 @@ function makeController(opts) {
     assert(trackRCCalls.length === 1, "should call linkEncodersToTrackRemoteControls");
 })();
 
+// mute growl shows "Mute: TrackName" when muting
+(function() {
+    var _muted = false;
+    var track = {
+        name: function() { return { get: function() { return "Kick (1)"; } }; },
+        mute: function() { return { toggle: function() { _muted = !_muted; }, get: function() { return _muted; } }; }
+    };
+    var tw = fakeTwister();
+    tw.links[1] = { trackId: 3 };
+    var bw = fakeBitwig({ tracks: { 3: track } });
+    var lp = fakeLaunchpad();
+    var ms = fakeModeSwitcher('mute');
+    var h = fakeHost();
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, launchpadModeSwitcher: ms, host: h });
+    ctrl.refreshTrackGrid();
+    lp.behaviors[11].click();
+    assert(h.notifications.indexOf("Mute: Kick (1)") !== -1, "should growl Mute: TrackName");
+    lp.behaviors[11].click();
+    assert(h.notifications.indexOf("Unmute: Kick (1)") !== -1, "should growl Unmute: TrackName");
+})();
+
+// solo growl shows "Solo: TrackName" when soloing
+(function() {
+    var _soloed = false;
+    var track = {
+        name: function() { return { get: function() { return "Snare (2)"; } }; },
+        solo: function() { return { toggle: function() { _soloed = !_soloed; }, get: function() { return _soloed; } }; }
+    };
+    var tw = fakeTwister();
+    tw.links[1] = { trackId: 3 };
+    var bw = fakeBitwig({ tracks: { 3: track } });
+    var lp = fakeLaunchpad();
+    var ms = fakeModeSwitcher('solo');
+    var h = fakeHost();
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, launchpadModeSwitcher: ms, host: h });
+    ctrl.refreshTrackGrid();
+    lp.behaviors[11].click();
+    assert(h.notifications.indexOf("Solo: Snare (2)") !== -1, "should growl Solo: TrackName");
+    lp.behaviors[11].click();
+    assert(h.notifications.indexOf("Unsolo: Snare (2)") !== -1, "should growl Unsolo: TrackName");
+})();
+
+// recordArm growl shows "Rec: TrackName"
+(function() {
+    var armed = {};
+    function armTrack(id, name) {
+        return {
+            name: function() { return { get: function() { return name; } }; },
+            arm: function() {
+                return {
+                    get: function() { return armed[id] || false; },
+                    set: function(v) { armed[id] = v; }
+                };
+            }
+        };
+    }
+    var tracks = {};
+    for (var i = 0; i < 64; i++) tracks[i] = armTrack(i, "Track " + i);
+    tracks[3] = armTrack(3, "Kick (1)");
+    var tw = fakeTwister();
+    tw.links[1] = { trackId: 3 };
+    var bw = fakeBitwig({ tracks: tracks });
+    var lp = fakeLaunchpad();
+    var ms = fakeModeSwitcher('recordArm');
+    var h = fakeHost();
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, launchpadModeSwitcher: ms, host: h });
+    ctrl.refreshTrackGrid();
+    lp.behaviors[11].click();
+    assert(h.notifications.indexOf("Rec: Kick (1)") !== -1, "should growl Rec: TrackName");
+})();
+
+// clearAllMute shows growl
+(function() {
+    var h = fakeHost();
+    var ctrl = makeController({ host: h });
+    ctrl.clearAllMute();
+    assert(h.notifications.indexOf("Clear All Mute") !== -1, "should growl Clear All Mute");
+})();
+
+// clearAllSolo shows growl
+(function() {
+    var h = fakeHost();
+    var ctrl = makeController({ host: h });
+    ctrl.clearAllSolo();
+    assert(h.notifications.indexOf("Clear All Solo") !== -1, "should growl Clear All Solo");
+})();
+
+// clearAllArm shows growl
+(function() {
+    var h = fakeHost();
+    var ctrl = makeController({ host: h });
+    ctrl.clearAllArm();
+    assert(h.notifications.indexOf("Clear All Rec") !== -1, "should growl Clear All Rec");
+})();
+
 // handleTrackNameChange re-links encoder when track renamed
 (function() {
     var tw = fakeTwister();
@@ -1736,6 +1831,136 @@ function makeController(opts) {
     ds._onExit();
     assert(ctrl._mode === 'grid', "should return to grid");
     assert(ctrl.selectedGroup === 5, "should re-select group");
+})();
+
+// toggleMultiRec flips state and shows growl
+(function() {
+    var h = fakeHost();
+    var ctrl = makeController({ host: h });
+    assert(ctrl._multiRec === false, 'multi-rec should start false');
+    ctrl.toggleMultiRec();
+    assert(ctrl._multiRec === true, 'toggleMultiRec should flip to true');
+    assert(h.notifications.indexOf("Multi Rec: ON") !== -1, 'should growl Multi Rec: ON');
+    ctrl.toggleMultiRec();
+    assert(ctrl._multiRec === false, 'toggleMultiRec should flip back to false');
+    assert(h.notifications.indexOf("Multi Rec: OFF") !== -1, 'should growl Multi Rec: OFF');
+})();
+
+// toggleMultiRec calls launchpadModeSwitcher.refresh() for button color sync
+(function() {
+    var ms = fakeModeSwitcher();
+    var ctrl = makeController({ launchpadModeSwitcher: ms });
+    ctrl.toggleMultiRec();
+    assert(ms.calls.indexOf('refresh') !== -1, 'toggleMultiRec should call launchpadModeSwitcher.refresh()');
+})();
+
+// recordArm with _multiRec=true toggles arm without XOR
+(function() {
+    var armed = {};
+    function armTrack(id, name, isArmed) {
+        return {
+            name: function() { return { get: function() { return name; } }; },
+            arm: function() {
+                return {
+                    get: function() { return armed[id] || false; },
+                    set: function(v) { armed[id] = v; }
+                };
+            }
+        };
+    }
+    var tracks = {};
+    for (var i = 0; i < 64; i++) tracks[i] = armTrack(i, "Track " + i);
+    tracks[3] = armTrack(3, "Kick (1)");
+    armed[5] = true; // another track is armed
+
+    var tw = fakeTwister();
+    tw.links[1] = { trackId: 3 };
+    var bw = fakeBitwig({ tracks: tracks });
+    var lp = fakeLaunchpad();
+    var ms = fakeModeSwitcher('recordArm');
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, launchpadModeSwitcher: ms });
+    ctrl._multiRec = true;
+    ctrl.refreshTrackGrid();
+    lp.behaviors[11].click();
+    assert(armed[3] === true, "clicked track should be armed in multi-rec");
+    assert(armed[5] === true, "other armed track should remain armed in multi-rec");
+})();
+
+// recordArm with _multiRec=true shows "Disarm:" growl when disarming
+(function() {
+    var armed = {};
+    function armTrack(id, name) {
+        return {
+            name: function() { return { get: function() { return name; } }; },
+            arm: function() {
+                return {
+                    get: function() { return armed[id] || false; },
+                    set: function(v) { armed[id] = v; }
+                };
+            }
+        };
+    }
+    var tracks = {};
+    for (var i = 0; i < 64; i++) tracks[i] = armTrack(i, "Track " + i);
+    tracks[3] = armTrack(3, "Kick (1)");
+    armed[3] = true; // this track is already armed
+
+    var tw = fakeTwister();
+    tw.links[1] = { trackId: 3 };
+    var bw = fakeBitwig({ tracks: tracks });
+    var lp = fakeLaunchpad();
+    var ms = fakeModeSwitcher('recordArm');
+    var h = fakeHost();
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, launchpadModeSwitcher: ms, host: h });
+    ctrl._multiRec = true;
+    ctrl.refreshTrackGrid();
+    lp.behaviors[11].click();
+    assert(armed[3] === false, "clicking armed track in multi-rec should disarm it");
+    assert(h.notifications.indexOf("Disarm: Kick (1)") !== -1, "should growl Disarm: TrackName");
+})();
+
+// clearAllArm resets _multiRec to false
+(function() {
+    var ctrl = makeController({});
+    ctrl._multiRec = true;
+    ctrl.clearAllArm();
+    assert(ctrl._multiRec === false, 'clearAllArm should reset _multiRec to false');
+})();
+
+// selectGroup resets _multiRec to false
+(function() {
+    var ctrl = makeController({});
+    ctrl._multiRec = true;
+    ctrl.selectGroup(16);
+    assert(ctrl._multiRec === false, 'selectGroup should reset _multiRec to false');
+})();
+
+// _multiRec setter auto-refreshes mode switcher (architectural guarantee)
+(function() {
+    var ms = fakeModeSwitcher();
+    var ctrl = makeController({ launchpadModeSwitcher: ms });
+    ms.calls.length = 0;
+    ctrl._multiRec = true;
+    assert(ms.calls.indexOf('refresh') !== -1, 'setting _multiRec should auto-refresh mode switcher');
+})();
+
+// _multiRec setter skips refresh when value unchanged
+(function() {
+    var ms = fakeModeSwitcher();
+    var ctrl = makeController({ launchpadModeSwitcher: ms });
+    ms.calls.length = 0;
+    ctrl._multiRec = false;
+    assert(ms.calls.indexOf('refresh') === -1, 'setting _multiRec to same value should not refresh');
+})();
+
+// selectGroup auto-refreshes mode switcher when _multiRec was true
+(function() {
+    var ms = fakeModeSwitcher();
+    var ctrl = makeController({ launchpadModeSwitcher: ms });
+    ctrl._multiRec = true;
+    ms.calls.length = 0;
+    ctrl.selectGroup(16);
+    assert(ms.calls.indexOf('refresh') !== -1, 'selectGroup should auto-refresh mode switcher when _multiRec resets');
 })();
 
 process.exit(t.summary('Controller'));

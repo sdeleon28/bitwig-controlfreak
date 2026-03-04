@@ -6,18 +6,21 @@ var assert = t.assert;
 
 function fakeLaunchpad() {
     var behaviors = {};
+    var clickTracking = {};
     return {
         colors: { off: 0, green: 21, red: 5, amber: 17, yellow: 13, blue: 45, cyan: 41, purple: 49, pink: 53, white: 3 },
         brightness: { dim: 'dim', bright: 'bright' },
+        holdTiming: { clickThreshold: 400 },
         colorVariants: {
             21: { dim: 19, bright: 23 },
             5: { dim: 4, bright: 6 },
             17: { dim: 11, bright: 9 },
             13: { dim: 12, bright: 14 },
             49: { dim: 48, bright: 50 },
-            53: { dim: 4, bright: 95 },
+            53: { dim: 52, bright: 95 },
             3: { dim: 1, bright: 2 }
         },
+        _clickTracking: clickTracking,
         registeredBehaviors: behaviors,
         registerPadBehavior: function(pad, click, hold, page) {
             behaviors[pad] = { click: click, hold: hold, page: page };
@@ -26,6 +29,33 @@ function fakeLaunchpad() {
             var v = this.colorVariants[baseColor];
             if (v && level) return v[level] || baseColor;
             return baseColor;
+        },
+        trackPadPress: function(padNote) {
+            if (!clickTracking[padNote]) {
+                clickTracking[padNote] = { pressTime: null, clickCount: 0, lastClickTime: 0 };
+            }
+            clickTracking[padNote].pressTime = Date.now();
+        },
+        trackPadRelease: function(padNote) {
+            var tracking = clickTracking[padNote];
+            if (!tracking) return null;
+            var now = Date.now();
+            if (now - tracking.lastClickTime < this.holdTiming.clickThreshold) {
+                tracking.clickCount++;
+            } else {
+                tracking.clickCount = 1;
+            }
+            tracking.lastClickTime = now;
+            tracking.pressTime = null;
+            if (tracking.clickCount >= 3) {
+                tracking.clickCount = 0; tracking.lastClickTime = 0;
+                return 'triple';
+            }
+            if (tracking.clickCount >= 2) {
+                tracking.clickCount = 0; tracking.lastClickTime = 0;
+                return 'double';
+            }
+            return null;
         }
     };
 }
@@ -55,6 +85,7 @@ function fakeController() {
     return {
         calls: calls,
         refreshTrackGrid: function() { calls.push('refreshTrackGrid'); },
+        toggleMultiRec: function() { calls.push('toggleMultiRec'); },
         clearAllMute: function() { calls.push('clearAllMute'); },
         clearAllSolo: function() { calls.push('clearAllSolo'); },
         clearAllArm: function() { calls.push('clearAllArm'); }
@@ -266,6 +297,78 @@ function makeSwitcher(opts) {
     assert(notifications[3] === 'Pad: Sends', 'growl for pad sendA mode');
     ms.selectPadMode('select');
     assert(notifications[4] === 'Pad: Select', 'growl for pad select mode');
+})();
+
+// double-click recordArm button calls toggleMultiRec via trackPadRelease
+(function() {
+    var lp = fakeLaunchpad();
+    var ctrl = fakeController();
+    var ms = makeSwitcher({ launchpad: lp, controller: ctrl });
+    ms.registerBehaviors();
+    // First click — selects recordArm mode
+    lp.registeredBehaviors[19].click();
+    assert(ms.getPadMode() === 'recordArm', 'first click selects recordArm');
+    // Second click — immediate, detected as double
+    lp.registeredBehaviors[19].click();
+    assert(ctrl.calls.indexOf('toggleMultiRec') !== -1, 'double-click should call toggleMultiRec');
+})();
+
+// slow clicks on recordArm do not toggle multi-rec
+(function() {
+    var lp = fakeLaunchpad();
+    var ctrl = fakeController();
+    var ms = makeSwitcher({ launchpad: lp, controller: ctrl });
+    ms.registerBehaviors();
+    // First click
+    lp.registeredBehaviors[19].click();
+    // Simulate >400ms delay by resetting click tracking
+    lp._clickTracking[19] = { pressTime: null, clickCount: 0, lastClickTime: Date.now() - 500 };
+    // Second click after timeout
+    lp.registeredBehaviors[19].click();
+    assert(ctrl.calls.indexOf('toggleMultiRec') === -1, 'slow re-click should not toggle multi-rec');
+    assert(ms.getPadMode() === 'recordArm', 'should still be in recordArm mode');
+})();
+
+// recordArm button shows pink when multi-rec is on
+(function() {
+    var pager = fakePager();
+    var lp = fakeLaunchpad();
+    var ctrl = fakeController();
+    ctrl._multiRec = true;
+    var ms = makeSwitcher({ pager: pager, launchpad: lp, controller: ctrl });
+    pager.paints.length = 0;
+    ms.refresh();
+    var recArmPaint = pager.paints.filter(function(p) { return p.pad === 19; });
+    assert(recArmPaint.length === 1, 'recordArm button should be painted');
+    // pink (53) with dim variant = 52 (from colorVariants)
+    assert(recArmPaint[0].color === 52, 'recordArm button should be pink (dim) when multi-rec on');
+})();
+
+// recordArm button shows red when multi-rec is off
+(function() {
+    var pager = fakePager();
+    var lp = fakeLaunchpad();
+    var ctrl = fakeController();
+    ctrl._multiRec = false;
+    var ms = makeSwitcher({ pager: pager, launchpad: lp, controller: ctrl });
+    pager.paints.length = 0;
+    ms.refresh();
+    var recArmPaint = pager.paints.filter(function(p) { return p.pad === 19; });
+    assert(recArmPaint.length === 1, 'recordArm button should be painted');
+    // red (5) with dim variant = 4
+    assert(recArmPaint[0].color === 4, 'recordArm button should be red (dim) when multi-rec off');
+})();
+
+// first click on recordArm from another mode does not toggle
+(function() {
+    var lp = fakeLaunchpad();
+    var ctrl = fakeController();
+    var ms = makeSwitcher({ launchpad: lp, controller: ctrl });
+    ms.registerBehaviors();
+    ms.selectPadMode('mute'); // switch to different mode
+    lp.registeredBehaviors[19].click(); // first click on recordArm from mute
+    assert(ctrl.calls.indexOf('toggleMultiRec') === -1, 'first click from another mode should not toggle');
+    assert(ms.getPadMode() === 'recordArm', 'should switch to recordArm mode');
 })();
 
 // MODE_ENUM static property is accessible

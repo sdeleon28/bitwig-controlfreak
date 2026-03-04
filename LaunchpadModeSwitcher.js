@@ -45,7 +45,6 @@ class LaunchpadModeSwitcherHW {
         // Default modes (replaces init())
         this._currentEncoderMode = 'volume';
         this._currentPadMode = 'recordArm';
-
         if (this.debug) this.println("LaunchpadModeSwitcher initialized");
     }
 
@@ -108,7 +107,11 @@ class LaunchpadModeSwitcherHW {
                 var isActive = (mode === this._currentEncoderMode || mode === this._currentPadMode);
 
                 if (isActive) {
-                    var brightColor = this.launchpad.getBrightnessVariant(modeConfig.color, this.launchpad.brightness.dim);
+                    var color = modeConfig.color;
+                    if (mode === 'recordArm' && this.controller && this.controller._multiRec) {
+                        color = this.launchpad.colors.pink;
+                    }
+                    var brightColor = this.launchpad.getBrightnessVariant(color, this.launchpad.brightness.dim);
                     this.pager.requestPaint(pageNumber, modeConfig.note, brightColor);
                 } else {
                     this.pager.requestClear(pageNumber, modeConfig.note);
@@ -170,7 +173,13 @@ class LaunchpadModeSwitcherHW {
         }, page);
 
         this.launchpad.registerPadBehavior(modes.recordArm.note, function() {
-            self.selectPadMode('recordArm');
+            self.launchpad.trackPadPress(modes.recordArm.note);
+            var gesture = self.launchpad.trackPadRelease(modes.recordArm.note);
+            if (gesture === 'double') {
+                if (self.controller) self.controller.toggleMultiRec();
+            } else {
+                self.selectPadMode('recordArm');
+            }
         }, function() {
             if (self.controller) self.controller.clearAllArm();
         }, page);

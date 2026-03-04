@@ -47,9 +47,20 @@ class ControllerHW {
         this.selectedGroup = null;
         this._mode = 'grid';  // 'grid' | 'track' | 'device'
         this._activeMapper = null;
+        this._multiRecValue = false;
         this._deviceChangeSeq = 0;
         this._pendingRCCheck = false;
         this._suppressNextDeviceChange = false;
+    }
+
+    get _multiRec() {
+        return this._multiRecValue;
+    }
+
+    set _multiRec(value) {
+        if (this._multiRecValue === value) return;
+        this._multiRecValue = value;
+        if (this.launchpadModeSwitcher) this.launchpadModeSwitcher.refresh();
     }
 
     /**
@@ -58,6 +69,15 @@ class ControllerHW {
     init() {
         this.selectGroup(16);
         if (this.debug) this.println("Controller initialized");
+    }
+
+    /**
+     * Toggle multi-rec mode (individual arm toggle vs XOR arm)
+     */
+    toggleMultiRec() {
+        this._multiRec = !this._multiRec;
+        if (this.host) this.host.showPopupNotification("Multi Rec: " + (this._multiRec ? "ON" : "OFF"));
+        this.refreshTrackGrid();
     }
 
     /**
@@ -169,6 +189,7 @@ class ControllerHW {
         this.selectedGroup = groupNumber;
         this._mode = 'grid';
         this._activeMapper = null;
+        this._multiRec = false;
         this.refreshGroupDisplay();
         this.refreshTrackGrid();
     }
@@ -246,8 +267,9 @@ class ControllerHW {
                         self.launchpad.registerPadBehavior(pn, function() {
                             var track = self.bitwig.getTrack(tid);
                             if (track) {
-                                if (self.host) self.host.showPopupNotification(track.name().get());
+                                var wasMuted = track.mute().get();
                                 track.mute().toggle();
+                                if (self.host) self.host.showPopupNotification((wasMuted ? "Unmute: " : "Mute: ") + track.name().get());
                             }
                         }, null, self.pageMainControl.pageNumber);
                     })(trackId, padNote);
@@ -256,8 +278,9 @@ class ControllerHW {
                         self.launchpad.registerPadBehavior(pn, function() {
                             var track = self.bitwig.getTrack(tid);
                             if (track) {
-                                if (self.host) self.host.showPopupNotification(track.name().get());
+                                var wasSoloed = track.solo().get();
                                 track.solo().toggle();
+                                if (self.host) self.host.showPopupNotification((wasSoloed ? "Unsolo: " : "Solo: ") + track.name().get());
                             }
                         }, null, self.pageMainControl.pageNumber);
                     })(trackId, padNote);
@@ -266,14 +289,20 @@ class ControllerHW {
                         self.launchpad.registerPadBehavior(pn, function() {
                             var track = self.bitwig.getTrack(tid);
                             if (track) {
-                                if (self.host) self.host.showPopupNotification(track.name().get());
-                                for (var t = 0; t < 64; t++) {
-                                    var otherTrack = self.bitwig.getTrack(t);
-                                    if (otherTrack && t !== tid) {
-                                        otherTrack.arm().set(false);
+                                if (self._multiRec) {
+                                    var wasArmed = track.arm().get();
+                                    track.arm().set(!wasArmed);
+                                    if (self.host) self.host.showPopupNotification((wasArmed ? "Disarm: " : "Rec: ") + track.name().get());
+                                } else {
+                                    if (self.host) self.host.showPopupNotification("Rec: " + track.name().get());
+                                    for (var t = 0; t < 64; t++) {
+                                        var otherTrack = self.bitwig.getTrack(t);
+                                        if (otherTrack && t !== tid) {
+                                            otherTrack.arm().set(false);
+                                        }
                                     }
+                                    track.arm().set(true);
                                 }
-                                track.arm().set(true);
                             }
                         }, null, self.pageMainControl.pageNumber);
                     })(trackId, padNote);
@@ -389,6 +418,7 @@ class ControllerHW {
      * Clear all muted tracks with flash animation
      */
     clearAllMute() {
+        if (this.host) this.host.showPopupNotification("Clear All Mute");
         var modeConfig = this.launchpadModeSwitcher.modes.mute;
 
         this.launchpad.setPadColor(modeConfig.note, this.launchpad.colors.white);
@@ -412,6 +442,7 @@ class ControllerHW {
      * Clear all soloed tracks with flash animation
      */
     clearAllSolo() {
+        if (this.host) this.host.showPopupNotification("Clear All Solo");
         var modeConfig = this.launchpadModeSwitcher.modes.solo;
 
         this.launchpad.setPadColor(modeConfig.note, this.launchpad.colors.white);
@@ -479,6 +510,8 @@ class ControllerHW {
      * Clear all armed tracks with flash animation
      */
     clearAllArm() {
+        this._multiRec = false;
+        if (this.host) this.host.showPopupNotification("Clear All Rec");
         var modeConfig = this.launchpadModeSwitcher.modes.recordArm;
 
         this.launchpad.setPadColor(modeConfig.note, this.launchpad.colors.white);
