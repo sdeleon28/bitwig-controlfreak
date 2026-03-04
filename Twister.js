@@ -31,6 +31,7 @@ class TwisterHW {
         this._rcParamToEncoder = {};
         this._rcToggleParams = {};
         this._trackRCMode = false;
+        this._projectRCMode = false;
 
         // Constants
         this.colors = TwisterHW.COLORS;
@@ -148,6 +149,7 @@ class TwisterHW {
         this._rcParamToEncoder = {};
         this._rcToggleParams = {};
         this._trackRCMode = false;
+        this._projectRCMode = false;
     }
 
     unlinkEncoder(encoderNumber) {
@@ -341,6 +343,60 @@ class TwisterHW {
                 this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
                 this.setEncoderLED(encoderNum, Math.round(value * 127));
             }
+        }
+    }
+
+    linkEncodersToProjectRemoteControls() {
+        this.unlinkAll();
+        this._rcParamToEncoder = {};
+        this._rcToggleParams = {};
+        this._projectRCMode = true;
+        var projectRC = this.bitwig.getProjectRemoteControls();
+        if (!projectRC) return;
+        var color = { r: 0, g: 200, b: 255 };
+
+        for (var i = 0; i < 8; i++) {
+            var param = projectRC.getParameter(i);
+            var encoderNum = ((i + 4) % 8) + 1;
+            var value = param.value().get();
+            var stepCount = param.discreteValueCount().get();
+            this._rcParamToEncoder[i] = encoderNum;
+
+            if (stepCount === 2) {
+                this._rcToggleParams[i] = true;
+                var turnCb = null;
+                var pressCb = (function(p) {
+                    return function(pressed) {
+                        if (!pressed) return;
+                        var cur = p.value().get();
+                        p.value().set(cur >= 0.5 ? 0 : 1);
+                    };
+                })(param);
+                this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
+                this.setEncoderLED(encoderNum, value >= 0.5 ? 127 : 0);
+            } else {
+                var turnCb = (function(p) {
+                    return function(val) { p.value().set(val / 127.0); };
+                })(param);
+                var pressCb = (function(p, h) {
+                    return function(pressed) {
+                        if (pressed && h) h.showPopupNotification(p.name().get());
+                    };
+                })(param, this.host);
+                this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
+                this.setEncoderLED(encoderNum, Math.round(value * 127));
+            }
+        }
+    }
+
+    updateProjectRemoteControlLED(paramIndex, value) {
+        if (!this._projectRCMode) return;
+        var encoderNum = this._rcParamToEncoder[paramIndex];
+        if (encoderNum === undefined) return;
+        if (this._rcToggleParams[paramIndex]) {
+            this.setEncoderLED(encoderNum, value >= 0.5 ? 127 : 0);
+        } else {
+            this.setEncoderLED(encoderNum, Math.round(value * 127));
         }
     }
 

@@ -14,13 +14,17 @@ function fakeLaunchpadLane() {
     };
 }
 
-function fakeController() {
+function fakeController(opts) {
+    opts = opts || {};
     var calls = [];
     return {
         calls: calls,
+        selectedGroup: opts.selectedGroup || null,
+        _mode: opts.mode || 'grid',
         refreshGroupDisplay: function() { calls.push('refreshGroupDisplay'); },
         refreshTrackGrid: function() { calls.push('refreshTrackGrid'); },
-        selectGroup: function(num) { calls.push({ method: 'selectGroup', num: num }); }
+        selectGroup: function(num) { calls.push({ method: 'selectGroup', num: num }); },
+        enterMasterTrackMode: function() { calls.push('enterMasterTrackMode'); }
     };
 }
 
@@ -173,6 +177,43 @@ function makePage(opts) {
     page.show();
     assert(ctrl.calls.indexOf('refreshGroupDisplay') !== -1, "patched controller should work in show()");
     assert(ms.calls.indexOf('registerBehaviors') !== -1, "patched modeSwitcher should work in show()");
+})();
+
+// handlePadPress: pressing pad 16 when already on group 16 in grid mode enters master track mode
+(function() {
+    var lp = fakeLaunchpad({ handledPads: [] });
+    var ctrl = fakeController({ selectedGroup: 16, mode: 'grid' });
+    var quad = fakeLaunchpadQuadrant({ groupMap: { 38: 16 } });
+    var page = makePage({ launchpad: lp, controller: ctrl, launchpadQuadrant: quad });
+    var result = page.handlePadPress(38);
+    assert(result === true, "should return true");
+    assert(ctrl.calls.indexOf('enterMasterTrackMode') !== -1, "should call enterMasterTrackMode");
+    var selectCalls = ctrl.calls.filter(function(c) { return c.method === 'selectGroup'; });
+    assert(selectCalls.length === 0, "should NOT call selectGroup");
+})();
+
+// handlePadPress: pressing pad 16 when NOT on group 16 calls selectGroup normally
+(function() {
+    var lp = fakeLaunchpad({ handledPads: [] });
+    var ctrl = fakeController({ selectedGroup: 3, mode: 'grid' });
+    var quad = fakeLaunchpadQuadrant({ groupMap: { 38: 16 } });
+    var page = makePage({ launchpad: lp, controller: ctrl, launchpadQuadrant: quad });
+    var result = page.handlePadPress(38);
+    assert(result === true, "should return true");
+    assert(ctrl.calls[0].method === 'selectGroup', "should call selectGroup");
+    assert(ctrl.calls[0].num === 16, "should select group 16");
+})();
+
+// handlePadPress: pressing pad 16 when already on group 16 but NOT in grid mode calls selectGroup
+(function() {
+    var lp = fakeLaunchpad({ handledPads: [] });
+    var ctrl = fakeController({ selectedGroup: 16, mode: 'track' });
+    var quad = fakeLaunchpadQuadrant({ groupMap: { 38: 16 } });
+    var page = makePage({ launchpad: lp, controller: ctrl, launchpadQuadrant: quad });
+    var result = page.handlePadPress(38);
+    assert(result === true, "should return true");
+    assert(ctrl.calls[0].method === 'selectGroup', "should call selectGroup when in track mode");
+    assert(ctrl.calls[0].num === 16, "should select group 16");
 })();
 
 // init() and hide() do not throw

@@ -69,7 +69,11 @@ class PageMainControlHW {
             var groupNum = this.launchpadQuadrant.bottomRight.getGroup(padNote);
             if (groupNum) {
                 if (this.controller) {
-                    this.controller.selectGroup(groupNum);
+                    if (groupNum === 16 && this.controller.selectedGroup === 16 && this.controller._mode === 'grid') {
+                        this.controller.enterMasterTrackMode();
+                    } else {
+                        this.controller.selectGroup(groupNum);
+                    }
                 }
                 return true;
             }

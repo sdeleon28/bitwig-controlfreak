@@ -54,6 +54,7 @@ class ControllerHW {
         this._devicePaneShown = false;
         this._selectedDeviceIndex = null;
         this._lastDeviceName = null;
+        this._masterTrackMode = false;
     }
 
     get _multiRec() {
@@ -99,7 +100,7 @@ class ControllerHW {
             cursorDevice.isWindowOpen().set(false);
         }
 
-        if (this._devicePaneShown && this.bitwig._application) {
+        if ((this._mode === 'track' || this._mode === 'device') && this._devicePaneShown && this.bitwig._application) {
             this.bitwig._application.toggleDevices();
             this._devicePaneShown = false;
         }
@@ -208,6 +209,7 @@ class ControllerHW {
         this._activeMapper = null;
         this._selectedDeviceIndex = null;
         this._lastDeviceName = null;
+        this._masterTrackMode = false;
         this._multiRec = false;
         this.refreshGroupDisplay();
         this.refreshTrackGrid();
@@ -246,10 +248,12 @@ class ControllerHW {
             }
         }
 
-        // Handle pad 16 (top-level group) - use white color
+        // Handle pad 16: white (inactive), red (top level), cyan (master track mode)
         var pad16 = this.launchpadQuadrant.bottomRight.pads[15];
-        if (this.selectedGroup === 16) {
-            this.pager.requestPaint(page, pad16, this.launchpad.getBrightnessVariant(this.launchpad.colors.white, this.launchpad.brightness.bright));
+        if (this._masterTrackMode) {
+            this.pager.requestPaint(page, pad16, this.launchpad.getBrightnessVariant(this.launchpad.colors.cyan, this.launchpad.brightness.bright));
+        } else if (this.selectedGroup === 16) {
+            this.pager.requestPaint(page, pad16, this.launchpad.getBrightnessVariant(this.launchpad.colors.red, this.launchpad.brightness.bright));
         } else {
             this.pager.requestPaint(page, pad16, this.launchpad.getBrightnessVariant(this.launchpad.colors.white, this.launchpad.brightness.dim));
         }
@@ -649,6 +653,7 @@ class ControllerHW {
         }
 
         this._mode = 'track';
+        this._masterTrackMode = false;
         this._activeMapper = null;
         this._selectedDeviceIndex = null;
         this._lastDeviceName = null;
@@ -703,6 +708,70 @@ class ControllerHW {
     }
 
     /**
+     * Enter master track mode: select master track, show device pane,
+     * link project remote controls to Twister.
+     */
+    enterMasterTrackMode() {
+        var masterTrack = this.bitwig.getMasterTrack();
+        if (!masterTrack) return;
+
+        var cursorDevice = this.bitwig.getCursorDevice();
+        if (cursorDevice && cursorDevice.isWindowOpen().get()) {
+            cursorDevice.isWindowOpen().set(false);
+        }
+
+        this._mode = 'track';
+        this._masterTrackMode = true;
+        this._activeMapper = null;
+        this._selectedDeviceIndex = null;
+        this._lastDeviceName = null;
+
+        if (!this._devicePaneShown && this.bitwig._application) {
+            this.bitwig._application.toggleDevices();
+            this._devicePaneShown = true;
+        }
+
+        masterTrack.selectInMixer();
+
+        if (this.host) this.host.showPopupNotification("Master → Track Mode");
+
+        this.twister.linkEncodersToProjectRemoteControls();
+
+        if (this.deviceQuadrant && this.deviceQuadrant.isActive()) {
+            this.deviceQuadrant.deactivate();
+        }
+
+        var self = this;
+        if (this.deviceSelector) {
+            if (!this.deviceSelector.isActive()) {
+                this.deviceSelector.activate(
+                    function(deviceIndex) {
+                        if (deviceIndex === self._selectedDeviceIndex && self._lastDeviceName) {
+                            self.enterDeviceMode(self._lastDeviceName);
+                            return;
+                        }
+                        self._selectedDeviceIndex = deviceIndex;
+                        var deviceBank = self.bitwig.getDeviceBank();
+                        if (deviceBank) {
+                            var device = deviceBank.getItemAt(deviceIndex);
+                            if (device) {
+                                self.bitwig.getCursorDevice().selectDevice(device);
+                                device.selectInEditor();
+                            }
+                        }
+                    },
+                    function() {
+                        self.selectGroup(self.selectedGroup);
+                    }
+                );
+            }
+        }
+
+        masterTrack.makeVisibleInArranger();
+        this.refreshGroupDisplay();
+    }
+
+    /**
      * Map the current device to the Twister (custom mapper or RC fallback).
      * Does NOT change mode or touch DeviceSelector/DeviceQuadrant.
      * @param {string} deviceName - Name of the focused device
@@ -745,6 +814,7 @@ class ControllerHW {
      */
     enterDeviceMode(deviceName) {
         this._mode = 'device';
+        this._masterTrackMode = false;
         if (this.host) this.host.showPopupNotification("Device: " + deviceName);
 
         var cursorDevice = this.bitwig.getCursorDevice();
@@ -785,6 +855,12 @@ class ControllerHW {
     onDeviceChanged(deviceName) {
         if (!deviceName) return;
 
+        if (this._masterTrackMode) {
+            this._lastDeviceName = deviceName;
+            if (this.host) this.host.showPopupNotification("Device: " + deviceName);
+            return;
+        }
+
         if (this._mode === 'track') {
             this._mapDeviceToTwister(deviceName);
             this._lastDeviceName = deviceName;
@@ -806,6 +882,7 @@ class ControllerHW {
      * @param {string} name - Cursor track name
      */
     onCursorTrackChanged(name) {
+        if (this._masterTrackMode) return;
         if (this._mode === 'track' || this._mode === 'device') {
             this._suppressNextDeviceChange = true;
             this.enterTrackMode();

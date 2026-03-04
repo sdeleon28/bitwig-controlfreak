@@ -376,6 +376,24 @@ function init() {
     Bitwig.initMasterTrack(masterTrack);
     Bitwig.initMasterDevice(masterDeviceCursor);
 
+    // Project-level remote controls (from root track group)
+    var project = host.getProject();
+    var rootTrackGroup = project.getRootTrackGroup();
+    var projectRemoteControls = rootTrackGroup.createCursorRemoteControlsPage("project-rc", 8, "");
+    for (var prc = 0; prc < 8; prc++) {
+        var prcParam = projectRemoteControls.getParameter(prc);
+        prcParam.markInterested();
+        prcParam.value().markInterested();
+        prcParam.name().markInterested();
+        prcParam.discreteValueCount().markInterested();
+        (function(paramIndex) {
+            prcParam.value().addValueObserver(function(value) {
+                Twister.updateProjectRemoteControlLED(paramIndex, value);
+            });
+        })(prc);
+    }
+    Bitwig.initProjectRemoteControls(projectRemoteControls);
+
     // Observe cursor device enabled state (for DeviceQuadrant bypass pad)
     cursorDevice.isEnabled().markInterested();
     cursorDevice.isEnabled().addValueObserver(function(enabled) {

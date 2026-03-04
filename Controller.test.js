@@ -42,6 +42,7 @@ function fakeTrack(name, opts) {
             };
         },
         makeVisibleInArranger: function() { _visibleCalls++; },
+        selectInMixer: function() { _visibleCalls; },
         _getVisibleCalls: function() { return _visibleCalls; }
     };
     return obj;
@@ -170,6 +171,7 @@ function fakeTwister(opts) {
         linkEncodersToTrackSends: function(tid) { calls.push({ method: 'linkEncodersToTrackSends', trackId: tid }); },
         linkEncodersToRemoteControls: function() { calls.push('linkEncodersToRemoteControls'); },
         linkEncodersToTrackRemoteControls: function() { calls.push('linkEncodersToTrackRemoteControls'); },
+        linkEncodersToProjectRemoteControls: function() { calls.push('linkEncodersToProjectRemoteControls'); },
         ccToEncoder: function(cc) { return cc + 1; },
         handleEncoderTurn: function(enc, val) { calls.push({ method: 'handleEncoderTurn', encoder: enc, value: val }); },
         handleEncoderPress: function(enc, pressed) { calls.push({ method: 'handleEncoderPress', encoder: enc, pressed: pressed }); },
@@ -464,10 +466,10 @@ function makeController(opts) {
     // Groups 1 and 2 should be linked
     assert(lp.padLinks[41], "pad for group 1 should be linked");
     assert(lp.padLinks[42], "pad for group 2 should be linked");
-    // Pad 16 (top-level) should be bright white when group 16 selected
+    // Pad 16 (top-level) should be bright red when group 16 selected
     var pad16Paints = pager.paints.filter(function(p) { return p.pad === 38; }); // pads[15] = 38
     assert(pad16Paints.length > 0, "should paint pad 16");
-    assert(pad16Paints[0].color === '3_bright', "pad 16 should be bright white when group 16 selected");
+    assert(pad16Paints[0].color === '5_bright', "pad 16 should be bright red when group 16 selected");
 })();
 
 // refreshGroupDisplay highlights selected group (1-15)
@@ -2149,13 +2151,34 @@ function makeController(opts) {
     assert(bw._getToggleDevicesCalls() === 0, "should not call toggleDevices");
 })();
 
-// selectGroup toggles device pane off when shown
+// selectGroup(non-16) toggles device pane off when shown
+(function() {
+    var bw = fakeBitwig({ groups: { 1: 0 }, groupChildren: { 0: [] }, tracks: { 0: fakeTrack("G (1)", { isGroup: true }) } });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterTrackMode();
+    ctrl.selectGroup(1);
+    assert(ctrl._devicePaneShown === false, "device pane should be hidden after selectGroup(non-16)");
+    assert(bw._getToggleDevicesCalls() === 2, "should toggle twice (on then off)");
+})();
+
+// selectGroup(16) closes device pane when coming from track mode
 (function() {
     var bw = fakeBitwig();
     var ctrl = makeController({ bitwig: bw });
     ctrl.enterTrackMode();
     ctrl.selectGroup(16);
-    assert(ctrl._devicePaneShown === false, "device pane should be hidden after selectGroup");
+    assert(ctrl._devicePaneShown === false, "device pane should be hidden after selectGroup(16) from track mode");
+    assert(bw._getToggleDevicesCalls() === 2, "should toggle twice (on then off)");
+})();
+
+// selectGroup(16) closes device pane when coming from master track mode
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var bw = fakeBitwig({ masterTrack: masterTrack });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    ctrl.selectGroup(16);
+    assert(ctrl._devicePaneShown === false, "device pane should be hidden after leaving master track mode");
     assert(bw._getToggleDevicesCalls() === 2, "should toggle twice (on then off)");
 })();
 
@@ -2302,6 +2325,151 @@ function makeController(opts) {
     ctrl._mode = 'device';
     ctrl.selectGroup(16);
     assert(bw._pluginWindowOpen === false, "plugin window should be closed when leaving device mode via selectGroup");
+})();
+
+// enterMasterTrackMode sets _mode to 'track' and _masterTrackMode to true
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ masterTrack: masterTrack });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.selectedGroup = 16;
+    ctrl.enterMasterTrackMode();
+    assert(ctrl._mode === 'track', "_mode should be 'track'");
+    assert(ctrl._masterTrackMode === true, "_masterTrackMode should be true");
+})();
+
+// enterMasterTrackMode links project remote controls
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ masterTrack: masterTrack });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    var projectRCCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToProjectRemoteControls'; });
+    assert(projectRCCalls.length === 1, "should call linkEncodersToProjectRemoteControls");
+})();
+
+// enterMasterTrackMode shows growl
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var h = fakeHost();
+    var bw = fakeBitwig({ masterTrack: masterTrack });
+    var ctrl = makeController({ host: h, bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    assert(h.notifications.indexOf("Master → Track Mode") !== -1, "should show Master → Track Mode growl");
+})();
+
+// enterMasterTrackMode shows device pane
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var bw = fakeBitwig({ masterTrack: masterTrack });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    assert(ctrl._devicePaneShown === true, "device pane should be shown");
+    assert(bw._getToggleDevicesCalls() === 1, "should toggle device pane once");
+})();
+
+// enterMasterTrackMode activates device selector
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var ds = fakeDeviceSelector();
+    var bw = fakeBitwig({ masterTrack: masterTrack });
+    var ctrl = makeController({ deviceSelector: ds, bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    assert(ds.calls.indexOf('activate') !== -1, "should activate device selector");
+})();
+
+// enterMasterTrackMode calls makeVisibleInArranger on master track
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var bw = fakeBitwig({ masterTrack: masterTrack });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    assert(masterTrack._getVisibleCalls() === 1, "should call makeVisibleInArranger on master track");
+})();
+
+// enterMasterTrackMode does nothing without master track
+(function() {
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ masterTrack: null });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl._mode = 'grid';
+    ctrl.enterMasterTrackMode();
+    assert(ctrl._mode === 'grid', "_mode should remain 'grid' without master track");
+})();
+
+// onCursorTrackChanged in master track mode is suppressed
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ masterTrack: masterTrack });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    tw.calls.length = 0;
+    ctrl.onCursorTrackChanged("Some Track");
+    assert(ctrl._masterTrackMode === true, "_masterTrackMode should remain true");
+    var trackRCCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToTrackRemoteControls'; });
+    assert(trackRCCalls.length === 0, "should NOT re-link track RCs");
+})();
+
+// onDeviceChanged in master track mode updates _lastDeviceName but does not remap twister
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var tw = fakeTwister();
+    var h = fakeHost();
+    var bw = fakeBitwig({ masterTrack: masterTrack });
+    var ctrl = makeController({ twister: tw, bitwig: bw, host: h });
+    ctrl.enterMasterTrackMode();
+    tw.calls.length = 0;
+    ctrl.onDeviceChanged("SomePlugin");
+    assert(ctrl._lastDeviceName === 'SomePlugin', "_lastDeviceName should be updated");
+    assert(h.notifications.indexOf("Device: SomePlugin") !== -1, "should show device growl");
+    assert(tw.calls.indexOf('unlinkAll') === -1, "should NOT call unlinkAll (keep project RCs)");
+})();
+
+// selectGroup clears _masterTrackMode
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ masterTrack: masterTrack, topLevel: [] });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    assert(ctrl._masterTrackMode === true, "_masterTrackMode should be true");
+    ctrl.selectGroup(16);
+    assert(ctrl._masterTrackMode === false, "selectGroup should clear _masterTrackMode");
+})();
+
+// enterTrackMode clears _masterTrackMode
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ masterTrack: masterTrack });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    assert(ctrl._masterTrackMode === true, "_masterTrackMode should be true");
+    ctrl.enterTrackMode();
+    assert(ctrl._masterTrackMode === false, "enterTrackMode should clear _masterTrackMode");
+})();
+
+// enterDeviceMode clears _masterTrackMode
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ masterTrack: masterTrack });
+    var ctrl = makeController({ twister: tw, bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    ctrl.enterDeviceMode("SomePlugin");
+    assert(ctrl._masterTrackMode === false, "enterDeviceMode should clear _masterTrackMode");
+})();
+
+// enterMasterTrackMode closes plugin window if open
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var bw = fakeBitwig({ masterTrack: masterTrack, _isPlugin: true, _pluginWindowOpen: true });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    assert(bw._pluginWindowOpen === false, "plugin window should be closed");
 })();
 
 process.exit(t.summary('Controller'));

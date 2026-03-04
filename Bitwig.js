@@ -27,6 +27,7 @@ class BitwigHW {
         this._masterLimiterThresholdId = null;
         this._masterLimiterThresholdValue = 0;
         this._trackRemoteControls = null;
+        this._projectRemoteControls = null;
         this._deviceBank = null;
     }
 
@@ -549,6 +550,14 @@ class BitwigHW {
 
     getTrackRemoteControls() {
         return this._trackRemoteControls;
+    }
+
+    initProjectRemoteControls(projectRCs) {
+        this._projectRemoteControls = projectRCs;
+    }
+
+    getProjectRemoteControls() {
+        return this._projectRemoteControls;
     }
 
     initDeviceBank(deviceBank) {

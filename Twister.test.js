@@ -672,6 +672,93 @@ function makeTwister(opts) {
     assert(track._getVisibleCalls() === 1, 'should NOT call makeVisibleInArranger on release');
 })();
 
+// linkEncodersToProjectRemoteControls links 8 params with cyan color
+(function() {
+    var out = fakeMidiOutput();
+    var bw = fakeBitwig({}, {});
+    var cachedProjectRC = null;
+    bw.getProjectRemoteControls = function() {
+        if (cachedProjectRC) return cachedProjectRC;
+        var params = {};
+        for (var i = 0; i < 8; i++) {
+            (function(idx) {
+                var val = 0;
+                params[idx] = {
+                    name: function() { return { get: function() { return 'Param ' + idx; } }; },
+                    value: function() { return { get: function() { return val; }, set: function(v) { val = v; } }; },
+                    discreteValueCount: function() { return { get: function() { return -1; } }; }
+                };
+            })(i);
+        }
+        cachedProjectRC = { getParameter: function(i) { return params[i]; } };
+        return cachedProjectRC;
+    };
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    out.messages.length = 0;
+    tw.linkEncodersToProjectRemoteControls();
+    assert(tw._projectRCMode === true, 'should set _projectRCMode to true');
+    var cyanIndex = tw.findClosestColorIndex(0, 200, 255);
+    var cyanColorMsgs = out.messages.filter(function(m) { return m.status === 0xB1 && m.data2 === cyanIndex; });
+    assert(cyanColorMsgs.length === 8, "should send 8 cyan color messages, got " + cyanColorMsgs.length);
+})();
+
+// linkEncodersToProjectRemoteControls returns early when no project RCs
+(function() {
+    var bw = fakeBitwig({}, {});
+    bw.getProjectRemoteControls = function() { return null; };
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToProjectRemoteControls();
+    assert(tw._projectRCMode === true, '_projectRCMode should be set even without RCs');
+    assert(Object.keys(tw._rcParamToEncoder).length === 0, 'no params should be mapped');
+})();
+
+// updateProjectRemoteControlLED updates LED when in project RC mode
+(function() {
+    var out = fakeMidiOutput();
+    var bw = fakeBitwig({}, {});
+    bw.getProjectRemoteControls = function() {
+        var params = {};
+        for (var i = 0; i < 8; i++) {
+            (function(idx) {
+                params[idx] = {
+                    name: function() { return { get: function() { return ''; } }; },
+                    value: function() { return { get: function() { return 0; }, set: function() {} }; },
+                    discreteValueCount: function() { return { get: function() { return -1; } }; }
+                };
+            })(i);
+        }
+        return { getParameter: function(i) { return params[i]; } };
+    };
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    tw.linkEncodersToProjectRemoteControls();
+    out.messages.length = 0;
+    tw.updateProjectRemoteControlLED(0, 0.5);
+    var encoderNum = ((0 + 4) % 8) + 1; // = 5
+    var cc = tw.encoderToCC(encoderNum);
+    var ledMsgs = out.messages.filter(function(m) { return m.status === 0xB0 && m.data1 === cc; });
+    assert(ledMsgs.length === 1, 'should send one LED message');
+    assert(ledMsgs[0].data2 === Math.round(0.5 * 127), 'LED value should match');
+})();
+
+// updateProjectRemoteControlLED is no-op when not in project RC mode
+(function() {
+    var out = fakeMidiOutput();
+    var tw = makeTwister({ midiOutput: out });
+    tw.updateProjectRemoteControlLED(0, 0.5);
+    assert(out.messages.length === 0, 'should not send any messages when not in project RC mode');
+})();
+
+// unlinkAll clears _projectRCMode
+(function() {
+    var bw = fakeBitwig({}, {});
+    bw.getProjectRemoteControls = function() { return null; };
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToProjectRemoteControls();
+    assert(tw._projectRCMode === true, '_projectRCMode should be true');
+    tw.unlinkAll();
+    assert(tw._projectRCMode === false, 'unlinkAll should clear _projectRCMode');
+})();
+
 // ---- summary ----
 
 process.exit(t.summary('Twister'));
