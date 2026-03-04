@@ -82,9 +82,22 @@ function fakeBitwig(opts) {
         getMasterLimiterThresholdValue: function() { return opts.masterLimiterThresholdValue || 0; },
         setMasterLimiterThresholdValue: function(v) { opts.masterLimiterThresholdValue = v; },
         getCursorDevice: function() {
+            var windowOpen = opts._pluginWindowOpen || false;
+            var isPlugin = opts._isPlugin || false;
             return {
                 selectNone: function() { result._selectNoneCalls = (result._selectNoneCalls || 0) + 1; },
-                selectDevice: function(device) { result._selectedDevice = device; }
+                selectDevice: function(device) { result._selectedDevice = device; },
+                isWindowOpen: function() {
+                    return {
+                        get: function() { return windowOpen; },
+                        set: function(v) { windowOpen = v; result._pluginWindowOpen = v; }
+                    };
+                },
+                isPlugin: function() {
+                    return {
+                        get: function() { return isPlugin; }
+                    };
+                }
             };
         },
         getDeviceBank: function() { return opts.deviceBank || null; },
@@ -1775,7 +1788,9 @@ function makeController(opts) {
     bw.getCursorDevice = function() {
         return {
             selectDevice: function(d) { selectedDevice = d; },
-            selectNone: function() {}
+            selectNone: function() {},
+            isWindowOpen: function() { return { get: function() { return false; }, set: function() {} }; },
+            isPlugin: function() { return { get: function() { return false; } }; }
         };
     };
     var ctrl = makeController({ deviceSelector: ds, bitwig: bw });
@@ -2253,6 +2268,40 @@ function makeController(opts) {
     ctrl.selectGroup(16);
     assert(ctrl._selectedDeviceIndex === null, "_selectedDeviceIndex should be null after selectGroup");
     assert(ctrl._lastDeviceName === null, "_lastDeviceName should be null after selectGroup");
+})();
+
+// enterDeviceMode opens plugin window when device is a plugin
+(function() {
+    var bw = fakeBitwig({ _isPlugin: true });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterDeviceMode('PluginDevice');
+    assert(bw._pluginWindowOpen === true, "plugin window should be opened on entering device mode for a plugin");
+})();
+
+// enterDeviceMode does NOT open plugin window when device is not a plugin
+(function() {
+    var bw = fakeBitwig({ _isPlugin: false });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterDeviceMode('BitwigDevice');
+    assert(bw._pluginWindowOpen === undefined || bw._pluginWindowOpen === false, "plugin window should NOT be opened for non-plugin device");
+})();
+
+// enterTrackMode closes plugin window if it was open
+(function() {
+    var bw = fakeBitwig({ _isPlugin: true, _pluginWindowOpen: true });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl._mode = 'device';
+    ctrl.enterTrackMode();
+    assert(bw._pluginWindowOpen === false, "plugin window should be closed when leaving device mode via enterTrackMode");
+})();
+
+// selectGroup closes plugin window if it was open
+(function() {
+    var bw = fakeBitwig({ _isPlugin: true, _pluginWindowOpen: true });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl._mode = 'device';
+    ctrl.selectGroup(16);
+    assert(bw._pluginWindowOpen === false, "plugin window should be closed when leaving device mode via selectGroup");
 })();
 
 process.exit(t.summary('Controller'));

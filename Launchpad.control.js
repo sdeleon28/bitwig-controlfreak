@@ -306,6 +306,8 @@ function init() {
 
     // Cursor device position observer (for highlighting in device selector)
     cursorDevice.position().markInterested();
+    cursorDevice.isWindowOpen().markInterested();
+    cursorDevice.isPlugin().markInterested();
     cursorDevice.position().addValueObserver(function(position) {
         DeviceSelector.onCursorDevicePositionChanged(position);
     });

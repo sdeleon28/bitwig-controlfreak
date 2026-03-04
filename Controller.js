@@ -94,6 +94,11 @@ class ControllerHW {
 
         this.twister.unlinkAll();
 
+        var cursorDevice = this.bitwig.getCursorDevice();
+        if (cursorDevice && cursorDevice.isWindowOpen().get()) {
+            cursorDevice.isWindowOpen().set(false);
+        }
+
         if (this._devicePaneShown && this.bitwig._application) {
             this.bitwig._application.toggleDevices();
             this._devicePaneShown = false;
@@ -638,6 +643,11 @@ class ControllerHW {
      * Enter track mode: show device selector, link track RCs to Twister.
      */
     enterTrackMode() {
+        var cursorDevice = this.bitwig.getCursorDevice();
+        if (cursorDevice && cursorDevice.isWindowOpen().get()) {
+            cursorDevice.isWindowOpen().set(false);
+        }
+
         this._mode = 'track';
         this._activeMapper = null;
         this._selectedDeviceIndex = null;
@@ -736,6 +746,11 @@ class ControllerHW {
     enterDeviceMode(deviceName) {
         this._mode = 'device';
         if (this.host) this.host.showPopupNotification("Device: " + deviceName);
+
+        var cursorDevice = this.bitwig.getCursorDevice();
+        if (cursorDevice && cursorDevice.isPlugin().get()) {
+            cursorDevice.isWindowOpen().set(true);
+        }
 
         this._mapDeviceToTwister(deviceName);
 
