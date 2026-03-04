@@ -11,6 +11,8 @@ class LaunchpadTopButtonsHW {
      * @param {Object} deps.clipGestures - ClipGestures instance
      * @param {Object} deps.clipLauncher - ClipLauncher namespace
      * @param {Object} deps.projectExplorer - ProjectExplorer namespace
+     * @param {Object} deps.mainControl - Page_MainControl instance
+     * @param {Object} deps.bitwigActions - BitwigActions namespace
      * @param {boolean} deps.debug - Debug flag
      * @param {Function} deps.println - Print function
      */
@@ -23,6 +25,8 @@ class LaunchpadTopButtonsHW {
         this.clipGestures = deps.clipGestures || null;
         this.clipLauncher = deps.clipLauncher || null;
         this.projectExplorer = deps.projectExplorer || null;
+        this.mainControl = deps.mainControl || null;
+        this.bitwigActions = deps.bitwigActions || null;
         this.debug = deps.debug || false;
         this.println = deps.println || function() {};
 
@@ -35,7 +39,8 @@ class LaunchpadTopButtonsHW {
             barBack: buttons.top3,
             barForward: buttons.top4,
             decreaseResolution: buttons.top5,
-            increaseResolution: buttons.top6
+            increaseResolution: buttons.top6,
+            mixerToggle: buttons.top8
         };
 
         if (this.debug) this.println("LaunchpadTopButtons constructed");
@@ -54,6 +59,9 @@ class LaunchpadTopButtonsHW {
         // Set button colors for resolution control
         this.launchpad.setTopButtonColor(this.buttons.decreaseResolution, this.launchpad.colors.cyan);
         this.launchpad.setTopButtonColor(this.buttons.increaseResolution, this.launchpad.colors.cyan);
+
+        // Set mixer toggle button color
+        this.launchpad.setTopButtonColor(this.buttons.mixerToggle, this.launchpad.colors.white);
 
         if (this.debug) this.println("LaunchpadTopButtons initialized");
     }
@@ -100,6 +108,15 @@ class LaunchpadTopButtonsHW {
             this.println("Bar forward button pressed!");
             this.bitwig.movePlayheadByBars(1);
             return true;
+        }
+
+        // Mixer toggle (only on main control page)
+        if (this.mainControl && this.pager &&
+            this.pager.getActivePage() === this.mainControl.pageNumber) {
+            if (cc === this.buttons.mixerToggle) {
+                this.bitwig.invokeAction(this.bitwigActions.TOGGLE_MIXER);
+                return true;
+            }
         }
 
         // Resolution and pagination control (only on ProjectExplorer page)

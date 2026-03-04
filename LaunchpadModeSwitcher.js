@@ -44,7 +44,7 @@ class LaunchpadModeSwitcherHW {
 
         // Default modes (replaces init())
         this._currentEncoderMode = 'volume';
-        this._currentPadMode = 'recordArm';
+        this._currentPadMode = 'select';
         if (this.debug) this.println("LaunchpadModeSwitcher initialized");
     }
 

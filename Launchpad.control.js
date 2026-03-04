@@ -634,6 +634,7 @@ function init() {
         clipGestures: ClipGestures,
         clipLauncher: ClipLauncher,
         projectExplorer: ProjectExplorer,
+        bitwigActions: BitwigActions,
         debug: debug,
         println: println
     });
@@ -749,6 +750,7 @@ function init() {
     LaunchpadTopButtons.clipGestures = ClipGestures;
 
     // Initialize Page_MainControl (before LaunchpadModeSwitcher which depends on it)
+    // NOTE: mainControl assigned to LaunchpadTopButtons after creation below
     Page_MainControl = new PageMainControlHW({
         launchpadLane: LaunchpadLane,
         launchpad: Launchpad,
@@ -757,6 +759,7 @@ function init() {
         println: println
     });
     Pages.registerPage(Page_MainControl);     // Page 1: Main control + markers
+    LaunchpadTopButtons.mainControl = Page_MainControl;
 
     // Set circular deps on Launchpad now that Pager exists
     Launchpad.pager = Pager;

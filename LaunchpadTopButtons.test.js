@@ -34,8 +34,17 @@ function fakeBitwig() {
     var calls = [];
     return {
         calls: calls,
-        movePlayheadByBars: function(bars) { calls.push({ method: 'movePlayheadByBars', bars: bars }); }
+        movePlayheadByBars: function(bars) { calls.push({ method: 'movePlayheadByBars', bars: bars }); },
+        invokeAction: function(action) { calls.push({ method: 'invokeAction', action: action }); }
     };
+}
+
+function fakeMainControl() {
+    return { pageNumber: 1 };
+}
+
+function fakeBitwigActions() {
+    return { TOGGLE_MIXER: 'toggle_mixer' };
 }
 
 function fakeClipGestures() {
@@ -80,6 +89,8 @@ function makeTopButtons(opts) {
         clipGestures: opts.clipGestures || fakeClipGestures(),
         clipLauncher: opts.clipLauncher || fakeClipLauncher(),
         projectExplorer: opts.projectExplorer || fakeProjectExplorer(),
+        mainControl: opts.mainControl || fakeMainControl(),
+        bitwigActions: opts.bitwigActions || fakeBitwigActions(),
         debug: false,
         println: function() {}
     });
@@ -246,6 +257,39 @@ function makeTopButtons(opts) {
     assert(tb.buttons.barForward === 107, 'barForward = top4 = 107');
     assert(tb.buttons.decreaseResolution === 108, 'decreaseResolution = top5 = 108');
     assert(tb.buttons.increaseResolution === 109, 'increaseResolution = top6 = 109');
+})();
+
+// init sets mixer toggle button (top8=111) color to white
+(function() {
+    var lp = fakeLaunchpad();
+    var tb = makeTopButtons({ launchpad: lp });
+    tb.init();
+    assert(lp.topButtonColors[111] === 3, 'mixer toggle (top8=111) set to white (3)');
+})();
+
+// mixer toggle (CC 111) on main control page calls invokeAction
+(function() {
+    var bw = fakeBitwig();
+    var pager = fakePager(1); // main control page
+    var tb = makeTopButtons({ bitwig: bw, pager: pager });
+    var result = tb.handleTopButtonCC(111, 127);
+    assert(result === true, 'mixer toggle returns true on main control page');
+    assert(bw.calls[0].method === 'invokeAction', 'invokeAction called');
+    assert(bw.calls[0].action === 'toggle_mixer', 'toggle_mixer action passed');
+})();
+
+// mixer toggle (CC 111) on non-main-control page is not handled
+(function() {
+    var bw = fakeBitwig();
+    var pager = fakePager(4); // some other page (not main control, not project explorer)
+    var tb = makeTopButtons({
+        bitwig: bw,
+        pager: pager,
+        projectExplorer: fakeProjectExplorer() // page 2, won't match
+    });
+    var result = tb.handleTopButtonCC(111, 127);
+    assert(result === false, 'mixer toggle not handled on non-main-control page');
+    assert(bw.calls.length === 0, 'invokeAction not called');
 })();
 
 // ---- summary ----

@@ -107,11 +107,11 @@ function makeSwitcher(opts) {
 
 // ---- tests ----
 
-// defaults to volume encoder mode and recordArm pad mode
+// defaults to volume encoder mode and select pad mode
 (function() {
     var ms = makeSwitcher();
     assert(ms.getEncoderMode() === 'volume', 'default encoder mode is volume');
-    assert(ms.getPadMode() === 'recordArm', 'default pad mode is recordArm');
+    assert(ms.getPadMode() === 'select', 'default pad mode is select');
 })();
 
 // selectEncoderMode changes mode and refreshes twister LEDs
@@ -153,30 +153,30 @@ function makeSwitcher(opts) {
 (function() {
     var ms = makeSwitcher();
     ms.selectPadMode('bogus');
-    assert(ms.getPadMode() === 'recordArm', 'pad mode unchanged for unknown mode');
+    assert(ms.getPadMode() === 'select', 'pad mode unchanged for unknown mode');
 })();
 
 // refresh paints active modes bright and clears inactive
 (function() {
     var pager = fakePager();
     var ms = makeSwitcher({ pager: pager });
-    // defaults: volume (encoder), recordArm (pad)
+    // defaults: volume (encoder), select (pad)
     pager.paints.length = 0;
     pager.clears.length = 0;
     ms.refresh();
 
-    // volume (note 89) and recordArm (note 19) should be painted bright
+    // volume (note 89) and select (note 49) should be painted bright
     var painted = {};
     pager.paints.forEach(function(p) { painted[p.pad] = p.color; });
     assert(painted[89] !== undefined, 'volume button painted');
-    assert(painted[19] !== undefined, 'recordArm button painted');
+    assert(painted[49] !== undefined, 'select button painted');
 
     // Other modes should be cleared
     var clearedPads = pager.clears.map(function(c) { return c.pad; });
     assert(clearedPads.indexOf(79) !== -1, 'pan button cleared');
     assert(clearedPads.indexOf(69) !== -1, 'sendA button cleared');
     assert(clearedPads.indexOf(59) !== -1, 'sendB button cleared');
-    assert(clearedPads.indexOf(49) !== -1, 'select button cleared');
+    assert(clearedPads.indexOf(19) !== -1, 'recordArm button cleared');
     assert(clearedPads.indexOf(39) !== -1, 'mute button cleared');
     assert(clearedPads.indexOf(29) !== -1, 'solo button cleared');
 })();
@@ -336,6 +336,7 @@ function makeSwitcher(opts) {
     var ctrl = fakeController();
     ctrl._multiRec = true;
     var ms = makeSwitcher({ pager: pager, launchpad: lp, controller: ctrl });
+    ms.selectPadMode('recordArm');
     pager.paints.length = 0;
     ms.refresh();
     var recArmPaint = pager.paints.filter(function(p) { return p.pad === 19; });
@@ -351,6 +352,7 @@ function makeSwitcher(opts) {
     var ctrl = fakeController();
     ctrl._multiRec = false;
     var ms = makeSwitcher({ pager: pager, launchpad: lp, controller: ctrl });
+    ms.selectPadMode('recordArm');
     pager.paints.length = 0;
     ms.refresh();
     var recArmPaint = pager.paints.filter(function(p) { return p.pad === 19; });
