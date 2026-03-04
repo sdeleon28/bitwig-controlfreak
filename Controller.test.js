@@ -10,7 +10,8 @@ function fakeTrack(name, opts) {
     var _soloed = opts.soloed || false;
     var _armed = opts.armed || false;
     var _color = opts.color || { r: 0.5, g: 0.5, b: 0.5 };
-    return {
+    var _visibleCalls = 0;
+    var obj = {
         name: function() { return { get: function() { return name; } }; },
         isGroup: function() { return { get: function() { return opts.isGroup || false; } }; },
         color: function() {
@@ -39,8 +40,11 @@ function fakeTrack(name, opts) {
                 get: function() { return _armed; },
                 set: function(v) { _armed = v; }
             };
-        }
+        },
+        makeVisibleInArranger: function() { _visibleCalls++; },
+        _getVisibleCalls: function() { return _visibleCalls; }
     };
+    return obj;
 }
 
 function fakeBitwig(opts) {
@@ -49,8 +53,13 @@ function fakeBitwig(opts) {
     var groups = opts.groups || {};
     var groupChildren = opts.groupChildren || {};
     var topLevel = opts.topLevel || [];
+    var _toggleDevicesCalls = 0;
     var result = {
         _trackDepths: opts.trackDepths || {},
+        _application: {
+            toggleDevices: function() { _toggleDevicesCalls++; }
+        },
+        _getToggleDevicesCalls: function() { return _toggleDevicesCalls; },
         selectedTracks: [],
         getTrack: function(id) { return tracks[id] || null; },
         getTopLevelTracks: function() { return topLevel; },
@@ -497,7 +506,8 @@ function makeController(opts) {
     var _muted = false;
     var track = {
         name: function() { return { get: function() { return "Kick (1)"; } }; },
-        mute: function() { return { toggle: function() { _muted = !_muted; }, get: function() { return _muted; } }; }
+        mute: function() { return { toggle: function() { _muted = !_muted; }, get: function() { return _muted; } }; },
+        makeVisibleInArranger: function() {}
     };
     var tw = fakeTwister();
     tw.links[1] = { trackId: 3 };
@@ -516,7 +526,8 @@ function makeController(opts) {
     var _soloed = false;
     var track = {
         name: function() { return { get: function() { return "Kick (1)"; } }; },
-        solo: function() { return { toggle: function() { _soloed = !_soloed; }, get: function() { return _soloed; } }; }
+        solo: function() { return { toggle: function() { _soloed = !_soloed; }, get: function() { return _soloed; } }; },
+        makeVisibleInArranger: function() {}
     };
     var tw = fakeTwister();
     tw.links[1] = { trackId: 3 };
@@ -540,7 +551,8 @@ function makeController(opts) {
                     get: function() { return armed[id] || false; },
                     set: function(v) { armed[id] = v; }
                 };
-            }
+            },
+            makeVisibleInArranger: function() {}
         };
     }
     var tracks = {};
@@ -597,7 +609,8 @@ function makeController(opts) {
     var _muted = false;
     var track = {
         name: function() { return { get: function() { return "Kick (1)"; } }; },
-        mute: function() { return { toggle: function() { _muted = !_muted; }, get: function() { return _muted; } }; }
+        mute: function() { return { toggle: function() { _muted = !_muted; }, get: function() { return _muted; } }; },
+        makeVisibleInArranger: function() {}
     };
     var tw = fakeTwister();
     tw.links[1] = { trackId: 3 };
@@ -618,7 +631,8 @@ function makeController(opts) {
     var _soloed = false;
     var track = {
         name: function() { return { get: function() { return "Snare (2)"; } }; },
-        solo: function() { return { toggle: function() { _soloed = !_soloed; }, get: function() { return _soloed; } }; }
+        solo: function() { return { toggle: function() { _soloed = !_soloed; }, get: function() { return _soloed; } }; },
+        makeVisibleInArranger: function() {}
     };
     var tw = fakeTwister();
     tw.links[1] = { trackId: 3 };
@@ -645,7 +659,8 @@ function makeController(opts) {
                     get: function() { return armed[id] || false; },
                     set: function(v) { armed[id] = v; }
                 };
-            }
+            },
+            makeVisibleInArranger: function() {}
         };
     }
     var tracks = {};
@@ -1865,7 +1880,8 @@ function makeController(opts) {
                     get: function() { return armed[id] || false; },
                     set: function(v) { armed[id] = v; }
                 };
-            }
+            },
+            makeVisibleInArranger: function() {}
         };
     }
     var tracks = {};
@@ -1897,7 +1913,8 @@ function makeController(opts) {
                     get: function() { return armed[id] || false; },
                     set: function(v) { armed[id] = v; }
                 };
-            }
+            },
+            makeVisibleInArranger: function() {}
         };
     }
     var tracks = {};
@@ -2012,6 +2029,145 @@ function makeController(opts) {
     tw.behaviors[1].press(true);
     assert(h.notifications.length === 1, "should show one notification");
     assert(h.notifications[0] === "Limiter Threshold", 'notification should be "Limiter Threshold", got "' + h.notifications[0] + '"');
+})();
+
+// mute action calls makeVisibleInArranger
+(function() {
+    var track = fakeTrack("Kick (1)");
+    var tw = fakeTwister();
+    tw.links[1] = { trackId: 3 };
+    var bw = fakeBitwig({ tracks: { 3: track } });
+    var lp = fakeLaunchpad();
+    var ms = fakeModeSwitcher('mute');
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, launchpadModeSwitcher: ms });
+    ctrl.refreshTrackGrid();
+    lp.behaviors[11].click();
+    assert(track._getVisibleCalls() === 1, "mute should call makeVisibleInArranger");
+})();
+
+// solo action calls makeVisibleInArranger
+(function() {
+    var track = fakeTrack("Kick (1)");
+    var tw = fakeTwister();
+    tw.links[1] = { trackId: 3 };
+    var bw = fakeBitwig({ tracks: { 3: track } });
+    var lp = fakeLaunchpad();
+    var ms = fakeModeSwitcher('solo');
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, launchpadModeSwitcher: ms });
+    ctrl.refreshTrackGrid();
+    lp.behaviors[11].click();
+    assert(track._getVisibleCalls() === 1, "solo should call makeVisibleInArranger");
+})();
+
+// recordArm XOR action calls makeVisibleInArranger
+(function() {
+    var track = fakeTrack("Kick (1)");
+    var tw = fakeTwister();
+    tw.links[1] = { trackId: 3 };
+    var bw = fakeBitwig({ tracks: { 3: track } });
+    var lp = fakeLaunchpad();
+    var ms = fakeModeSwitcher('recordArm');
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, launchpadModeSwitcher: ms });
+    ctrl.refreshTrackGrid();
+    lp.behaviors[11].click();
+    assert(track._getVisibleCalls() === 1, "recordArm XOR should call makeVisibleInArranger");
+})();
+
+// recordArm multi-rec action calls makeVisibleInArranger
+(function() {
+    var track = fakeTrack("Kick (1)");
+    var tw = fakeTwister();
+    tw.links[1] = { trackId: 3 };
+    var bw = fakeBitwig({ tracks: { 3: track } });
+    var lp = fakeLaunchpad();
+    var ms = fakeModeSwitcher('recordArm');
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, launchpadModeSwitcher: ms });
+    ctrl._multiRec = true;
+    ctrl.refreshTrackGrid();
+    lp.behaviors[11].click();
+    assert(track._getVisibleCalls() === 1, "recordArm multi-rec should call makeVisibleInArranger");
+})();
+
+// select action calls makeVisibleInArranger
+(function() {
+    var track = fakeTrack("Kick (1)");
+    var tw = fakeTwister();
+    tw.links[1] = { trackId: 3 };
+    var bw = fakeBitwig({ tracks: { 3: track } });
+    var lp = fakeLaunchpad();
+    var ms = fakeModeSwitcher('select');
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, launchpadModeSwitcher: ms });
+    ctrl.refreshTrackGrid();
+    lp.behaviors[11].click();
+    assert(track._getVisibleCalls() === 1, "select should call makeVisibleInArranger");
+})();
+
+// enterTrackMode toggles device pane on
+(function() {
+    var bw = fakeBitwig();
+    var ctrl = makeController({ bitwig: bw });
+    assert(ctrl._devicePaneShown === false, "device pane should start hidden");
+    ctrl.enterTrackMode();
+    assert(ctrl._devicePaneShown === true, "device pane should be shown after enterTrackMode");
+    assert(bw._getToggleDevicesCalls() === 1, "should call toggleDevices once");
+})();
+
+// enterTrackMode does not double-toggle if already shown
+(function() {
+    var bw = fakeBitwig();
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterTrackMode();
+    ctrl.enterTrackMode();
+    assert(bw._getToggleDevicesCalls() === 1, "should only toggle once");
+    assert(ctrl._devicePaneShown === true, "should remain shown");
+})();
+
+// enterDeviceMode does not affect device pane
+(function() {
+    var bw = fakeBitwig();
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterDeviceMode("SomePlugin");
+    assert(ctrl._devicePaneShown === false, "device pane should remain hidden after enterDeviceMode");
+    assert(bw._getToggleDevicesCalls() === 0, "should not call toggleDevices");
+})();
+
+// selectGroup toggles device pane off when shown
+(function() {
+    var bw = fakeBitwig();
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterTrackMode();
+    ctrl.selectGroup(16);
+    assert(ctrl._devicePaneShown === false, "device pane should be hidden after selectGroup");
+    assert(bw._getToggleDevicesCalls() === 2, "should toggle twice (on then off)");
+})();
+
+// selectGroup does not toggle device pane if not shown
+(function() {
+    var bw = fakeBitwig();
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.selectGroup(16);
+    assert(bw._getToggleDevicesCalls() === 0, "should not toggle when pane was not shown");
+})();
+
+// full cycle: track mode opens pane, selectGroup closes it
+(function() {
+    var bw = fakeBitwig({
+        groups: { 5: 10 },
+        groupChildren: { 10: [11] },
+        tracks: { 10: fakeTrack("Guitars (5)", { isGroup: true }), 11: fakeTrack("Clean (1)") }
+    });
+    var dq = fakeDeviceQuadrant();
+    var ds = fakeDeviceSelector();
+    var ctrl = makeController({ bitwig: bw, deviceQuadrant: dq, deviceSelector: ds });
+    ctrl.selectedGroup = 5;
+    ctrl.enterTrackMode();
+    assert(ctrl._devicePaneShown === true, "pane shown after entering track mode");
+    ctrl.enterDeviceMode("SomePlugin");
+    assert(ctrl._devicePaneShown === true, "pane remains shown in device mode");
+    assert(bw._getToggleDevicesCalls() === 1, "only one toggle (track mode on)");
+    ctrl.selectGroup(5);
+    assert(ctrl._devicePaneShown === false, "pane hidden after selectGroup");
+    assert(bw._getToggleDevicesCalls() === 2, "two toggles total (on then off)");
 })();
 
 process.exit(t.summary('Controller'));

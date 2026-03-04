@@ -25,6 +25,7 @@ function fakeTrack(opts) {
     var isMuted = opts.muted || false;
     var isSoloed = opts.soloed || false;
     var isArmed = opts.armed || false;
+    var visibleCalls = 0;
     return {
         name: function() { return { get: function() { return trackName; } }; },
         volume: function() { return { get: function() { return vol; }, set: function(v) { vol = v; } }; },
@@ -39,6 +40,8 @@ function fakeTrack(opts) {
         mute: function() { return { get: function() { return isMuted; }, toggle: function() { isMuted = !isMuted; } }; },
         solo: function() { return { get: function() { return isSoloed; }, set: function(v) { isSoloed = v; } }; },
         arm: function() { return { get: function() { return isArmed; }, set: function(v) { isArmed = v; } }; },
+        makeVisibleInArranger: function() { visibleCalls++; },
+        _getVisibleCalls: function() { return visibleCalls; },
         sendBank: function() {
             return {
                 getItemAt: function(i) {
@@ -651,6 +654,22 @@ function makeTwister(opts) {
     tw.handleEncoderPress(1, true);
     assert(h.notifications.length === 1, 'send press should show notification');
     assert(h.notifications[0] === 'Delay', 'send notification should be "Delay", got "' + h.notifications[0] + '"');
+})();
+
+// handleEncoderPress calls makeVisibleInArranger on press (solo)
+(function() {
+    var track = fakeTrack({ name: 'Drums' });
+    var bw = fakeBitwig({ 0: track });
+    var h = fakeHost();
+    var tw = makeTwister({ bitwig: bw, host: h });
+
+    tw.linkEncoderToTrack(1, 0);
+    tw.handleEncoderPress(1, true);
+
+    assert(track._getVisibleCalls() === 1, 'should call makeVisibleInArranger on press');
+
+    tw.handleEncoderPress(1, false);
+    assert(track._getVisibleCalls() === 1, 'should NOT call makeVisibleInArranger on release');
 })();
 
 // ---- summary ----

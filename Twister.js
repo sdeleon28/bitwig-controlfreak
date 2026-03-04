@@ -478,6 +478,7 @@ class TwisterHW {
         if (track) {
             if (pressed) {
                 this.host.showPopupNotification("Encoder " + encoderNumber + ": " + track.name().get());
+                track.makeVisibleInArranger();
             }
             track.solo().set(pressed);
             return;

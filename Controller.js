@@ -51,6 +51,7 @@ class ControllerHW {
         this._deviceChangeSeq = 0;
         this._pendingRCCheck = false;
         this._suppressNextDeviceChange = false;
+        this._devicePaneShown = false;
     }
 
     get _multiRec() {
@@ -90,6 +91,11 @@ class ControllerHW {
         }
 
         this.twister.unlinkAll();
+
+        if (this._devicePaneShown && this.bitwig._application) {
+            this.bitwig._application.toggleDevices();
+            this._devicePaneShown = false;
+        }
 
         if (groupNumber === 16) {
             if (this.host) this.host.showPopupNotification("Top Level");
@@ -273,6 +279,7 @@ class ControllerHW {
                             if (track) {
                                 var wasMuted = track.mute().get();
                                 track.mute().toggle();
+                                track.makeVisibleInArranger();
                                 if (self.host) self.host.showPopupNotification((wasMuted ? "Unmute: " : "Mute: ") + track.name().get());
                             }
                         }, null, self.pageMainControl.pageNumber);
@@ -284,6 +291,7 @@ class ControllerHW {
                             if (track) {
                                 var wasSoloed = track.solo().get();
                                 track.solo().toggle();
+                                track.makeVisibleInArranger();
                                 if (self.host) self.host.showPopupNotification((wasSoloed ? "Unsolo: " : "Solo: ") + track.name().get());
                             }
                         }, null, self.pageMainControl.pageNumber);
@@ -296,6 +304,7 @@ class ControllerHW {
                                 if (self._multiRec) {
                                     var wasArmed = track.arm().get();
                                     track.arm().set(!wasArmed);
+                                    track.makeVisibleInArranger();
                                     if (self.host) self.host.showPopupNotification((wasArmed ? "Disarm: " : "Rec: ") + track.name().get());
                                 } else {
                                     if (self.host) self.host.showPopupNotification("Rec: " + track.name().get());
@@ -306,6 +315,7 @@ class ControllerHW {
                                         }
                                     }
                                     track.arm().set(true);
+                                    track.makeVisibleInArranger();
                                 }
                             }
                         }, null, self.pageMainControl.pageNumber);
@@ -326,6 +336,7 @@ class ControllerHW {
                             var track = self.bitwig.getTrack(tid);
                             if (track) {
                                 self.bitwig.selectTrack(tid);
+                                track.makeVisibleInArranger();
                                 self._suppressNextDeviceChange = true;
                                 self.enterTrackMode();
                                 if (self.host) self.host.showPopupNotification(track.name().get() + " → Track Mode");
@@ -625,6 +636,10 @@ class ControllerHW {
     enterTrackMode() {
         this._mode = 'track';
         this._activeMapper = null;
+        if (!this._devicePaneShown && this.bitwig._application) {
+            this.bitwig._application.toggleDevices();
+            this._devicePaneShown = true;
+        }
 
         if (this.host) {
             var cursorTrack = this.bitwig.getCursorTrack();
