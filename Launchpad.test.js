@@ -154,8 +154,8 @@ function makeLaunchpad(opts) {
 // getBrightnessVariant returns correct variant / falls back to base
 (function() {
     var lp = makeLaunchpad();
-    assert(lp.getBrightnessVariant(21, 'dim') === 19, 'green dim = 19');
-    assert(lp.getBrightnessVariant(21, 'bright') === 23, 'green bright = 23');
+    assert(lp.getBrightnessVariant(21, 'dim') === 23, 'green dim = 23');
+    assert(lp.getBrightnessVariant(21, 'bright') === 19, 'green bright = 19');
     assert(lp.getBrightnessVariant(99, 'dim') === 99, 'unknown color falls back to base');
     assert(lp.getBrightnessVariant(21, null) === 21, 'null brightness returns base');
 })();
@@ -254,22 +254,22 @@ function makeLaunchpad(opts) {
     // Mute mode
     var lp1 = makeLaunchpad({ bitwig: fakeBitwig({ 0: mutedTrack }), launchpadModeSwitcher: fakeModeSwitcher('mute') });
     var muteColor = lp1.getTrackGridPadColor(0);
-    assert(muteColor === lp1.getBrightnessVariant(lp1.colors.amber, 'bright'), 'muted track returns bright amber');
+    assert(muteColor === lp1.getBrightnessVariant(lp1.colors.amber, 'dim'), 'muted track returns dim amber');
 
     // Solo mode
     var lp2 = makeLaunchpad({ bitwig: fakeBitwig({ 0: soloedTrack }), launchpadModeSwitcher: fakeModeSwitcher('solo') });
     var soloColor = lp2.getTrackGridPadColor(0);
-    assert(soloColor === lp2.getBrightnessVariant(lp2.colors.yellow, 'bright'), 'soloed track returns bright yellow');
+    assert(soloColor === lp2.getBrightnessVariant(lp2.colors.yellow, 'dim'), 'soloed track returns dim yellow');
 
     // Arm mode
     var lp3 = makeLaunchpad({ bitwig: fakeBitwig({ 0: armedTrack }), launchpadModeSwitcher: fakeModeSwitcher('recordArm') });
     var armColor = lp3.getTrackGridPadColor(0);
-    assert(armColor === lp3.getBrightnessVariant(lp3.colors.red, 'bright'), 'armed track returns bright red');
+    assert(armColor === lp3.getBrightnessVariant(lp3.colors.red, 'dim'), 'armed track returns dim red');
 
     // Default mode (not muted/soloed/armed)
     var lp4 = makeLaunchpad({ bitwig: fakeBitwig({ 0: normalTrack }), launchpadModeSwitcher: fakeModeSwitcher('mute') });
     var defaultColor = lp4.getTrackGridPadColor(0);
-    var expectedColor = lp4.getBrightnessVariant(lp4.bitwigColorToLaunchpad(1, 0, 0), 'dim');
+    var expectedColor = lp4.getBrightnessVariant(lp4.bitwigColorToLaunchpad(1, 0, 0), 'bright');
     assert(defaultColor === expectedColor, 'non-muted track in mute mode returns dim track color');
 })();
 

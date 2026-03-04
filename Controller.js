@@ -16,6 +16,7 @@ class ControllerHW {
      * @param {Object} deps.host - Bitwig host
      * @param {Object} deps.deviceMapper - DeviceMapper instance
      * @param {Object} deps.deviceQuadrant - DeviceQuadrant instance
+     * @param {Object} deps.deviceSelector - DeviceSelector instance
      * @param {Object} deps.mappers - Dict of device name → twister mapper factory function
      * @param {Object} deps.padMappers - Dict of device name → pad mapper factory function
      * @param {Object} deps.painter - TwisterPainter instance
@@ -36,6 +37,7 @@ class ControllerHW {
         this.host = deps.host || null;
         this.deviceMapper = deps.deviceMapper || null;
         this.deviceQuadrant = deps.deviceQuadrant || null;
+        this.deviceSelector = deps.deviceSelector || null;
         this.mappers = deps.mappers || {};
         this.padMappers = deps.padMappers || {};
         this.painter = deps.painter || null;
@@ -43,10 +45,11 @@ class ControllerHW {
         this.println = deps.println || function() {};
 
         this.selectedGroup = null;
-        this.deviceMode = false;
+        this._mode = 'grid';  // 'grid' | 'track' | 'device'
         this._activeMapper = null;
         this._deviceChangeSeq = 0;
         this._pendingRCCheck = false;
+        this._suppressNextDeviceChange = false;
     }
 
     /**
@@ -159,9 +162,12 @@ class ControllerHW {
         if (this.deviceQuadrant && this.deviceQuadrant.isActive()) {
             this.deviceQuadrant.deactivate();
         }
+        if (this.deviceSelector && this.deviceSelector.isActive()) {
+            this.deviceSelector.deactivate();
+        }
 
         this.selectedGroup = groupNumber;
-        this.deviceMode = false;
+        this._mode = 'grid';
         this._activeMapper = null;
         this.refreshGroupDisplay();
         this.refreshTrackGrid();
@@ -180,6 +186,23 @@ class ControllerHW {
             if (groupTrackId !== null) {
                 var padNote = this.launchpadQuadrant.bottomRight.pads[i - 1];
                 this.launchpad.linkPadToTrack(padNote, groupTrackId, page);
+
+                // Override linkPadToTrack's default bright color:
+                // selected group = bright, unselected = dim
+                if (this.selectedGroup) {
+                    var track = this.bitwig.getTrack(groupTrackId);
+                    if (track) {
+                        var color = track.color();
+                        var launchpadColor = this.launchpad.bitwigColorToLaunchpad(
+                            color.red(), color.green(), color.blue()
+                        );
+                        var brightness = (i === this.selectedGroup)
+                            ? this.launchpad.brightness.bright
+                            : this.launchpad.brightness.dim;
+                        this.pager.requestPaint(page, padNote,
+                            this.launchpad.getBrightnessVariant(launchpadColor, brightness));
+                    }
+                }
             }
         }
 
@@ -190,26 +213,6 @@ class ControllerHW {
         } else {
             this.pager.requestPaint(page, pad16, this.launchpad.getBrightnessVariant(this.launchpad.colors.white, this.launchpad.brightness.dim));
         }
-
-        // Highlight selected group with bright color variant (groups 1-15)
-        if (this.selectedGroup && this.selectedGroup <= 15) {
-            var selectedPad = this.launchpadQuadrant.bottomRight.pads[this.selectedGroup - 1];
-            var groupTrackId = this.bitwig.findGroupByNumber(this.selectedGroup);
-
-            if (groupTrackId !== null) {
-                var track = this.bitwig.getTrack(groupTrackId);
-                if (track) {
-                    var color = track.color();
-                    var launchpadColor = this.launchpad.bitwigColorToLaunchpad(
-                        color.red(),
-                        color.green(),
-                        color.blue()
-                    );
-                    var brightColor = this.launchpad.getBrightnessVariant(launchpadColor, this.launchpad.brightness.bright);
-                    this.pager.requestPaint(page, selectedPad, brightColor);
-                }
-            }
-        }
     }
 
     /**
@@ -217,6 +220,7 @@ class ControllerHW {
      */
     refreshTrackGrid() {
         if (this.deviceQuadrant && this.deviceQuadrant.isActive()) return;
+        if (this.deviceSelector && this.deviceSelector.isActive()) return;
 
         var self = this;
         var page = this.pager.getActivePage();
@@ -289,8 +293,9 @@ class ControllerHW {
                             var track = self.bitwig.getTrack(tid);
                             if (track) {
                                 self.bitwig.selectTrack(tid);
-                                self.twister.linkEncodersToRemoteControls();
-                                if (self.host) self.host.showPopupNotification(track.name().get() + " → Remote Controls");
+                                self._suppressNextDeviceChange = true;
+                                self.enterTrackMode();
+                                if (self.host) self.host.showPopupNotification(track.name().get() + " → Track Mode");
                             }
                         }, null, self.pageMainControl.pageNumber);
                     })(trackId, padNote);
@@ -572,18 +577,57 @@ class ControllerHW {
      */
     onMasterLimiterThresholdChanged(value) {
         this.bitwig.setMasterLimiterThresholdValue(value);
-        if (this.selectedGroup === 16 && !this.deviceMode) {
+        if (this.selectedGroup === 16 && this._mode === 'grid') {
             this.twister.setEncoderLED(1, Math.round(value * 127));
         }
     }
 
     /**
-     * Handle cursor device changes for auto-remapping encoders
+     * Enter track mode: show device selector, link track RCs to Twister.
+     */
+    enterTrackMode() {
+        this._mode = 'track';
+        this._activeMapper = null;
+
+        // Link track remote controls to Twister
+        this.twister.linkEncodersToTrackRemoteControls();
+
+        // Deactivate DeviceQuadrant if active
+        if (this.deviceQuadrant && this.deviceQuadrant.isActive()) {
+            this.deviceQuadrant.deactivate();
+        }
+
+        // Activate DeviceSelector
+        var self = this;
+        if (this.deviceSelector) {
+            if (!this.deviceSelector.isActive()) {
+                this.deviceSelector.activate(
+                    function(deviceIndex) {
+                        // Navigate cursor device to the selected device
+                        var deviceBank = self.bitwig.getDeviceBank();
+                        if (deviceBank) {
+                            var device = deviceBank.getItemAt(deviceIndex);
+                            if (device) {
+                                self.bitwig.getCursorDevice().selectDevice(device);
+                                device.selectInEditor();
+                            }
+                        }
+                    },
+                    function() {
+                        // Exit to grid
+                        self.selectGroup(self.selectedGroup);
+                    }
+                );
+            }
+        }
+    }
+
+    /**
+     * Enter device mode: show device controls on pads + Twister.
      * @param {string} deviceName - Name of the focused device
      */
-    onDeviceChanged(deviceName) {
-        if (!deviceName) return;
-
+    enterDeviceMode(deviceName) {
+        this._mode = 'device';
         this._activeMapper = null;
         this.twister.unlinkAll();
         if (this.deviceMapper) this.deviceMapper.resetGenericMode();
@@ -592,13 +636,11 @@ class ControllerHW {
         var seq = this._deviceChangeSeq;
 
         if (this.mappers[deviceName]) {
-            this.deviceMode = true;
             this._activeMapper = this.mappers[deviceName]({
                 painter: this.painter,
                 println: this.println
             });
         } else {
-            this.deviceMode = true;
             this._pendingRCCheck = true;
             var self = this;
             if (this.host) {
@@ -616,6 +658,11 @@ class ControllerHW {
             }
         }
 
+        // Deactivate DeviceSelector if active
+        if (this.deviceSelector && this.deviceSelector.isActive()) {
+            this.deviceSelector.deactivate();
+        }
+
         // Independent pad mapper lookup
         var padMapper = null;
         if (this.padMappers[deviceName]) {
@@ -626,14 +673,46 @@ class ControllerHW {
             if (!this.deviceQuadrant.isActive()) {
                 var self = this;
                 this.deviceQuadrant.activate(function() {
-                    self.deviceMode = false;
-                    self.bitwig.getCursorDevice().selectNone();
-                    self.selectGroup(self.selectedGroup);
+                    // Exit device mode → back to track mode
+                    self.enterTrackMode();
                 }, padMapper);
             } else {
                 this.deviceQuadrant.applyPadMapper(padMapper);
             }
         }
+    }
+
+    /**
+     * Handle cursor device changes for auto-remapping encoders
+     * @param {string} deviceName - Name of the focused device
+     */
+    onDeviceChanged(deviceName) {
+        if (!deviceName) return;
+
+        if (this._mode === 'track') {
+            this.enterDeviceMode(deviceName);
+        } else if (this._mode === 'device') {
+            this.enterDeviceMode(deviceName);
+        } else {
+            // grid mode
+            if (this._suppressNextDeviceChange) {
+                this._suppressNextDeviceChange = false;
+                return;
+            }
+            // Ignore device changes in grid mode (don't auto-enter device mode)
+        }
+    }
+
+    /**
+     * Handle cursor track changes (for detecting track selection).
+     * @param {string} name - Cursor track name
+     */
+    onCursorTrackChanged(name) {
+        if (this._mode === 'track' || this._mode === 'device') {
+            this._suppressNextDeviceChange = true;
+            this.enterTrackMode();
+        }
+        // In grid mode: no-op
     }
 
     _deviceHasRemoteControls() {

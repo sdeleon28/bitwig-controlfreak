@@ -56,21 +56,21 @@ class DeviceQuadrantHW {
             this.pager.requestPaint(page, pads[i], this.launchpad.colors.off);
         }
 
-        // Pad 14 (index 13) = solo toggle
-        this._paintSoloPad();
+        // Pad 14 (index 13) = bypass toggle
+        this._paintBypassPad();
         var self = this;
         this.launchpad.registerPadBehavior(pads[13], function() {
-            self.bitwig.getCursorTrack().solo().toggle();
-        }, null, this.pageNumber);
-
-        // Pad 15 (index 14) = bypass toggle
-        this._paintBypassPad();
-        this.launchpad.registerPadBehavior(pads[14], function() {
             self.bitwig.getCursorDevice().isEnabled().toggle();
         }, null, this.pageNumber);
 
+        // Pad 15 (index 14) = solo toggle
+        this._paintSoloPad();
+        this.launchpad.registerPadBehavior(pads[14], function() {
+            self.bitwig.getCursorTrack().solo().toggle();
+        }, null, this.pageNumber);
+
         // Pad 16 (index 15) = exit device mode
-        this.pager.requestPaint(page, pads[15], this.launchpad.getBrightnessVariant(this.launchpad.colors.white, this.launchpad.brightness.dim));
+        this.pager.requestPaint(page, pads[15], this.launchpad.getBrightnessVariant(this.launchpad.colors.white, this.launchpad.brightness.bright));
         this.launchpad.registerPadBehavior(pads[15], function() {
             var cb = self._onExitCallback;
             self.deactivate();
@@ -235,9 +235,9 @@ class DeviceQuadrantHW {
         var pads = this.launchpadQuadrant.bottomLeft.pads;
         var page = this.pager.getActivePage();
         if (this._deviceEnabled) {
-            this.pager.requestPaint(page, pads[14], this.launchpad.getBrightnessVariant(this.launchpad.colors.green, this.launchpad.brightness.bright));
+            this.pager.requestPaint(page, pads[13], this.launchpad.getBrightnessVariant(this.launchpad.colors.green, this.launchpad.brightness.dim));
         } else {
-            this.pager.requestPaint(page, pads[14], this.launchpad.getBrightnessVariant(this.launchpad.colors.red, this.launchpad.brightness.dim));
+            this.pager.requestPaint(page, pads[13], this.launchpad.getBrightnessVariant(this.launchpad.colors.red, this.launchpad.brightness.bright));
         }
     }
 
@@ -245,9 +245,9 @@ class DeviceQuadrantHW {
         var pads = this.launchpadQuadrant.bottomLeft.pads;
         var page = this.pager.getActivePage();
         if (this._cursorTrackSoloed) {
-            this.pager.requestPaint(page, pads[13], this.launchpad.getBrightnessVariant(this.launchpad.colors.yellow, this.launchpad.brightness.bright));
+            this.pager.requestPaint(page, pads[14], this.launchpad.getBrightnessVariant(this.launchpad.colors.yellow, this.launchpad.brightness.dim));
         } else {
-            this.pager.requestPaint(page, pads[13], this.launchpad.getBrightnessVariant(this.launchpad.colors.yellow, this.launchpad.brightness.dim));
+            this.pager.requestPaint(page, pads[14], this.launchpad.getBrightnessVariant(this.launchpad.colors.yellow, this.launchpad.brightness.bright));
         }
     }
 }

@@ -104,7 +104,7 @@ class LaunchpadModeSwitcherHW {
                 var isActive = (mode === this._currentEncoderMode || mode === this._currentPadMode);
 
                 if (isActive) {
-                    var brightColor = this.launchpad.getBrightnessVariant(modeConfig.color, this.launchpad.brightness.bright);
+                    var brightColor = this.launchpad.getBrightnessVariant(modeConfig.color, this.launchpad.brightness.dim);
                     this.pager.requestPaint(pageNumber, modeConfig.note, brightColor);
                 } else {
                     this.pager.requestClear(pageNumber, modeConfig.note);

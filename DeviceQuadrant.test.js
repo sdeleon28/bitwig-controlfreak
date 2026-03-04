@@ -143,24 +143,24 @@ function makeSubject(opts) {
     }
 })();
 
-// activate paints pad 14 (solo) with dim yellow
+// activate paints pad 14 (bypass) with bright green when enabled
 (function() {
     var pager = fakePager(1);
     var dq = makeSubject({ pager: pager });
     dq.activate();
-    var soloPaint = pager.paints.filter(function(p) { return p.pad === 42; });
-    assert(soloPaint.length > 0, 'should paint solo pad');
-    assert(soloPaint[0].color === '13_dim', 'solo pad should be dim yellow when not soloed');
+    var bypassPaint = pager.paints.filter(function(p) { return p.pad === 42; });
+    assert(bypassPaint.length > 0, 'should paint bypass pad');
+    assert(bypassPaint[0].color === '21_dim', 'bypass pad should be dim green when enabled');
 })();
 
-// activate paints pad 15 (bypass) with bright green when enabled
+// activate paints pad 15 (solo) with dim yellow
 (function() {
     var pager = fakePager(1);
     var dq = makeSubject({ pager: pager });
     dq.activate();
-    var bypassPaint = pager.paints.filter(function(p) { return p.pad === 43; });
-    assert(bypassPaint.length > 0, 'should paint bypass pad');
-    assert(bypassPaint[0].color === '21_bright', 'bypass pad should be bright green when enabled');
+    var soloPaint = pager.paints.filter(function(p) { return p.pad === 43; });
+    assert(soloPaint.length > 0, 'should paint solo pad');
+    assert(soloPaint[0].color === '13_bright', 'solo pad should be bright yellow when not soloed');
 })();
 
 // activate paints pad 16 (exit) with dim white
@@ -170,7 +170,7 @@ function makeSubject(opts) {
     dq.activate();
     var exitPaint = pager.paints.filter(function(p) { return p.pad === 44; });
     assert(exitPaint.length > 0, 'should paint exit pad');
-    assert(exitPaint[0].color === '3_dim', 'exit pad should be dim white');
+    assert(exitPaint[0].color === '3_bright', 'exit pad should be bright white');
 })();
 
 // activate registers pad behaviors on pads 14-16
@@ -178,33 +178,33 @@ function makeSubject(opts) {
     var lp = fakeLaunchpad();
     var dq = makeSubject({ launchpad: lp });
     dq.activate();
-    assert(lp.behaviors[42], 'pad 14 (solo) should have behavior');
-    assert(lp.behaviors[43], 'pad 15 (bypass) should have behavior');
+    assert(lp.behaviors[42], 'pad 14 (bypass) should have behavior');
+    assert(lp.behaviors[43], 'pad 15 (solo) should have behavior');
     assert(lp.behaviors[44], 'pad 16 (exit) should have behavior');
 })();
 
-// pad 14 click toggles cursor track solo
+// pad 14 click toggles cursor device enabled
 (function() {
     var lp = fakeLaunchpad();
     var bw = fakeBitwig();
     var dq = makeSubject({ launchpad: lp, bitwig: bw });
     dq.activate();
     lp.behaviors[42].click();
-    assert(bw._soloed() === true, 'clicking solo pad should toggle solo on');
+    assert(bw._enabled() === false, 'clicking bypass pad should toggle enabled off');
     lp.behaviors[42].click();
-    assert(bw._soloed() === false, 'clicking solo pad again should toggle solo off');
+    assert(bw._enabled() === true, 'clicking bypass pad again should toggle enabled on');
 })();
 
-// pad 15 click toggles cursor device enabled
+// pad 15 click toggles cursor track solo
 (function() {
     var lp = fakeLaunchpad();
     var bw = fakeBitwig();
     var dq = makeSubject({ launchpad: lp, bitwig: bw });
     dq.activate();
     lp.behaviors[43].click();
-    assert(bw._enabled() === false, 'clicking bypass pad should toggle enabled off');
+    assert(bw._soloed() === true, 'clicking solo pad should toggle solo on');
     lp.behaviors[43].click();
-    assert(bw._enabled() === true, 'clicking bypass pad again should toggle enabled on');
+    assert(bw._soloed() === false, 'clicking solo pad again should toggle solo off');
 })();
 
 // pad 16 click calls deactivate then exit callback
@@ -247,9 +247,9 @@ function makeSubject(opts) {
     var paintsBefore = pager.paints.length;
     dq.onDeviceEnabledChanged(false);
     var newPaints = pager.paints.slice(paintsBefore);
-    var bypassPaint = newPaints.filter(function(p) { return p.pad === 43; });
+    var bypassPaint = newPaints.filter(function(p) { return p.pad === 42; });
     assert(bypassPaint.length > 0, 'should repaint bypass pad on enabled change');
-    assert(bypassPaint[0].color === '5_dim', 'bypass pad should be dim red when disabled');
+    assert(bypassPaint[0].color === '5_bright', 'bypass pad should be bright red when disabled');
 })();
 
 // onDeviceEnabledChanged is no-op when inactive
@@ -269,9 +269,9 @@ function makeSubject(opts) {
     var paintsBefore = pager.paints.length;
     dq.onCursorTrackSoloChanged(true);
     var newPaints = pager.paints.slice(paintsBefore);
-    var soloPaint = newPaints.filter(function(p) { return p.pad === 42; });
+    var soloPaint = newPaints.filter(function(p) { return p.pad === 43; });
     assert(soloPaint.length > 0, 'should repaint solo pad on solo change');
-    assert(soloPaint[0].color === '13_bright', 'solo pad should be bright yellow when soloed');
+    assert(soloPaint[0].color === '13_dim', 'solo pad should be dim yellow when soloed');
 })();
 
 // onCursorTrackSoloChanged is no-op when inactive
@@ -288,8 +288,8 @@ function makeSubject(opts) {
     var lp = fakeLaunchpad();
     var dq = makeSubject({ launchpad: lp, pageNumber: 7 });
     dq.activate();
-    assert(lp.behaviors[42].page === 7, 'solo pad behavior should use correct page number');
-    assert(lp.behaviors[43].page === 7, 'bypass pad behavior should use correct page number');
+    assert(lp.behaviors[42].page === 7, 'bypass pad behavior should use correct page number');
+    assert(lp.behaviors[43].page === 7, 'solo pad behavior should use correct page number');
     assert(lp.behaviors[44].page === 7, 'exit pad behavior should use correct page number');
 })();
 
@@ -311,10 +311,10 @@ function makeSubject(opts) {
     var dq = makeSubject({ launchpad: lp });
     dq.activate();
     // pad 14 (solo) gets a behavior registered during activate
-    assert(lp.behaviors[42], 'precondition: solo pad has behavior');
+    assert(lp.behaviors[42], 'precondition: bypass pad has behavior');
     dq.deactivate();
-    assert(!lp.behaviors[42], 'deactivate should clear solo pad behavior');
-    assert(!lp.behaviors[43], 'deactivate should clear bypass pad behavior');
+    assert(!lp.behaviors[42], 'deactivate should clear bypass pad behavior');
+    assert(!lp.behaviors[43], 'deactivate should clear solo pad behavior');
     assert(!lp.behaviors[44], 'deactivate should clear exit pad behavior');
 })();
 

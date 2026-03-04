@@ -74,13 +74,16 @@ function fakeBitwig(opts) {
         setMasterLimiterThresholdValue: function(v) { opts.masterLimiterThresholdValue = v; },
         getCursorDevice: function() {
             return {
-                selectNone: function() { result._selectNoneCalls = (result._selectNoneCalls || 0) + 1; }
+                selectNone: function() { result._selectNoneCalls = (result._selectNoneCalls || 0) + 1; },
+                selectDevice: function(device) { result._selectedDevice = device; }
             };
         },
+        getDeviceBank: function() { return opts.deviceBank || null; },
         selectTrack: function(id) { result.selectedTracks.push(id); },
         setTimeSelection: function(start, end) { result._timeSelection = { start: start, end: end }; },
         setPlayheadPosition: function(pos) { result._playheadPos = pos; },
         getMarkerBank: function() { return opts.markerBank || null; },
+        getTrackRemoteControls: function() { return opts.trackRemoteControls || null; },
         getRemoteControls: function() {
             var names = opts.remoteControlNames || [];
             var params = {};
@@ -143,6 +146,7 @@ function fakeTwister(opts) {
         },
         linkEncodersToTrackSends: function(tid) { calls.push({ method: 'linkEncodersToTrackSends', trackId: tid }); },
         linkEncodersToRemoteControls: function() { calls.push('linkEncodersToRemoteControls'); },
+        linkEncodersToTrackRemoteControls: function() { calls.push('linkEncodersToTrackRemoteControls'); },
         ccToEncoder: function(cc) { return cc + 1; },
         handleEncoderTurn: function(enc, val) { calls.push({ method: 'handleEncoderTurn', encoder: enc, value: val }); },
         handleEncoderPress: function(enc, pressed) { calls.push({ method: 'handleEncoderPress', encoder: enc, pressed: pressed }); },
@@ -247,6 +251,24 @@ function fakeHost() {
     };
 }
 
+function fakeDeviceSelector() {
+    var calls = [];
+    var _active = false;
+    return {
+        calls: calls,
+        _onDeviceSelected: null,
+        _onExit: null,
+        activate: function(onDeviceSelected, onExit) {
+            _active = true;
+            this._onDeviceSelected = onDeviceSelected;
+            this._onExit = onExit;
+            calls.push('activate');
+        },
+        deactivate: function() { _active = false; calls.push('deactivate'); },
+        isActive: function() { return _active; }
+    };
+}
+
 function fakeDeviceQuadrant() {
     var calls = [];
     var _active = false;
@@ -304,6 +326,7 @@ function makeController(opts) {
         pages: opts.pages || fakePages(),
         pageMainControl: opts.pageMainControl || { pageNumber: 1 },
         deviceQuadrant: opts.deviceQuadrant || null,
+        deviceSelector: opts.deviceSelector || null,
         mappers: opts.mappers || {},
         padMappers: opts.padMappers || {},
         painter: opts.painter || null,
@@ -440,7 +463,7 @@ function makeController(opts) {
     // Selected group pad should get bright color
     var pad2Paints = pager.paints.filter(function(p) { return p.pad === 42; }); // pads[1] = 42
     assert(pad2Paints.length > 0, "should paint selected group pad");
-    // Should use bright variant
+    // Should use bright variant (bright = visually prominent)
     var hasBright = pad2Paints.some(function(p) { return typeof p.color === 'string' && p.color.indexOf('bright') !== -1; });
     assert(hasBright, "selected group should have bright variant");
 })();
@@ -551,7 +574,7 @@ function makeController(opts) {
     assert(sendCall[0].trackId === 3, "should pass correct track ID");
 })();
 
-// select mode selects track and links remote controls
+// select mode selects track and enters track mode
 (function() {
     var tw = fakeTwister();
     tw.links[1] = { trackId: 3 };
@@ -562,8 +585,10 @@ function makeController(opts) {
     ctrl.refreshTrackGrid();
     lp.behaviors[11].click();
     assert((bw.selectedTracks || []).indexOf(3) !== -1, "should select track via bitwig");
-    var rcCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToRemoteControls'; });
-    assert(rcCalls.length === 1, "should call linkEncodersToRemoteControls");
+    assert(ctrl._mode === 'track', "should enter track mode");
+    assert(ctrl._suppressNextDeviceChange === true, "should suppress next device change");
+    var trackRCCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToTrackRemoteControls'; });
+    assert(trackRCCalls.length === 1, "should call linkEncodersToTrackRemoteControls");
 })();
 
 // handleTrackNameChange re-links encoder when track renamed
@@ -805,7 +830,7 @@ function makeController(opts) {
     assert(tw.calls.length === 0, "empty device name should be ignored");
 })();
 
-// onDeviceChanged: non-mapped device applies generic mapping (via scheduleTask)
+// enterDeviceMode: non-mapped device applies generic mapping (via scheduleTask)
 (function() {
     var genericCalls = [];
     var fakeDeviceMapper = {
@@ -816,16 +841,15 @@ function makeController(opts) {
     var ctrl = makeController({ host: h });
     ctrl.deviceMapper = fakeDeviceMapper;
     ctrl.selectedGroup = 16;
-    ctrl.deviceMode = false;
-    ctrl.onDeviceChanged("SomeOtherPlugin");
+    ctrl.enterDeviceMode("SomeOtherPlugin");
     assert(h.scheduled.length === 1, "should schedule a task");
     assert(genericCalls.length === 0, "should not call applyGenericMapping synchronously");
     h.scheduled[0].fn();
     assert(genericCalls.length === 1, "should call applyGenericMapping after scheduled task runs");
-    assert(ctrl.deviceMode === true, "deviceMode should be true after generic mapping");
+    assert(ctrl._mode === 'device', "_mode should be 'device' after generic mapping");
 })();
 
-// onDeviceChanged: switching from mapped device to non-mapped applies generic mapping (via scheduleTask)
+// enterDeviceMode: switching from mapped device to non-mapped applies generic mapping (via scheduleTask)
 (function() {
     var genericCalls = [];
     var fakeDeviceMapper = {
@@ -835,12 +859,12 @@ function makeController(opts) {
     var h = fakeHost();
     var ctrl = makeController({ host: h });
     ctrl.deviceMapper = fakeDeviceMapper;
-    ctrl.deviceMode = true; // was in Frequalizer mode
-    ctrl.onDeviceChanged("SomeOtherPlugin");
+    ctrl._mode = 'device';
+    ctrl.enterDeviceMode("SomeOtherPlugin");
     assert(h.scheduled.length === 1, "should schedule a task");
     h.scheduled[0].fn();
     assert(genericCalls.length === 1, "should call applyGenericMapping when leaving mapped device");
-    assert(ctrl.deviceMode === true, "deviceMode should remain true");
+    assert(ctrl._mode === 'device', "_mode should remain 'device'");
 })();
 
 // selectGroup(16) links encoder 1 to master limiter threshold when L1+ is available
@@ -881,13 +905,13 @@ function makeController(opts) {
     assert(tw.behaviors[4], "tempo encoder should still be linked");
 })();
 
-// onMasterLimiterThresholdChanged updates LED when group 16 active
+// onMasterLimiterThresholdChanged updates LED when group 16 active in grid mode
 (function() {
     var tw = fakeTwister();
     var bw = fakeBitwig({ topLevel: [], bpm: 120 });
     var ctrl = makeController({ twister: tw, bitwig: bw });
     ctrl.selectedGroup = 16;
-    ctrl.deviceMode = false;
+    ctrl._mode = 'grid';
     ctrl.onMasterLimiterThresholdChanged(0.75);
     assert(tw.leds[1] === 95, "encoder 1 LED should update to 0.75 * 127 ≈ 95");
 })();
@@ -898,7 +922,7 @@ function makeController(opts) {
     var bw = fakeBitwig({ topLevel: [], bpm: 120 });
     var ctrl = makeController({ twister: tw, bitwig: bw });
     ctrl.selectedGroup = 16;
-    ctrl.deviceMode = true;
+    ctrl._mode = 'device';
     ctrl.onMasterLimiterThresholdChanged(0.75);
     assert(tw.leds[1] === undefined, "encoder 1 LED should not update in device mode");
 })();
@@ -909,7 +933,7 @@ function makeController(opts) {
     var bw = fakeBitwig({ topLevel: [], bpm: 120 });
     var ctrl = makeController({ twister: tw, bitwig: bw });
     ctrl.selectedGroup = 5;
-    ctrl.deviceMode = false;
+    ctrl._mode = 'grid';
     ctrl.onMasterLimiterThresholdChanged(0.5);
     assert(tw.leds[1] === undefined, "encoder 1 LED should not update when group 5 selected");
 })();
@@ -937,20 +961,20 @@ function makeController(opts) {
     assert(tw.behaviors[1], "encoder 1 should have L1+ behavior, overriding track link");
 })();
 
-// onDeviceChanged activates device quadrant
+// enterDeviceMode activates device quadrant
 (function() {
     var dq = fakeDeviceQuadrant();
     var ctrl = makeController({ deviceQuadrant: dq });
-    ctrl.onDeviceChanged("SomePlugin");
-    assert(dq.calls.indexOf('activate') !== -1, "onDeviceChanged should activate device quadrant");
+    ctrl.enterDeviceMode("SomePlugin");
+    assert(dq.calls.indexOf('activate') !== -1, "enterDeviceMode should activate device quadrant");
 })();
 
-// onDeviceChanged does not re-activate if already active
+// enterDeviceMode does not re-activate if already active
 (function() {
     var dq = fakeDeviceQuadrant();
     var ctrl = makeController({ deviceQuadrant: dq });
-    ctrl.onDeviceChanged("Plugin1");
-    ctrl.onDeviceChanged("Plugin2");
+    ctrl.enterDeviceMode("Plugin1");
+    ctrl.enterDeviceMode("Plugin2");
     var activateCalls = dq.calls.filter(function(c) { return c === 'activate'; });
     assert(activateCalls.length === 1, "should not re-activate if already active");
 })();
@@ -976,7 +1000,7 @@ function makeController(opts) {
     assert(unlinkCalls.length === 0, "refreshTrackGrid should be no-op when device quadrant active");
 })();
 
-// exit callback from device quadrant re-selects group to restore full state
+// exit callback from device quadrant enters track mode (not grid)
 (function() {
     var dq = fakeDeviceQuadrant();
     var tw = fakeTwister();
@@ -992,14 +1016,13 @@ function makeController(opts) {
     var lp = fakeLaunchpad();
     var ctrl = makeController({ deviceQuadrant: dq, twister: tw, bitwig: bw, launchpad: lp });
     ctrl.selectedGroup = 5;
-    ctrl.onDeviceChanged("SomePlugin");
-    assert(ctrl.deviceMode === true, "deviceMode should be true");
-    // Simulate exit callback — should re-select group 5
+    ctrl.enterDeviceMode("SomePlugin");
+    assert(ctrl._mode === 'device', "_mode should be 'device'");
+    // Simulate exit callback — should enter track mode
     dq._exitCallback();
-    assert(ctrl.deviceMode === false, "exit callback should set deviceMode false");
-    assert(ctrl.selectedGroup === 5, "should remain on group 5");
-    assert(tw.links[1] && tw.links[1].trackId === 11, "encoder 1 should re-link to Clean (1)");
-    assert(tw.links[2] && tw.links[2].trackId === 12, "encoder 2 should re-link to Dist (2)");
+    assert(ctrl._mode === 'track', "exit callback should enter track mode");
+    var trackRCCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToTrackRemoteControls'; });
+    assert(trackRCCalls.length > 0, "should link track remote controls in track mode");
 })();
 
 // selectGroup(16) calls selectInMixer on master track
@@ -1025,7 +1048,7 @@ function makeController(opts) {
     assert(ctrl.selectedGroup === 16, "selectGroup(16) should work without master track");
 })();
 
-// onDeviceChanged: non-mapped device with remote controls uses remote controls (via scheduleTask)
+// enterDeviceMode: non-mapped device with remote controls uses remote controls (via scheduleTask)
 (function() {
     var tw = fakeTwister();
     var bw = fakeBitwig({ remoteControlNames: ['Cutoff', 'Resonance', '', '', '', '', '', ''] });
@@ -1037,45 +1060,30 @@ function makeController(opts) {
     var h = fakeHost();
     var ctrl = makeController({ twister: tw, bitwig: bw, host: h });
     ctrl.deviceMapper = fakeDeviceMapper;
-    ctrl.onDeviceChanged("SomePlugin");
+    ctrl.enterDeviceMode("SomePlugin");
     assert(h.scheduled.length === 1, "should schedule a task");
     h.scheduled[0].fn();
     var rcCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToRemoteControls'; });
     assert(rcCalls.length === 1, "should call linkEncodersToRemoteControls for device with remote controls");
     assert(genericCalls.length === 0, "should NOT call applyGenericMapping when remote controls exist");
-    assert(ctrl.deviceMode === true, "deviceMode should be true");
+    assert(ctrl._mode === 'device', "_mode should be 'device'");
 })();
 
-// exit callback calls selectNone on cursor device
-(function() {
-    var dq = fakeDeviceQuadrant();
-    var bw = fakeBitwig({
-        groups: { 5: 10 },
-        groupChildren: { 10: [11] },
-        tracks: { 10: fakeTrack("Guitars (5)", { isGroup: true }), 11: fakeTrack("Clean (1)") }
-    });
-    var ctrl = makeController({ deviceQuadrant: dq, bitwig: bw });
-    ctrl.selectedGroup = 5;
-    ctrl.onDeviceChanged("SomePlugin");
-    dq._exitCallback();
-    assert(bw._selectNoneCalls === 1, "exit callback should call selectNone on cursor device");
-})();
-
-// onDeviceChanged passes pad mapper from padMappers registry to device quadrant
+// enterDeviceMode passes pad mapper from padMappers registry to device quadrant
 (function() {
     var dq = fakeDeviceQuadrant();
     var testPadMapper = fakePadMapper();
     var padMappers = { 'TestDevice': function() { return testPadMapper; } };
     var ctrl = makeController({ deviceQuadrant: dq, padMappers: padMappers });
-    ctrl.onDeviceChanged("TestDevice");
+    ctrl.enterDeviceMode("TestDevice");
     assert(dq._lastPadMapper === testPadMapper, "should pass pad mapper to device quadrant activate");
 })();
 
-// onDeviceChanged passes null pad mapper when no padMappers entry exists
+// enterDeviceMode passes null pad mapper when no padMappers entry exists
 (function() {
     var dq = fakeDeviceQuadrant();
     var ctrl = makeController({ deviceQuadrant: dq });
-    ctrl.onDeviceChanged("SomePlugin");
+    ctrl.enterDeviceMode("SomePlugin");
     assert(dq._lastPadMapper === null, "should pass null pad mapper for non-mapped device");
 })();
 
@@ -1085,41 +1093,41 @@ function makeController(opts) {
     var testPadMapper = fakePadMapper();
     var padMappers = { 'DeviceA': function() { return testPadMapper; } };
     var ctrl = makeController({ deviceQuadrant: dq, padMappers: padMappers });
-    ctrl.onDeviceChanged("DeviceA");
+    ctrl.enterDeviceMode("DeviceA");
     assert(dq.calls.filter(function(c) { return c === 'activate'; }).length === 1, "first device should activate");
     // Switch to a different device while already active
-    ctrl.onDeviceChanged("OtherDevice");
+    ctrl.enterDeviceMode("OtherDevice");
     assert(dq.calls.filter(function(c) { return c === 'activate'; }).length === 1, "should NOT re-activate");
     assert(dq.calls.filter(function(c) { return c === 'applyPadMapper'; }).length === 1, "should call applyPadMapper for second device");
     assert(dq._lastPadMapper === null, "second device has no pad mapper");
 })();
 
-// ---- mapper integration tests ----
+// ---- mapper integration tests (via enterDeviceMode) ----
 
-// onDeviceChanged creates mapper when registered factory exists
+// enterDeviceMode creates mapper when registered factory exists
 (function() {
     var createdMapper = fakeMapper();
     var mappers = {
         'TestMapper': function() { return createdMapper; }
     };
     var ctrl = makeController({ mappers: mappers });
-    ctrl.onDeviceChanged('TestMapper');
+    ctrl.enterDeviceMode('TestMapper');
     assert(ctrl._activeMapper === createdMapper, "should create and store active mapper");
-    assert(ctrl.deviceMode === true, "deviceMode should be true");
+    assert(ctrl._mode === 'device', "_mode should be 'device'");
 })();
 
-// onDeviceChanged: mapper takes priority and does not schedule task
+// enterDeviceMode: mapper takes priority and does not schedule task
 (function() {
     var createdMapper = fakeMapper();
     var mappers = { 'MyDevice': function() { return createdMapper; } };
     var h = fakeHost();
     var ctrl = makeController({ mappers: mappers, host: h });
-    ctrl.onDeviceChanged('MyDevice');
+    ctrl.enterDeviceMode('MyDevice');
     assert(ctrl._activeMapper === createdMapper, "mapper should be active");
     assert(h.scheduled.length === 0, "should NOT schedule a task for mapped device");
 })();
 
-// onDeviceChanged: padMappers factory creates pad mapper independently of twister mapper
+// enterDeviceMode: padMappers factory creates pad mapper independently of twister mapper
 (function() {
     var createdMapper = fakeMapper();
     var createdPadMapper = fakePadMapper();
@@ -1127,12 +1135,12 @@ function makeController(opts) {
     var padMappers = { 'PadDevice': function() { return createdPadMapper; } };
     var dq = fakeDeviceQuadrant();
     var ctrl = makeController({ mappers: mappers, padMappers: padMappers, deviceQuadrant: dq });
-    ctrl.onDeviceChanged('PadDevice');
+    ctrl.enterDeviceMode('PadDevice');
     assert(dq._lastPadMapper === createdPadMapper, "should pass pad mapper to device quadrant");
     assert(ctrl._activeMapper === createdMapper, "twister mapper should also be active");
 })();
 
-// onDeviceChanged: non-mapper device falls through (no _activeMapper, via scheduleTask)
+// enterDeviceMode: non-mapper device falls through (no _activeMapper, via scheduleTask)
 (function() {
     var mappers = { 'MappedDevice': function() { return fakeMapper(); } };
     var genericCalls = [];
@@ -1143,14 +1151,14 @@ function makeController(opts) {
     var h = fakeHost();
     var ctrl = makeController({ mappers: mappers, host: h });
     ctrl.deviceMapper = fakeDeviceMapper;
-    ctrl.onDeviceChanged('UnmappedDevice');
+    ctrl.enterDeviceMode('UnmappedDevice');
     assert(ctrl._activeMapper === null, "should not set _activeMapper for non-mapper device");
     assert(h.scheduled.length === 1, "should schedule a task");
     h.scheduled[0].fn();
     assert(genericCalls.length === 1, "should fall through to generic mapping");
 })();
 
-// onDeviceChanged: mapper factory receives painter dep
+// enterDeviceMode: mapper factory receives painter dep
 (function() {
     var receivedDeps = null;
     var mappers = {
@@ -1158,7 +1166,7 @@ function makeController(opts) {
     };
     var fakePainterObj = { paint: function() {} };
     var ctrl = makeController({ mappers: mappers, painter: fakePainterObj });
-    ctrl.onDeviceChanged('DepDevice');
+    ctrl.enterDeviceMode('DepDevice');
     assert(receivedDeps !== null, "factory should receive deps");
     assert(receivedDeps.painter === fakePainterObj, "factory should receive painter");
 })();
@@ -1279,7 +1287,7 @@ function makeController(opts) {
     assert(ctrl._activeMapper === null, "selectGroup should clear active mapper");
 })();
 
-// onDeviceChanged: switching to mapper clears previous mapper
+// enterDeviceMode: switching to mapper clears previous mapper
 (function() {
     var mapper1 = fakeMapper();
     var mapper2 = fakeMapper();
@@ -1288,19 +1296,19 @@ function makeController(opts) {
         'DeviceA': function() { callCount++; return callCount === 1 ? mapper1 : mapper2; },
     };
     var ctrl = makeController({ mappers: mappers });
-    ctrl.onDeviceChanged('DeviceA');
+    ctrl.enterDeviceMode('DeviceA');
     assert(ctrl._activeMapper === mapper1, "first call should use mapper1");
-    ctrl.onDeviceChanged('DeviceA');
+    ctrl.enterDeviceMode('DeviceA');
     assert(ctrl._activeMapper === mapper2, "second call should create fresh mapper2");
 })();
 
-// onDeviceChanged: mapper calls twister.unlinkAll
+// enterDeviceMode: mapper calls twister.unlinkAll
 (function() {
     var tw = fakeTwister();
     var mappers = { 'Device': function() { return fakeMapper(); } };
     var ctrl = makeController({ twister: tw, mappers: mappers });
     tw.calls.length = 0;
-    ctrl.onDeviceChanged('Device');
+    ctrl.enterDeviceMode('Device');
     assert(tw.calls.indexOf('unlinkAll') !== -1, "should call twister.unlinkAll when activating mapper");
 })();
 
@@ -1314,26 +1322,26 @@ function makeController(opts) {
         "should strip ROOT_GENERIC_MODULE/ prefix before feeding mapper");
 })();
 
-// onDeviceChanged: unlinkAll is always the first call (even for mapper path)
+// enterDeviceMode: unlinkAll is always the first call (even for mapper path)
 (function() {
     var tw = fakeTwister();
     var mappers = { 'Device': function() { return fakeMapper(); } };
     var ctrl = makeController({ twister: tw, mappers: mappers });
     tw.calls.length = 0;
-    ctrl.onDeviceChanged('Device');
+    ctrl.enterDeviceMode('Device');
     assert(tw.calls[0] === 'unlinkAll', "unlinkAll should be the very first call");
 })();
 
-// onDeviceChanged: mapper path does NOT schedule a task
+// enterDeviceMode: mapper path does NOT schedule a task
 (function() {
     var h = fakeHost();
     var mappers = { 'Device': function() { return fakeMapper(); } };
     var ctrl = makeController({ mappers: mappers, host: h });
-    ctrl.onDeviceChanged('Device');
+    ctrl.enterDeviceMode('Device');
     assert(h.scheduled.length === 0, "mapper path should not schedule any task");
 })();
 
-// onDeviceChanged: rapid device switching discards stale scheduled task (sequence counter guard)
+// enterDeviceMode: rapid device switching discards stale scheduled task (sequence counter guard)
 (function() {
     var h = fakeHost();
     var genericCalls = [];
@@ -1343,10 +1351,10 @@ function makeController(opts) {
     };
     var ctrl = makeController({ host: h });
     ctrl.deviceMapper = fakeDeviceMapper;
-    ctrl.onDeviceChanged("Plugin1");
+    ctrl.enterDeviceMode("Plugin1");
     assert(h.scheduled.length === 1, "first device schedules a task");
     var staleTask = h.scheduled[0].fn;
-    ctrl.onDeviceChanged("Plugin2");
+    ctrl.enterDeviceMode("Plugin2");
     assert(h.scheduled.length === 2, "second device schedules another task");
     // Run the stale task from Plugin1 — should be discarded
     staleTask();
@@ -1356,7 +1364,7 @@ function makeController(opts) {
     assert(genericCalls.length === 1, "fresh task should execute");
 })();
 
-// onDeviceChanged calls resetGenericMode on deviceMapper
+// enterDeviceMode calls resetGenericMode on deviceMapper
 (function() {
     var resetCalls = [];
     var fakeDeviceMapper = {
@@ -1365,8 +1373,8 @@ function makeController(opts) {
     };
     var ctrl = makeController({});
     ctrl.deviceMapper = fakeDeviceMapper;
-    ctrl.onDeviceChanged("SomePlugin");
-    assert(resetCalls.length === 1, "onDeviceChanged should call resetGenericMode on deviceMapper");
+    ctrl.enterDeviceMode("SomePlugin");
+    assert(resetCalls.length === 1, "enterDeviceMode should call resetGenericMode on deviceMapper");
 })();
 
 // switching from generic to mapper clears _genericMode
@@ -1381,11 +1389,11 @@ function makeController(opts) {
     var ctrl = makeController({ mappers: mappers, host: h });
     ctrl.deviceMapper = fakeDeviceMapper;
     // First: go to generic device
-    ctrl.onDeviceChanged("SomePlugin");
+    ctrl.enterDeviceMode("SomePlugin");
     h.scheduled[0].fn(); // applies generic mapping
     // Second: switch to mapper device
-    ctrl.onDeviceChanged("MappedDevice");
-    assert(resetCalls.length === 2, "second onDeviceChanged should also call resetGenericMode");
+    ctrl.enterDeviceMode("MappedDevice");
+    assert(resetCalls.length === 2, "second enterDeviceMode should also call resetGenericMode");
     assert(ctrl._activeMapper !== null, "should have active mapper");
 })();
 
@@ -1432,7 +1440,7 @@ function makeController(opts) {
     var h = fakeHost();
     var ctrl = makeController({ twister: tw, host: h });
     ctrl.deviceMapper = fakeDeviceMapper;
-    ctrl.onDeviceChanged("SomePlugin");
+    ctrl.enterDeviceMode("SomePlugin");
     // Simulate RC observer firing before scheduled task
     ctrl.onRemoteControlNameChanged(0, "Cutoff");
     var rcCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToRemoteControls'; });
@@ -1455,11 +1463,252 @@ function makeController(opts) {
     var h = fakeHost();
     var ctrl = makeController({ host: h });
     ctrl.deviceMapper = fakeDeviceMapper;
-    ctrl.onDeviceChanged("Plugin1");
+    ctrl.enterDeviceMode("Plugin1");
     assert(ctrl._pendingRCCheck === true, "should be pending after first switch");
-    ctrl.onDeviceChanged("Plugin2");
+    ctrl.enterDeviceMode("Plugin2");
     assert(ctrl._pendingRCCheck === true, "should be re-set to pending after second switch");
     assert(resetCalls.length === 2, "should call resetGenericMode on each switch");
+})();
+
+// ---- state machine tests ----
+
+// enterTrackMode sets _mode to 'track' and links track remote controls
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl.enterTrackMode();
+    assert(ctrl._mode === 'track', "_mode should be 'track'");
+    var trackRCCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToTrackRemoteControls'; });
+    assert(trackRCCalls.length === 1, "should call linkEncodersToTrackRemoteControls");
+})();
+
+// enterTrackMode clears active mapper
+(function() {
+    var ctrl = makeController({});
+    ctrl._activeMapper = fakeMapper();
+    ctrl.enterTrackMode();
+    assert(ctrl._activeMapper === null, "should clear active mapper");
+})();
+
+// enterTrackMode deactivates device quadrant if active
+(function() {
+    var dq = fakeDeviceQuadrant();
+    dq.activate();
+    var ctrl = makeController({ deviceQuadrant: dq });
+    ctrl.enterTrackMode();
+    assert(dq.calls.indexOf('deactivate') !== -1, "should deactivate device quadrant");
+})();
+
+// enterTrackMode activates device selector
+(function() {
+    var ds = fakeDeviceSelector();
+    var ctrl = makeController({ deviceSelector: ds });
+    ctrl.enterTrackMode();
+    assert(ds.calls.indexOf('activate') !== -1, "should activate device selector");
+})();
+
+// enterTrackMode does not re-activate device selector if already active
+(function() {
+    var ds = fakeDeviceSelector();
+    var ctrl = makeController({ deviceSelector: ds });
+    ctrl.enterTrackMode();
+    ctrl.enterTrackMode();
+    var activateCalls = ds.calls.filter(function(c) { return c === 'activate'; });
+    assert(activateCalls.length === 1, "should not re-activate device selector");
+})();
+
+// enterDeviceMode sets _mode to 'device'
+(function() {
+    var ctrl = makeController({});
+    ctrl.enterDeviceMode("SomePlugin");
+    assert(ctrl._mode === 'device', "_mode should be 'device'");
+})();
+
+// enterDeviceMode deactivates device selector if active
+(function() {
+    var ds = fakeDeviceSelector();
+    var ctrl = makeController({ deviceSelector: ds });
+    ctrl.enterTrackMode(); // activates device selector
+    ctrl.enterDeviceMode("SomePlugin");
+    assert(ds.calls.indexOf('deactivate') !== -1, "should deactivate device selector");
+})();
+
+// onDeviceChanged in track mode enters device mode
+(function() {
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ deviceQuadrant: dq });
+    ctrl._mode = 'track';
+    ctrl.onDeviceChanged("SomePlugin");
+    assert(ctrl._mode === 'device', "should enter device mode from track mode");
+})();
+
+// onDeviceChanged in device mode stays in device mode (device switch)
+(function() {
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ deviceQuadrant: dq });
+    ctrl._mode = 'device';
+    ctrl.onDeviceChanged("SomePlugin");
+    assert(ctrl._mode === 'device', "should stay in device mode");
+})();
+
+// onDeviceChanged in grid mode with suppress flag clears flag and returns
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl._mode = 'grid';
+    ctrl._suppressNextDeviceChange = true;
+    tw.calls.length = 0;
+    ctrl.onDeviceChanged("SomePlugin");
+    assert(ctrl._suppressNextDeviceChange === false, "should clear suppress flag");
+    assert(ctrl._mode === 'grid', "should remain in grid mode");
+    assert(tw.calls.indexOf('unlinkAll') === -1, "should not call unlinkAll");
+})();
+
+// onDeviceChanged in grid mode without suppress is ignored
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl._mode = 'grid';
+    ctrl._suppressNextDeviceChange = false;
+    tw.calls.length = 0;
+    ctrl.onDeviceChanged("SomePlugin");
+    assert(ctrl._mode === 'grid', "should remain in grid mode");
+    assert(tw.calls.indexOf('unlinkAll') === -1, "should not interact with twister");
+})();
+
+// onCursorTrackChanged in track mode re-enters track mode and sets suppress
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl._mode = 'track';
+    ctrl.onCursorTrackChanged("New Track");
+    assert(ctrl._mode === 'track', "should remain in track mode");
+    assert(ctrl._suppressNextDeviceChange === true, "should suppress next device change");
+})();
+
+// onCursorTrackChanged in device mode goes to track mode
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl._mode = 'device';
+    ctrl.onCursorTrackChanged("New Track");
+    assert(ctrl._mode === 'track', "should enter track mode from device mode");
+    assert(ctrl._suppressNextDeviceChange === true, "should suppress next device change");
+})();
+
+// onCursorTrackChanged in grid mode is no-op
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl._mode = 'grid';
+    tw.calls.length = 0;
+    ctrl.onCursorTrackChanged("Some Track");
+    assert(ctrl._mode === 'grid', "should remain in grid mode");
+    assert(tw.calls.length === 0, "should not interact with twister");
+})();
+
+// selectGroup sets _mode to 'grid'
+(function() {
+    var ctrl = makeController({});
+    ctrl._mode = 'track';
+    ctrl.selectGroup(16);
+    assert(ctrl._mode === 'grid', "selectGroup should set _mode to 'grid'");
+})();
+
+// selectGroup deactivates device selector
+(function() {
+    var ds = fakeDeviceSelector();
+    ds.activate(function() {}, function() {});
+    var ctrl = makeController({ deviceSelector: ds });
+    ctrl.selectGroup(16);
+    assert(ds.calls.indexOf('deactivate') !== -1, "selectGroup should deactivate device selector");
+})();
+
+// device selector onDeviceSelected callback navigates cursor device
+(function() {
+    var ds = fakeDeviceSelector();
+    var editorSelected = false;
+    var fakeDevice = { name: 'TestDevice', selectInEditor: function() { editorSelected = true; } };
+    var fakeBank = { getItemAt: function(idx) { return idx === 3 ? fakeDevice : null; } };
+    var bw = fakeBitwig({ deviceBank: fakeBank });
+    var selectedDevice = null;
+    bw.getCursorDevice = function() {
+        return {
+            selectDevice: function(d) { selectedDevice = d; },
+            selectNone: function() {}
+        };
+    };
+    var ctrl = makeController({ deviceSelector: ds, bitwig: bw });
+    ctrl.enterTrackMode();
+    // Simulate clicking a device in the selector
+    ds._onDeviceSelected(3);
+    assert(selectedDevice === fakeDevice, "should call selectDevice on cursor device with correct device");
+    assert(editorSelected === true, "should call selectInEditor on device for Bitwig UI feedback");
+})();
+
+// device selector onExit callback returns to grid
+(function() {
+    var ds = fakeDeviceSelector();
+    var tw = fakeTwister();
+    var bw = fakeBitwig({
+        groups: { 5: 10 },
+        groupChildren: { 10: [11] },
+        tracks: { 10: fakeTrack("Guitars (5)", { isGroup: true }), 11: fakeTrack("Clean (1)") }
+    });
+    var ctrl = makeController({ deviceSelector: ds, twister: tw, bitwig: bw });
+    ctrl.selectedGroup = 5;
+    ctrl.enterTrackMode();
+    // Simulate exit from device selector
+    ds._onExit();
+    assert(ctrl._mode === 'grid', "exiting device selector should return to grid");
+    assert(ctrl.selectedGroup === 5, "should re-select same group");
+})();
+
+// refreshTrackGrid is no-op when device selector active
+(function() {
+    var ds = fakeDeviceSelector();
+    ds.activate(function() {}, function() {});
+    var lp = fakeLaunchpad();
+    var ctrl = makeController({ deviceSelector: ds, launchpad: lp });
+    lp.calls = [];
+    ctrl.refreshTrackGrid();
+    var unlinkCalls = lp.calls.filter(function(c) { return c.method === 'unlinkPad'; });
+    assert(unlinkCalls.length === 0, "refreshTrackGrid should be no-op when device selector active");
+})();
+
+// full state machine cycle: grid → track → device → track → grid
+(function() {
+    var tw = fakeTwister();
+    var dq = fakeDeviceQuadrant();
+    var ds = fakeDeviceSelector();
+    var bw = fakeBitwig({
+        groups: { 5: 10 },
+        groupChildren: { 10: [11] },
+        tracks: { 10: fakeTrack("Guitars (5)", { isGroup: true }), 11: fakeTrack("Clean (1)") }
+    });
+    var ctrl = makeController({ twister: tw, deviceQuadrant: dq, deviceSelector: ds, bitwig: bw });
+    ctrl.selectedGroup = 5;
+
+    // Start in grid
+    assert(ctrl._mode === 'grid', "should start in grid");
+
+    // Select track → track mode
+    ctrl._suppressNextDeviceChange = true;
+    ctrl.enterTrackMode();
+    assert(ctrl._mode === 'track', "should be in track mode");
+
+    // Select device → device mode
+    ctrl.enterDeviceMode("SomePlugin");
+    assert(ctrl._mode === 'device', "should be in device mode");
+
+    // Exit device → track mode
+    dq._exitCallback();
+    assert(ctrl._mode === 'track', "should return to track mode");
+
+    // Exit track → grid
+    ds._onExit();
+    assert(ctrl._mode === 'grid', "should return to grid");
+    assert(ctrl.selectedGroup === 5, "should re-select group");
 })();
 
 process.exit(t.summary('Controller'));

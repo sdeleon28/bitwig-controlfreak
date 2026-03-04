@@ -26,6 +26,8 @@ class BitwigHW {
         this._masterCursorDevice = null;
         this._masterLimiterThresholdId = null;
         this._masterLimiterThresholdValue = 0;
+        this._trackRemoteControls = null;
+        this._deviceBank = null;
     }
 
     /**
@@ -540,6 +542,22 @@ class BitwigHW {
      * @returns {Object} Map of id -> name
      */
     getDirectParamNames() { return this._directParamNames; }
+
+    initTrackRemoteControls(trackRCs) {
+        this._trackRemoteControls = trackRCs;
+    }
+
+    getTrackRemoteControls() {
+        return this._trackRemoteControls;
+    }
+
+    initDeviceBank(deviceBank) {
+        this._deviceBank = deviceBank;
+    }
+
+    getDeviceBank() {
+        return this._deviceBank;
+    }
 
     /**
      * Select a track in mixer (XOR - deselects others)

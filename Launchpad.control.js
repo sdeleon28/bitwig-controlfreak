@@ -32,6 +32,7 @@ load('FrequalizerPadMapper.js');
 // Layer 3.5: Device mapping behavior
 load('DeviceMapper.js');
 load('DeviceQuadrant.js');
+load('DeviceSelector.js');
 
 // Layer 4: UI components
 load('LaunchpadQuadrant.js');
@@ -269,6 +270,52 @@ function init() {
 
     Bitwig.initCursor(cursorTrack, cursorDevice, remoteControls);
 
+    // Track-level remote controls (separate from device RCs)
+    var trackRemoteControls = cursorTrack.createCursorRemoteControlsPage("track-rc", 8, "");
+    for (var trc = 0; trc < 8; trc++) {
+        var trcParam = trackRemoteControls.getParameter(trc);
+        trcParam.markInterested();
+        trcParam.value().markInterested();
+        trcParam.name().markInterested();
+        trcParam.discreteValueCount().markInterested();
+        (function(paramIndex) {
+            trcParam.value().addValueObserver(function(value) {
+                Twister.updateTrackRemoteControlLED(paramIndex, value);
+            });
+        })(trc);
+    }
+    Bitwig.initTrackRemoteControls(trackRemoteControls);
+
+    // Device bank for device selector (13 device slots)
+    var deviceBank = cursorTrack.createDeviceBank(13);
+    for (var db = 0; db < 13; db++) {
+        var bankDevice = deviceBank.getItemAt(db);
+        bankDevice.exists().markInterested();
+        bankDevice.name().markInterested();
+        bankDevice.isEnabled().markInterested();
+        (function(deviceIndex) {
+            bankDevice.exists().addValueObserver(function(exists) {
+                DeviceSelector.onDeviceExistsChanged(deviceIndex, exists);
+            });
+            bankDevice.name().addValueObserver(function(name) {
+                DeviceSelector.onDeviceNameChanged(deviceIndex, name);
+            });
+        })(db);
+    }
+    Bitwig.initDeviceBank(deviceBank);
+
+    // Cursor device position observer (for highlighting in device selector)
+    cursorDevice.position().markInterested();
+    cursorDevice.position().addValueObserver(function(position) {
+        DeviceSelector.onCursorDevicePositionChanged(position);
+    });
+
+    // Cursor track name observer (for detecting track selection changes)
+    cursorTrack.name().markInterested();
+    cursorTrack.name().addValueObserver(function(name) {
+        Controller.onCursorTrackChanged(name);
+    });
+
     // Register direct parameter observers (for devices without Remote Controls pages)
     cursorDevice.addDirectParameterIdObserver(function(ids) {
         Bitwig.setDirectParamIds(ids);
@@ -333,10 +380,11 @@ function init() {
         DeviceQuadrant.onDeviceEnabledChanged(enabled);
     });
 
-    // Observe cursor track solo state (for DeviceQuadrant solo pad)
+    // Observe cursor track solo state (for DeviceQuadrant and DeviceSelector solo pads)
     cursorTrack.solo().markInterested();
     cursorTrack.solo().addValueObserver(function(soloed) {
         DeviceQuadrant.onCursorTrackSoloChanged(soloed);
+        DeviceSelector.onCursorTrackSoloChanged(soloed);
     });
     // Subscribe to track properties for tree building
     for (var i = 0; i < 64; i++) {
@@ -804,6 +852,17 @@ function init() {
         println: println
     });
 
+    // Initialize DeviceSelector (after Pager, LaunchpadQuadrant, Bitwig, Page_MainControl)
+    DeviceSelector = new DeviceSelectorHW({
+        launchpad: Launchpad,
+        launchpadQuadrant: LaunchpadQuadrant,
+        pager: Pager,
+        bitwig: Bitwig,
+        pageNumber: Page_MainControl.pageNumber,
+        debug: debug,
+        println: println
+    });
+
     // Build mapper registry (mapper factory functions for polymorphic device control)
     var mappers = {};
     mappers['Frequalizer'] = function(deps) {
@@ -832,6 +891,7 @@ function init() {
         pageMainControl: Page_MainControl,
         deviceMapper: DeviceMapper,
         deviceQuadrant: DeviceQuadrant,
+        deviceSelector: DeviceSelector,
         mappers: mappers,
         padMappers: padMappers,
         painter: twisterPainter,

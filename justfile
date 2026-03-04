@@ -17,6 +17,7 @@ test:
     node Page_MainControl.test.js
     node Page_MarkerManager.test.js
     node DeviceQuadrant.test.js
+    node DeviceSelector.test.js
     node Controller.test.js
     node RolandPiano.test.js
     node Pager.test.js

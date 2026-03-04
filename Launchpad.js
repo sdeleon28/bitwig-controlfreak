@@ -188,21 +188,21 @@ class LaunchpadHW {
 
         if (padMode === 'mute') {
             if (track.mute().get()) {
-                return this.getBrightnessVariant(this.colors.amber, this.brightness.bright);
+                return this.getBrightnessVariant(this.colors.amber, this.brightness.dim);
             }
         } else if (padMode === 'solo') {
             if (track.solo().get()) {
-                return this.getBrightnessVariant(this.colors.yellow, this.brightness.bright);
+                return this.getBrightnessVariant(this.colors.yellow, this.brightness.dim);
             }
         } else if (padMode === 'recordArm') {
             if (track.arm().get()) {
-                return this.getBrightnessVariant(this.colors.red, this.brightness.bright);
+                return this.getBrightnessVariant(this.colors.red, this.brightness.dim);
             }
         }
 
         var color = track.color();
         var launchpadColor = this.bitwigColorToLaunchpad(color.red(), color.green(), color.blue());
-        return this.getBrightnessVariant(launchpadColor, this.brightness.dim);
+        return this.getBrightnessVariant(launchpadColor, this.brightness.bright);
     }
 
     unlinkPad(padNumber) {
@@ -336,15 +336,15 @@ LaunchpadHW.BRIGHTNESS = {
 };
 
 LaunchpadHW.COLOR_VARIANTS = {
-    21: { dim: 19, bright: 23 },
-    5: { dim: 4, bright: 6 },
-    17: { dim: 11, bright: 9 },
-    13: { dim: 12, bright: 14 },
-    45: { dim: 44, bright: 46 },
-    41: { dim: 40, bright: 42 },
-    49: { dim: 48, bright: 50 },
-    53: { dim: 4, bright: 95 },
-    3: { dim: 1, bright: 2 }
+    21: { dim: 23, bright: 19 },
+    5: { dim: 6, bright: 4 },
+    17: { dim: 9, bright: 11 },
+    13: { dim: 14, bright: 12 },
+    45: { dim: 46, bright: 44 },
+    41: { dim: 42, bright: 40 },
+    49: { dim: 50, bright: 48 },
+    53: { dim: 95, bright: 4 },
+    3: { dim: 2, bright: 1 }
 };
 
 LaunchpadHW.HOLD_TIMING = {
