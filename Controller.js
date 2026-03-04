@@ -122,50 +122,12 @@ class ControllerHW {
                     var match = name.match(/\((\d+)\)/);
                     if (match) {
                         var encoderNum = parseInt(match[1]);
-                        if (encoderNum >= 1 && encoderNum <= 15 && encoderNum !== this.twister.TEMPO_ENCODER) {
+                        if (encoderNum >= 1 && encoderNum <= 15) {
                             this.twister.linkEncoderToTrack(encoderNum, trackId);
                         }
                     }
                 }
             }
-
-            // Link master limiter threshold to encoder 1
-            var self = this;
-            var masterDevice = this.bitwig.getMasterCursorDevice();
-            var thresholdId = this.bitwig.getMasterLimiterThresholdId();
-            if (masterDevice && thresholdId) {
-                this.twister.linkEncoderToBehavior(1,
-                    function(value) {
-                        masterDevice.setDirectParameterValueNormalized(thresholdId, value, 128);
-                    },
-                    function(pressed) {
-                        if (pressed && self.host) self.host.showPopupNotification("Limiter Threshold");
-                    },
-                    { r: 255, g: 50, b: 0 }
-                );
-                var currentValue = this.bitwig.getMasterLimiterThresholdValue();
-                this.twister.setEncoderLED(1, Math.round(currentValue * 127));
-            }
-
-            // Link tempo encoder
-            this.twister.linkEncoderToBehavior(this.twister.TEMPO_ENCODER,
-                function(value) {
-                    var tempo = self.bitwig.getTransport().tempo();
-                    var bpm = Math.round(self.twister.TEMPO_MIN + (value / 127.0) * (self.twister.TEMPO_MAX - self.twister.TEMPO_MIN));
-                    tempo.setRaw(bpm);
-                },
-                function(pressed) {
-                    if (pressed && self.host) self.host.showPopupNotification("Tempo");
-                },
-                { r: 255, g: 255, b: 255 }
-            );
-
-            // Initial LED sync to current tempo
-            var tempo = this.bitwig.getTransport().tempo();
-            var currentBpm = tempo.getRaw();
-            var ledValue = Math.round((currentBpm - this.twister.TEMPO_MIN) / (this.twister.TEMPO_MAX - this.twister.TEMPO_MIN) * 127);
-            ledValue = Math.max(0, Math.min(127, ledValue));
-            this.twister.setEncoderLED(this.twister.TEMPO_ENCODER, ledValue);
         } else {
             var groupTrackId = this.bitwig.findGroupByNumber(groupNumber);
 
@@ -629,17 +591,6 @@ class ControllerHW {
         if (status === 0xB1) {
             var pressed = data2 > 0;
             this.twister.handleEncoderPress(encoderNumber, pressed);
-        }
-    }
-
-    /**
-     * Handle master limiter threshold value changes (for LED sync)
-     * @param {number} value - Normalized value (0-1)
-     */
-    onMasterLimiterThresholdChanged(value) {
-        this.bitwig.setMasterLimiterThresholdValue(value);
-        if (this.selectedGroup === 16 && this._mode === 'grid') {
-            this.twister.setEncoderLED(1, Math.round(value * 127));
         }
     }
 

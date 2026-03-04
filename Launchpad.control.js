@@ -341,40 +341,8 @@ function init() {
         Controller.onDeviceChanged(name);
     });
 
-    // Master track L1+ limiter: create dedicated device cursor
     var masterTrack = host.createMasterTrack(0);
-    var masterDeviceCursor = masterTrack.createCursorDevice("L1+ Cursor");
-    masterDeviceCursor.name().markInterested();
-    masterDeviceCursor.exists().markInterested();
-
-    var foundL1 = false;
-    masterDeviceCursor.addDirectParameterIdObserver(function(ids) {});
-    masterDeviceCursor.addDirectParameterNameObserver(64, function(id, name) {
-        if (foundL1 && name === 'Threshold') {
-            Bitwig.setMasterLimiterThresholdId(id);
-            if (debug) println("Found L1+ Threshold param: " + id);
-        }
-    });
-
-    masterDeviceCursor.addDirectParameterNormalizedValueObserver(function(id, value) {
-        var thresholdId = Bitwig.getMasterLimiterThresholdId();
-        if (id === thresholdId) {
-            Controller.onMasterLimiterThresholdChanged(value);
-        }
-    });
-
-    masterDeviceCursor.name().addValueObserver(function(name) {
-        if (!name) return;
-        if (name.indexOf('L1+') !== -1) {
-            foundL1 = true;
-            if (debug) println("Found master limiter: " + name);
-        } else if (!foundL1) {
-            masterDeviceCursor.selectNext();
-        }
-    });
-
     Bitwig.initMasterTrack(masterTrack);
-    Bitwig.initMasterDevice(masterDeviceCursor);
 
     // Project-level remote controls (from root track group)
     var project = host.getProject();
@@ -559,16 +527,6 @@ function init() {
             });
         })(e, effectTrack);
     }
-
-    // Add tempo observer for encoder sync (bi-directional like volume/pan)
-    transport.tempo().addRawValueObserver(function(bpm) {
-        // Only update if tempo encoder is linked (top-level group selected)
-        if (Controller.selectedGroup === 16) {
-            var ledValue = Math.round((bpm - Twister.TEMPO_MIN) / (Twister.TEMPO_MAX - Twister.TEMPO_MIN) * 127);
-            ledValue = Math.max(0, Math.min(127, ledValue));
-            Twister.setEncoderLED(Twister.TEMPO_ENCODER, ledValue);
-        }
-    });
 
     // Add playPosition observer for playhead indicators
     transport.playPosition().addValueObserver(function(beats) {

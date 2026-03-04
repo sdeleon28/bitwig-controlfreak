@@ -23,9 +23,6 @@ class BitwigHW {
         this._directParamIds = [];
         this._directParamNames = {};
         this._masterTrack = null;
-        this._masterCursorDevice = null;
-        this._masterLimiterThresholdId = null;
-        this._masterLimiterThresholdValue = 0;
         this._trackRemoteControls = null;
         this._projectRemoteControls = null;
         this._deviceBank = null;
@@ -442,34 +439,6 @@ class BitwigHW {
 
     getMasterTrack() {
         return this._masterTrack;
-    }
-
-    /**
-     * Initialize master track device cursor (for L1+ limiter control)
-     * @param {Object} cursorDevice - Cursor device on master track
-     */
-    initMasterDevice(cursorDevice) {
-        this._masterCursorDevice = cursorDevice;
-    }
-
-    getMasterCursorDevice() {
-        return this._masterCursorDevice;
-    }
-
-    setMasterLimiterThresholdId(paramId) {
-        this._masterLimiterThresholdId = paramId;
-    }
-
-    getMasterLimiterThresholdId() {
-        return this._masterLimiterThresholdId;
-    }
-
-    setMasterLimiterThresholdValue(value) {
-        this._masterLimiterThresholdValue = value;
-    }
-
-    getMasterLimiterThresholdValue() {
-        return this._masterLimiterThresholdValue;
     }
 
     /**

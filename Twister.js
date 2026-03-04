@@ -35,9 +35,6 @@ class TwisterHW {
 
         // Constants
         this.colors = TwisterHW.COLORS;
-        this.TEMPO_ENCODER = 4;
-        this.TEMPO_MIN = 60;
-        this.TEMPO_MAX = 230;
 
         if (this.debug) this.println("Twister initialized: " + (this._output ? "Connected" : "NULL"));
     }

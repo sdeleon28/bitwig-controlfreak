@@ -78,10 +78,6 @@ function fakeBitwig(opts) {
             };
         },
         getMasterTrack: function() { return opts.masterTrack || null; },
-        getMasterCursorDevice: function() { return opts.masterCursorDevice || null; },
-        getMasterLimiterThresholdId: function() { return opts.masterLimiterThresholdId || null; },
-        getMasterLimiterThresholdValue: function() { return opts.masterLimiterThresholdValue || 0; },
-        setMasterLimiterThresholdValue: function(v) { opts.masterLimiterThresholdValue = v; },
         getCursorDevice: function() {
             var windowOpen = opts._pluginWindowOpen || false;
             var isPlugin = opts._isPlugin || false;
@@ -133,9 +129,6 @@ function fakeTwister(opts) {
     var leds = {};
     var calls = [];
     return {
-        TEMPO_ENCODER: 4,
-        TEMPO_MIN: 60,
-        TEMPO_MAX: 230,
         calls: calls,
         links: links,
         leds: leds,
@@ -382,27 +375,16 @@ function makeController(opts) {
     assert(ctrl.selectedGroup === 16, "selectedGroup should be 16");
 })();
 
-// selectGroup(16) links tempo encoder
+// selectGroup(16) allows encoder 4 for track linking (no tempo reservation)
 (function() {
     var tw = fakeTwister();
-    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
-    var ctrl = makeController({ twister: tw, bitwig: bw });
-    ctrl.selectGroup(16);
-    assert(tw.behaviors[4], "tempo encoder (4) should have behavior linked");
-    assert(tw.leds[4] !== undefined, "tempo encoder LED should be set");
-})();
-
-// selectGroup(16) skips tracks on tempo encoder number
-(function() {
-    var tw = fakeTwister();
-    // TEMPO_ENCODER is 4, so track with (4) should be skipped at top level
     var bw = fakeBitwig({
         topLevel: [0],
         tracks: { 0: fakeTrack("FX (4)") }
     });
     var ctrl = makeController({ twister: tw, bitwig: bw });
     ctrl.selectGroup(16);
-    assert(!tw.links[4] || tw.links[4].trackId !== 0, "should not link track to tempo encoder at top level");
+    assert(tw.links[4] && tw.links[4].trackId === 0, "encoder 4 should link to track with (4) naming");
 })();
 
 // selectGroup(1-15) finds group and links children
@@ -993,98 +975,17 @@ function makeController(opts) {
     assert(ctrl._mode === 'device', "_mode should remain 'device'");
 })();
 
-// selectGroup(16) links encoder 1 to master limiter threshold when L1+ is available
+// selectGroup(16) allows encoder 1 for track linking (no limiter override)
 (function() {
     var tw = fakeTwister();
-    var paramCalls = [];
-    var fakeMasterDevice = {
-        setDirectParameterValueNormalized: function(id, value, res) {
-            paramCalls.push({ id: id, value: value, resolution: res });
-        }
-    };
-    var bw = fakeBitwig({
-        topLevel: [],
-        bpm: 120,
-        masterCursorDevice: fakeMasterDevice,
-        masterLimiterThresholdId: 'CONTENTS/PIDthreshold',
-        masterLimiterThresholdValue: 0.5
-    });
-    var ctrl = makeController({ twister: tw, bitwig: bw });
-    ctrl.selectGroup(16);
-    assert(tw.behaviors[1], "encoder 1 should have behavior linked for L1+ threshold");
-    assert(tw.behaviors[1].color.r === 255, "encoder 1 color should be orange-red (r=255)");
-    assert(tw.leds[1] === 64, "encoder 1 LED should reflect current threshold value (0.5 * 127 ≈ 64)");
-    // Simulate turning encoder
-    tw.behaviors[1].turn(100);
-    assert(paramCalls.length === 1, "turning encoder should call setDirectParameterValueNormalized");
-    assert(paramCalls[0].id === 'CONTENTS/PIDthreshold', "should use correct param ID");
-    assert(paramCalls[0].value === 100, "should pass encoder value");
-})();
-
-// selectGroup(16) skips L1+ linking when master device not available
-(function() {
-    var tw = fakeTwister();
-    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
-    var ctrl = makeController({ twister: tw, bitwig: bw });
-    ctrl.selectGroup(16);
-    assert(!tw.behaviors[1], "encoder 1 should not have behavior when no master device");
-    assert(tw.behaviors[4], "tempo encoder should still be linked");
-})();
-
-// onMasterLimiterThresholdChanged updates LED when group 16 active in grid mode
-(function() {
-    var tw = fakeTwister();
-    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
-    var ctrl = makeController({ twister: tw, bitwig: bw });
-    ctrl.selectedGroup = 16;
-    ctrl._mode = 'grid';
-    ctrl.onMasterLimiterThresholdChanged(0.75);
-    assert(tw.leds[1] === 95, "encoder 1 LED should update to 0.75 * 127 ≈ 95");
-})();
-
-// onMasterLimiterThresholdChanged does not update LED when in device mode
-(function() {
-    var tw = fakeTwister();
-    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
-    var ctrl = makeController({ twister: tw, bitwig: bw });
-    ctrl.selectedGroup = 16;
-    ctrl._mode = 'device';
-    ctrl.onMasterLimiterThresholdChanged(0.75);
-    assert(tw.leds[1] === undefined, "encoder 1 LED should not update in device mode");
-})();
-
-// onMasterLimiterThresholdChanged does not update LED when different group selected
-(function() {
-    var tw = fakeTwister();
-    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
-    var ctrl = makeController({ twister: tw, bitwig: bw });
-    ctrl.selectedGroup = 5;
-    ctrl._mode = 'grid';
-    ctrl.onMasterLimiterThresholdChanged(0.5);
-    assert(tw.leds[1] === undefined, "encoder 1 LED should not update when group 5 selected");
-})();
-
-// selectGroup(16) L1+ encoder overrides track on encoder 1
-(function() {
-    var tw = fakeTwister();
-    var paramCalls = [];
-    var fakeMasterDevice = {
-        setDirectParameterValueNormalized: function(id, value, res) {
-            paramCalls.push({ id: id, value: value, resolution: res });
-        }
-    };
     var bw = fakeBitwig({
         topLevel: [0],
-        tracks: { 0: fakeTrack("Bass (1)") },
-        bpm: 120,
-        masterCursorDevice: fakeMasterDevice,
-        masterLimiterThresholdId: 'CONTENTS/PIDthreshold',
-        masterLimiterThresholdValue: 0
+        tracks: { 0: fakeTrack("Bass (1)") }
     });
     var ctrl = makeController({ twister: tw, bitwig: bw });
     ctrl.selectGroup(16);
-    // Encoder 1 should be L1+ threshold (overriding Bass track)
-    assert(tw.behaviors[1], "encoder 1 should have L1+ behavior, overriding track link");
+    assert(tw.links[1] && tw.links[1].trackId === 0, "encoder 1 should link to track with (1) naming");
+    assert(!tw.behaviors[1], "encoder 1 should not have custom behavior");
 })();
 
 // enterDeviceMode activates device quadrant
@@ -1998,57 +1899,6 @@ function makeController(opts) {
     ms.calls.length = 0;
     ctrl.selectGroup(16);
     assert(ms.calls.indexOf('refresh') !== -1, 'selectGroup should auto-refresh mode switcher when _multiRec resets');
-})();
-
-// tempo encoder press shows "Tempo" growl
-(function() {
-    var tw = fakeTwister();
-    var h = fakeHost();
-    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
-    var ctrl = makeController({ twister: tw, bitwig: bw, host: h });
-    ctrl.selectGroup(16);
-    h.notifications.length = 0;
-    assert(tw.behaviors[4], "tempo encoder should have behavior");
-    assert(tw.behaviors[4].press, "tempo encoder should have press callback");
-    tw.behaviors[4].press(true);
-    assert(h.notifications.length === 1, "should show one notification");
-    assert(h.notifications[0] === "Tempo", 'notification should be "Tempo", got "' + h.notifications[0] + '"');
-})();
-
-// tempo encoder press with pressed=false is ignored
-(function() {
-    var tw = fakeTwister();
-    var h = fakeHost();
-    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
-    var ctrl = makeController({ twister: tw, bitwig: bw, host: h });
-    ctrl.selectGroup(16);
-    h.notifications.length = 0;
-    tw.behaviors[4].press(false);
-    assert(h.notifications.length === 0, "release should not show notification");
-})();
-
-// master limiter encoder press shows "Limiter Threshold" growl
-(function() {
-    var tw = fakeTwister();
-    var h = fakeHost();
-    var masterDevice = {
-        setDirectParameterValueNormalized: function() {}
-    };
-    var bw = fakeBitwig({
-        topLevel: [],
-        masterTrack: { selectInMixer: function() {} },
-        masterCursorDevice: masterDevice,
-        masterLimiterThresholdId: 'threshold_id',
-        masterLimiterThresholdValue: 0.5
-    });
-    var ctrl = makeController({ twister: tw, bitwig: bw, host: h });
-    ctrl.selectGroup(16);
-    h.notifications.length = 0;
-    assert(tw.behaviors[1], "limiter encoder should have behavior");
-    assert(tw.behaviors[1].press, "limiter encoder should have press callback");
-    tw.behaviors[1].press(true);
-    assert(h.notifications.length === 1, "should show one notification");
-    assert(h.notifications[0] === "Limiter Threshold", 'notification should be "Limiter Threshold", got "' + h.notifications[0] + '"');
 })();
 
 // mute action calls makeVisibleInArranger
