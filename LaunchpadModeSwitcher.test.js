@@ -238,6 +238,36 @@ function makeSwitcher(opts) {
     assert(lp.registeredBehaviors[79].hold === null, 'pan has no hold');
 })();
 
+// selectEncoderMode shows growl notification
+(function() {
+    var notifications = [];
+    var host = { showPopupNotification: function(msg) { notifications.push(msg); } };
+    var ms = makeSwitcher();
+    ms.host = host;
+    ms.selectEncoderMode('pan');
+    assert(notifications[0] === 'Encoder: Pan', 'growl for encoder pan mode');
+    ms.selectEncoderMode('volume');
+    assert(notifications[1] === 'Encoder: Volume', 'growl for encoder volume mode');
+})();
+
+// selectPadMode shows growl notification
+(function() {
+    var notifications = [];
+    var host = { showPopupNotification: function(msg) { notifications.push(msg); } };
+    var ms = makeSwitcher();
+    ms.host = host;
+    ms.selectPadMode('mute');
+    assert(notifications[0] === 'Pad: Mute', 'growl for pad mute mode');
+    ms.selectPadMode('solo');
+    assert(notifications[1] === 'Pad: Solo', 'growl for pad solo mode');
+    ms.selectPadMode('recordArm');
+    assert(notifications[2] === 'Pad: Record Arm', 'growl for pad recordArm mode');
+    ms.selectPadMode('sendA');
+    assert(notifications[3] === 'Pad: Sends', 'growl for pad sendA mode');
+    ms.selectPadMode('select');
+    assert(notifications[4] === 'Pad: Select', 'growl for pad select mode');
+})();
+
 // MODE_ENUM static property is accessible
 (function() {
     assert(LaunchpadModeSwitcherHW.MODE_ENUM.VOLUME === 'volume', 'MODE_ENUM.VOLUME');

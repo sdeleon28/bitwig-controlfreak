@@ -766,6 +766,7 @@ function init() {
         twister: Twister,
         controller: Controller,
         pageMainControl: Page_MainControl,
+        host: host,
         debug: debug,
         println: println
     });

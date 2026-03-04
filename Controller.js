@@ -589,6 +589,12 @@ class ControllerHW {
         this._mode = 'track';
         this._activeMapper = null;
 
+        if (this.host) {
+            var cursorTrack = this.bitwig.getCursorTrack();
+            var trackName = cursorTrack ? cursorTrack.name().get() : '';
+            this.host.showPopupNotification(trackName ? trackName + " → Track Mode" : "Track Mode");
+        }
+
         // Link track remote controls to Twister
         this.twister.linkEncodersToTrackRemoteControls();
 
@@ -629,6 +635,7 @@ class ControllerHW {
     enterDeviceMode(deviceName) {
         this._mode = 'device';
         this._activeMapper = null;
+        if (this.host) this.host.showPopupNotification("Device: " + deviceName);
         this.twister.unlinkAll();
         if (this.deviceMapper) this.deviceMapper.resetGenericMode();
         this._pendingRCCheck = false;

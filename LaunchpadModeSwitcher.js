@@ -9,6 +9,7 @@ class LaunchpadModeSwitcherHW {
      * @param {Object} deps.twister - Twister instance
      * @param {Object} deps.controller - Controller namespace
      * @param {Object} deps.pageMainControl - Page_MainControl namespace
+     * @param {Object} deps.host - Bitwig host
      * @param {boolean} deps.debug - Debug flag
      * @param {Function} deps.println - Print function
      */
@@ -19,6 +20,7 @@ class LaunchpadModeSwitcherHW {
         this.twister = deps.twister || null;
         this.controller = deps.controller || null;
         this.pageMainControl = deps.pageMainControl || null;
+        this.host = deps.host || null;
         this.debug = deps.debug || false;
         this.println = deps.println || function() {};
 
@@ -57,6 +59,7 @@ class LaunchpadModeSwitcherHW {
         }
 
         this._currentEncoderMode = modeName;
+        if (this.host) this.host.showPopupNotification("Encoder: " + this._modeLabel(modeName));
         this.refresh();
 
         // Refresh encoder LEDs based on mode
@@ -79,6 +82,7 @@ class LaunchpadModeSwitcherHW {
         }
 
         this._currentPadMode = modeName;
+        if (this.host) this.host.showPopupNotification("Pad: " + this._modeLabel(modeName));
         this.refresh();
         if (this.controller) this.controller.refreshTrackGrid();
     }
@@ -111,6 +115,14 @@ class LaunchpadModeSwitcherHW {
                 }
             }
         }
+    }
+
+    _modeLabel(modeName) {
+        var labels = {
+            volume: 'Volume', pan: 'Pan', mute: 'Mute', solo: 'Solo',
+            recordArm: 'Record Arm', sendA: 'Sends', sendB: 'Sends B', select: 'Select'
+        };
+        return labels[modeName] || modeName;
     }
 
     /**

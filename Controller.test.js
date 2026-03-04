@@ -80,6 +80,7 @@ function fakeBitwig(opts) {
         },
         getDeviceBank: function() { return opts.deviceBank || null; },
         selectTrack: function(id) { result.selectedTracks.push(id); },
+        getCursorTrack: function() { return opts.cursorTrack || null; },
         setTimeSelection: function(start, end) { result._timeSelection = { start: start, end: end }; },
         setPlayheadPosition: function(pos) { result._playheadPos = pos; },
         getMarkerBank: function() { return opts.markerBank || null; },
@@ -1515,6 +1516,32 @@ function makeController(opts) {
     ctrl.enterTrackMode();
     var activateCalls = ds.calls.filter(function(c) { return c === 'activate'; });
     assert(activateCalls.length === 1, "should not re-activate device selector");
+})();
+
+// enterTrackMode shows growl with cursor track name
+(function() {
+    var h = fakeHost();
+    var cursorTrack = { name: function() { return { get: function() { return "Synth Lead"; } }; } };
+    var bw = fakeBitwig({ cursorTrack: cursorTrack });
+    var ctrl = makeController({ host: h, bitwig: bw });
+    ctrl.enterTrackMode();
+    assert(h.notifications.indexOf("Synth Lead → Track Mode") !== -1, "growl should show track name in track mode");
+})();
+
+// enterTrackMode shows growl without track name when no cursor track
+(function() {
+    var h = fakeHost();
+    var ctrl = makeController({ host: h });
+    ctrl.enterTrackMode();
+    assert(h.notifications.indexOf("Track Mode") !== -1, "growl should show Track Mode when no cursor track");
+})();
+
+// enterDeviceMode shows growl with device name
+(function() {
+    var h = fakeHost();
+    var ctrl = makeController({ host: h });
+    ctrl.enterDeviceMode("Reverb");
+    assert(h.notifications.indexOf("Device: Reverb") !== -1, "growl should show device name");
 })();
 
 // enterDeviceMode sets _mode to 'device'
