@@ -94,6 +94,11 @@ function fakeBitwig(opts) {
                     return {
                         get: function() { return isPlugin; }
                     };
+                },
+                name: function() {
+                    return {
+                        get: function() { return opts._cursorDeviceName || ''; }
+                    };
                 }
             };
         },
@@ -283,7 +288,8 @@ function fakeDeviceSelector() {
             calls.push('activate');
         },
         deactivate: function() { _active = false; calls.push('deactivate'); },
-        isActive: function() { return _active; }
+        isActive: function() { return _active; },
+        _cursorDevicePosition: -1
     };
 }
 
@@ -2141,6 +2147,36 @@ function makeController(opts) {
     ctrl.selectGroup(16);
     assert(ctrl._selectedDeviceIndex === null, "_selectedDeviceIndex should be null after selectGroup");
     assert(ctrl._lastDeviceName === null, "_lastDeviceName should be null after selectGroup");
+})();
+
+// clicking device already at cursor position triggers onDeviceChanged directly
+(function() {
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 2;
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ _cursorDeviceName: 'AlreadySelected' });
+    var ctrl = makeController({ deviceSelector: ds, twister: tw, bitwig: bw });
+    ctrl.enterTrackMode();
+    ds._onDeviceSelected(2);
+    assert(ctrl._lastDeviceName === 'AlreadySelected', "should set _lastDeviceName via onDeviceChanged for already-selected device");
+    assert(ctrl._mode === 'track', "should stay in track mode after first click");
+})();
+
+// second click on already-at-cursor device enters device mode (double-click)
+(function() {
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 2;
+    var dq = fakeDeviceQuadrant();
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ _cursorDeviceName: 'AlreadySelected' });
+    var ctrl = makeController({ deviceSelector: ds, deviceQuadrant: dq, twister: tw, bitwig: bw });
+    ctrl.enterTrackMode();
+    // First click: cursor already at position 2 → onDeviceChanged fires directly
+    ds._onDeviceSelected(2);
+    assert(ctrl._lastDeviceName === 'AlreadySelected', "_lastDeviceName should be set after first click");
+    // Second click: same index + _lastDeviceName truthy → enters device mode
+    ds._onDeviceSelected(2);
+    assert(ctrl._mode === 'device', "second click on already-at-cursor device should enter device mode");
 })();
 
 // enterDeviceMode opens plugin window when device is a plugin

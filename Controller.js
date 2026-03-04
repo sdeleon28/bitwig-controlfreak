@@ -639,13 +639,20 @@ class ControllerHW {
                             return;
                         }
                         self._selectedDeviceIndex = deviceIndex;
-                        // Navigate cursor device to the selected device
-                        var deviceBank = self.bitwig.getDeviceBank();
-                        if (deviceBank) {
-                            var device = deviceBank.getItemAt(deviceIndex);
-                            if (device) {
-                                self.bitwig.getCursorDevice().selectDevice(device);
-                                device.selectInEditor();
+
+                        if (deviceIndex === self.deviceSelector._cursorDevicePosition) {
+                            // Cursor already here — observer won't fire, so trigger manually
+                            var name = self.bitwig.getCursorDevice().name().get();
+                            if (name) self.onDeviceChanged(name);
+                        } else {
+                            // Navigate cursor — onDeviceChanged() will be called by Bitwig's observer
+                            var deviceBank = self.bitwig.getDeviceBank();
+                            if (deviceBank) {
+                                var device = deviceBank.getItemAt(deviceIndex);
+                                if (device) {
+                                    self.bitwig.getCursorDevice().selectDevice(device);
+                                    device.selectInEditor();
+                                }
                             }
                         }
                     },
