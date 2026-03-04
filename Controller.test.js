@@ -1670,13 +1670,16 @@ function makeController(opts) {
     assert(ds.calls.indexOf('deactivate') !== -1, "should deactivate device selector");
 })();
 
-// onDeviceChanged in track mode enters device mode
+// onDeviceChanged in track mode stays in track mode and maps device
 (function() {
+    var tw = fakeTwister();
     var dq = fakeDeviceQuadrant();
-    var ctrl = makeController({ deviceQuadrant: dq });
+    var ctrl = makeController({ twister: tw, deviceQuadrant: dq });
     ctrl._mode = 'track';
     ctrl.onDeviceChanged("SomePlugin");
-    assert(ctrl._mode === 'device', "should enter device mode from track mode");
+    assert(ctrl._mode === 'track', "should stay in track mode");
+    assert(ctrl._lastDeviceName === 'SomePlugin', "_lastDeviceName should be set");
+    assert(tw.calls.indexOf('unlinkAll') !== -1, "should call unlinkAll via _mapDeviceToTwister");
 })();
 
 // onDeviceChanged in device mode stays in device mode (device switch)
@@ -2168,6 +2171,88 @@ function makeController(opts) {
     ctrl.selectGroup(5);
     assert(ctrl._devicePaneShown === false, "pane hidden after selectGroup");
     assert(bw._getToggleDevicesCalls() === 2, "two toggles total (on then off)");
+})();
+
+// _mapDeviceToTwister creates custom mapper when available
+(function() {
+    var mapperInstance = fakeMapper();
+    var ctrl = makeController({
+        mappers: { 'TestPlugin': function() { return mapperInstance; } }
+    });
+    ctrl._mapDeviceToTwister('TestPlugin');
+    assert(ctrl._activeMapper === mapperInstance, "should set _activeMapper from custom mapper");
+    assert(ctrl._pendingRCCheck === false, "should not set pendingRCCheck for known device");
+})();
+
+// _mapDeviceToTwister schedules RC check for unknown device
+(function() {
+    var h = fakeHost();
+    var genericCalls = [];
+    var fakeDeviceMapper = {
+        applyGenericMapping: function() { genericCalls.push('applyGenericMapping'); },
+        resetGenericMode: function() {}
+    };
+    var ctrl = makeController({ host: h });
+    ctrl.deviceMapper = fakeDeviceMapper;
+    ctrl._mapDeviceToTwister('UnknownPlugin');
+    assert(ctrl._activeMapper === null, "should not set _activeMapper for unknown device");
+    assert(ctrl._pendingRCCheck === true, "should set pendingRCCheck");
+    assert(h.scheduled.length === 1, "should schedule RC check task");
+    h.scheduled[0].fn();
+    assert(genericCalls.length === 1, "should fallback to generic mapping");
+})();
+
+// double-click same device in DeviceSelector enters device mode
+(function() {
+    var ds = fakeDeviceSelector();
+    var dq = fakeDeviceQuadrant();
+    var tw = fakeTwister();
+    var ctrl = makeController({ deviceSelector: ds, deviceQuadrant: dq, twister: tw });
+    ctrl.enterTrackMode();
+    // Simulate first click on device index 2
+    ds._onDeviceSelected(2);
+    assert(ctrl._selectedDeviceIndex === 2, "first click sets _selectedDeviceIndex");
+    assert(ctrl._mode === 'track', "first click stays in track mode");
+    // Simulate onDeviceChanged triggered by Bitwig
+    ctrl.onDeviceChanged("PluginA");
+    assert(ctrl._lastDeviceName === 'PluginA', "_lastDeviceName set by onDeviceChanged");
+    // Simulate second click on same device index
+    ds._onDeviceSelected(2);
+    assert(ctrl._mode === 'device', "second click on same device enters device mode");
+})();
+
+// clicking different device in DeviceSelector updates index, stays in track mode
+(function() {
+    var ds = fakeDeviceSelector();
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ deviceSelector: ds, deviceQuadrant: dq });
+    ctrl.enterTrackMode();
+    ds._onDeviceSelected(1);
+    assert(ctrl._selectedDeviceIndex === 1, "first click sets index to 1");
+    ctrl.onDeviceChanged("PluginA");
+    ds._onDeviceSelected(3);
+    assert(ctrl._selectedDeviceIndex === 3, "clicking different device updates index to 3");
+    assert(ctrl._mode === 'track', "should stay in track mode");
+})();
+
+// _selectedDeviceIndex and _lastDeviceName reset on enterTrackMode
+(function() {
+    var ctrl = makeController();
+    ctrl._selectedDeviceIndex = 5;
+    ctrl._lastDeviceName = 'SomePlugin';
+    ctrl.enterTrackMode();
+    assert(ctrl._selectedDeviceIndex === null, "_selectedDeviceIndex should be null after enterTrackMode");
+    assert(ctrl._lastDeviceName === null, "_lastDeviceName should be null after enterTrackMode");
+})();
+
+// _selectedDeviceIndex and _lastDeviceName reset on selectGroup
+(function() {
+    var ctrl = makeController();
+    ctrl._selectedDeviceIndex = 5;
+    ctrl._lastDeviceName = 'SomePlugin';
+    ctrl.selectGroup(16);
+    assert(ctrl._selectedDeviceIndex === null, "_selectedDeviceIndex should be null after selectGroup");
+    assert(ctrl._lastDeviceName === null, "_lastDeviceName should be null after selectGroup");
 })();
 
 process.exit(t.summary('Controller'));

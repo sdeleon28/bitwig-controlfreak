@@ -52,6 +52,8 @@ class ControllerHW {
         this._pendingRCCheck = false;
         this._suppressNextDeviceChange = false;
         this._devicePaneShown = false;
+        this._selectedDeviceIndex = null;
+        this._lastDeviceName = null;
     }
 
     get _multiRec() {
@@ -199,6 +201,8 @@ class ControllerHW {
         this.selectedGroup = groupNumber;
         this._mode = 'grid';
         this._activeMapper = null;
+        this._selectedDeviceIndex = null;
+        this._lastDeviceName = null;
         this._multiRec = false;
         this.refreshGroupDisplay();
         this.refreshTrackGrid();
@@ -636,6 +640,8 @@ class ControllerHW {
     enterTrackMode() {
         this._mode = 'track';
         this._activeMapper = null;
+        this._selectedDeviceIndex = null;
+        this._lastDeviceName = null;
         if (!this._devicePaneShown && this.bitwig._application) {
             this.bitwig._application.toggleDevices();
             this._devicePaneShown = true;
@@ -661,6 +667,12 @@ class ControllerHW {
             if (!this.deviceSelector.isActive()) {
                 this.deviceSelector.activate(
                     function(deviceIndex) {
+                        // Double-click same device → enter device mode
+                        if (deviceIndex === self._selectedDeviceIndex && self._lastDeviceName) {
+                            self.enterDeviceMode(self._lastDeviceName);
+                            return;
+                        }
+                        self._selectedDeviceIndex = deviceIndex;
                         // Navigate cursor device to the selected device
                         var deviceBank = self.bitwig.getDeviceBank();
                         if (deviceBank) {
@@ -681,13 +693,12 @@ class ControllerHW {
     }
 
     /**
-     * Enter device mode: show device controls on pads + Twister.
+     * Map the current device to the Twister (custom mapper or RC fallback).
+     * Does NOT change mode or touch DeviceSelector/DeviceQuadrant.
      * @param {string} deviceName - Name of the focused device
      */
-    enterDeviceMode(deviceName) {
-        this._mode = 'device';
+    _mapDeviceToTwister(deviceName) {
         this._activeMapper = null;
-        if (this.host) this.host.showPopupNotification("Device: " + deviceName);
         this.twister.unlinkAll();
         if (this.deviceMapper) this.deviceMapper.resetGenericMode();
         this._pendingRCCheck = false;
@@ -716,6 +727,17 @@ class ControllerHW {
                 }, null, 100);
             }
         }
+    }
+
+    /**
+     * Enter device mode: show device controls on pads + Twister.
+     * @param {string} deviceName - Name of the focused device
+     */
+    enterDeviceMode(deviceName) {
+        this._mode = 'device';
+        if (this.host) this.host.showPopupNotification("Device: " + deviceName);
+
+        this._mapDeviceToTwister(deviceName);
 
         // Deactivate DeviceSelector if active
         if (this.deviceSelector && this.deviceSelector.isActive()) {
@@ -749,7 +771,9 @@ class ControllerHW {
         if (!deviceName) return;
 
         if (this._mode === 'track') {
-            this.enterDeviceMode(deviceName);
+            this._mapDeviceToTwister(deviceName);
+            this._lastDeviceName = deviceName;
+            if (this.host) this.host.showPopupNotification("Device: " + deviceName);
         } else if (this._mode === 'device') {
             this.enterDeviceMode(deviceName);
         } else {
