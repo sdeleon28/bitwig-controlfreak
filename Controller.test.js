@@ -81,6 +81,7 @@ function fakeBitwig(opts) {
         getCursorDevice: function() {
             var windowOpen = opts._pluginWindowOpen || false;
             var isPlugin = opts._isPlugin || false;
+            var rcVisible = opts._remoteControlsSectionVisible || false;
             return {
                 selectNone: function() { result._selectNoneCalls = (result._selectNoneCalls || 0) + 1; },
                 selectDevice: function(device) { result._selectedDevice = device; },
@@ -93,6 +94,12 @@ function fakeBitwig(opts) {
                 isPlugin: function() {
                     return {
                         get: function() { return isPlugin; }
+                    };
+                },
+                isRemoteControlsSectionVisible: function() {
+                    return {
+                        get: function() { return rcVisible; },
+                        set: function(v) { rcVisible = v; result._remoteControlsSectionVisible = v; }
                     };
                 },
                 name: function() {
@@ -1699,7 +1706,8 @@ function makeController(opts) {
             selectDevice: function(d) { selectedDevice = d; },
             selectNone: function() {},
             isWindowOpen: function() { return { get: function() { return false; }, set: function() {} }; },
-            isPlugin: function() { return { get: function() { return false; } }; }
+            isPlugin: function() { return { get: function() { return false; } }; },
+            isRemoteControlsSectionVisible: function() { return { get: function() { return false; }, set: function() {} }; }
         };
     };
     var ctrl = makeController({ deviceSelector: ds, bitwig: bw });
@@ -2356,6 +2364,55 @@ function makeController(opts) {
     var ctrl = makeController({ bitwig: bw });
     ctrl.enterMasterTrackMode();
     assert(bw._pluginWindowOpen === false, "plugin window should be closed");
+})();
+
+// enterDeviceMode opens plugin window for plugins
+(function() {
+    var bw = fakeBitwig({ _isPlugin: true });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterDeviceMode("Serum");
+    assert(bw._pluginWindowOpen === true, "plugin window should be opened for plugins");
+    assert(!bw._remoteControlsSectionVisible, "remote controls should NOT be opened for plugins");
+})();
+
+// enterDeviceMode opens remote controls for native devices
+(function() {
+    var bw = fakeBitwig({ _isPlugin: false });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterDeviceMode("EQ+");
+    assert(bw._remoteControlsSectionVisible === true, "remote controls should be opened for native devices");
+    assert(!bw._pluginWindowOpen, "plugin window should NOT be opened for native devices");
+})();
+
+// exiting device mode closes remote controls (via enterTrackMode)
+(function() {
+    var bw = fakeBitwig({ _isPlugin: false });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterDeviceMode("EQ+");
+    assert(bw._remoteControlsSectionVisible === true, "remote controls should be open");
+    ctrl.enterTrackMode();
+    assert(bw._remoteControlsSectionVisible === false, "remote controls should be closed on enterTrackMode");
+})();
+
+// exiting device mode closes remote controls (via selectGroup)
+(function() {
+    var bw = fakeBitwig({ _isPlugin: false });
+    var tw = fakeTwister();
+    var lp = fakeLaunchpad();
+    var ctrl = makeController({ bitwig: bw, twister: tw, launchpad: lp });
+    ctrl.enterDeviceMode("EQ+");
+    assert(bw._remoteControlsSectionVisible === true, "remote controls should be open");
+    ctrl.selectGroup(16);
+    assert(bw._remoteControlsSectionVisible === false, "remote controls should be closed on selectGroup");
+})();
+
+// enterMasterTrackMode closes remote controls
+(function() {
+    var masterTrack = fakeTrack("Master");
+    var bw = fakeBitwig({ masterTrack: masterTrack, _remoteControlsSectionVisible: true });
+    var ctrl = makeController({ bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    assert(bw._remoteControlsSectionVisible === false, "remote controls should be closed on enterMasterTrackMode");
 })();
 
 process.exit(t.summary('Controller'));

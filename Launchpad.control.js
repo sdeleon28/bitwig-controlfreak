@@ -308,6 +308,7 @@ function init() {
     cursorDevice.position().markInterested();
     cursorDevice.isWindowOpen().markInterested();
     cursorDevice.isPlugin().markInterested();
+    cursorDevice.isRemoteControlsSectionVisible().markInterested();
     cursorDevice.position().addValueObserver(function(position) {
         DeviceSelector.onCursorDevicePositionChanged(position);
     });

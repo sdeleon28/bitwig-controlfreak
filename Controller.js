@@ -99,6 +99,9 @@ class ControllerHW {
         if (cursorDevice && cursorDevice.isWindowOpen().get()) {
             cursorDevice.isWindowOpen().set(false);
         }
+        if (cursorDevice) {
+            cursorDevice.isRemoteControlsSectionVisible().set(false);
+        }
 
         if ((this._mode === 'track' || this._mode === 'device') && this._devicePaneShown && this.bitwig._application) {
             this.bitwig._application.toggleDevices();
@@ -602,6 +605,9 @@ class ControllerHW {
         if (cursorDevice && cursorDevice.isWindowOpen().get()) {
             cursorDevice.isWindowOpen().set(false);
         }
+        if (cursorDevice) {
+            cursorDevice.isRemoteControlsSectionVisible().set(false);
+        }
 
         this._mode = 'track';
         this._masterTrackMode = false;
@@ -676,6 +682,9 @@ class ControllerHW {
         var cursorDevice = this.bitwig.getCursorDevice();
         if (cursorDevice && cursorDevice.isWindowOpen().get()) {
             cursorDevice.isWindowOpen().set(false);
+        }
+        if (cursorDevice) {
+            cursorDevice.isRemoteControlsSectionVisible().set(false);
         }
 
         this._mode = 'track';
@@ -778,6 +787,8 @@ class ControllerHW {
         var cursorDevice = this.bitwig.getCursorDevice();
         if (cursorDevice && cursorDevice.isPlugin().get()) {
             cursorDevice.isWindowOpen().set(true);
+        } else if (cursorDevice) {
+            cursorDevice.isRemoteControlsSectionVisible().set(true);
         }
 
         this._mapDeviceToTwister(deviceName);
