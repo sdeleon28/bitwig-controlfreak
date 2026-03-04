@@ -345,9 +345,9 @@ class ControllerHW {
                             var track = self.bitwig.getTrack(tid);
                             if (track) {
                                 self.bitwig.selectTrack(tid);
-                                track.makeVisibleInArranger();
                                 self._suppressNextDeviceChange = true;
                                 self.enterTrackMode();
+                                track.makeVisibleInArranger();
                                 if (self.host) self.host.showPopupNotification(track.name().get() + " → Track Mode");
                             }
                         }, null, self.pageMainControl.pageNumber);
