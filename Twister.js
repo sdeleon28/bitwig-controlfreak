@@ -333,7 +333,12 @@ class TwisterHW {
                 var turnCb = (function(p) {
                     return function(val) { p.value().set(val / 127.0); };
                 })(param);
-                this.linkEncoderToBehavior(encoderNum, turnCb, null, color);
+                var pressCb = (function(p, h) {
+                    return function(pressed) {
+                        if (pressed && h) h.showPopupNotification(p.name().get());
+                    };
+                })(param, this.host);
+                this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
                 this.setEncoderLED(encoderNum, Math.round(value * 127));
             }
         }
@@ -381,7 +386,12 @@ class TwisterHW {
                 var turnCb = (function(p) {
                     return function(val) { p.value().set(val / 127.0); };
                 })(param);
-                this.linkEncoderToBehavior(encoderNum, turnCb, null, color);
+                var pressCb = (function(p, h) {
+                    return function(pressed) {
+                        if (pressed && h) h.showPopupNotification(p.name().get());
+                    };
+                })(param, this.host);
+                this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
                 this.setEncoderLED(encoderNum, Math.round(value * 127));
             }
         }
@@ -470,6 +480,12 @@ class TwisterHW {
                 this.host.showPopupNotification("Encoder " + encoderNumber + ": " + track.name().get());
             }
             track.solo().set(pressed);
+            return;
+        }
+        var sendLink = this._sendLinks[encoderNumber];
+        if (sendLink && pressed) {
+            var sendName = sendLink.send.name().get();
+            if (this.host) this.host.showPopupNotification(sendName);
         }
     }
 

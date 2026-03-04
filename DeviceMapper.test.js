@@ -43,7 +43,7 @@ function fakeTwister() {
     };
 }
 
-function fakeBitwig(directParamCalls, directParamIds) {
+function fakeBitwig(directParamCalls, directParamIds, directParamNames) {
     return {
         getCursorDevice: function() {
             return {
@@ -52,7 +52,8 @@ function fakeBitwig(directParamCalls, directParamIds) {
                 }
             };
         },
-        getDirectParamIds: function() { return directParamIds || []; }
+        getDirectParamIds: function() { return directParamIds || []; },
+        getDirectParamName: function(id) { return (directParamNames && directParamNames[id]) || null; }
     };
 }
 
@@ -92,12 +93,21 @@ function makeTwoBandMapping() {
     };
 }
 
+function fakeHost() {
+    var notifications = [];
+    return {
+        notifications: notifications,
+        showPopupNotification: function(msg) { notifications.push(msg); }
+    };
+}
+
 function makeMapper(opts) {
     opts = opts || {};
     var directParamCalls = opts.directParamCalls || [];
     return new DeviceMapperHW({
         twister: opts.twister || fakeTwister(),
         bitwig: opts.bitwig || fakeBitwig(directParamCalls),
+        host: opts.host || null,
         deviceMappings: opts.deviceMappings || makeTwoBandMapping(),
         debug: false,
         println: function() {}
@@ -421,12 +431,28 @@ function makeMapper(opts) {
     assert(tw.ledValues[1] === 95, "encoder 1 LED should update to 95, got " + tw.ledValues[1]);
 })();
 
-// applyGenericMapping does not set press callbacks
+// applyGenericMapping sets press callbacks that show param name growl
 (function() {
     var tw = fakeTwister();
-    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A']) });
+    var h = fakeHost();
+    var paramNames = { 'PARAM/A': 'Frequency' };
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A'], paramNames), host: h });
     mapper.applyGenericMapping();
-    assert(tw.behaviors[1].press === null, "generic mapping should not set press callback");
+    assert(tw.behaviors[1].press !== null, "generic mapping should set press callback");
+    tw.behaviors[1].press(true);
+    assert(h.notifications.length === 1, "press should show notification");
+    assert(h.notifications[0] === 'Frequency', 'notification should be param name "Frequency", got "' + h.notifications[0] + '"');
+})();
+
+// applyGenericMapping press callback ignores release
+(function() {
+    var tw = fakeTwister();
+    var h = fakeHost();
+    var paramNames = { 'PARAM/A': 'Frequency' };
+    var mapper = makeMapper({ twister: tw, bitwig: fakeBitwig([], ['PARAM/A'], paramNames), host: h });
+    mapper.applyGenericMapping();
+    tw.behaviors[1].press(false);
+    assert(h.notifications.length === 0, "release should not show notification");
 })();
 
 // onDirectParamsChanged re-applies generic mapping when in generic mode

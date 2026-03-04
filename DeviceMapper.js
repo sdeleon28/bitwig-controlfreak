@@ -14,6 +14,7 @@ class DeviceMapperHW {
         deps = deps || {};
         this.twister = deps.twister || null;
         this.bitwig = deps.bitwig || null;
+        this.host = deps.host || null;
         this.deviceMappings = deps.deviceMappings || {};
         this.debug = deps.debug || false;
         this.println = deps.println || function() {};
@@ -208,7 +209,14 @@ class DeviceMapperHW {
                 };
             })(paramId);
 
-            this.twister.linkEncoderToBehavior(encoderNum, turnCb, null, color);
+            var pressCb = (function(pid, bw, h) {
+                return function(pressed) {
+                    if (!pressed) return;
+                    var name = bw.getDirectParamName(pid);
+                    if (name && h) h.showPopupNotification(name);
+                };
+            })(paramId, this.bitwig, this.host);
+            this.twister.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
 
             var currentValue = self._paramValues[paramId];
             if (currentValue !== undefined) {

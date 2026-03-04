@@ -124,7 +124,9 @@ class ControllerHW {
                     function(value) {
                         masterDevice.setDirectParameterValueNormalized(thresholdId, value, 128);
                     },
-                    null,
+                    function(pressed) {
+                        if (pressed && self.host) self.host.showPopupNotification("Limiter Threshold");
+                    },
                     { r: 255, g: 50, b: 0 }
                 );
                 var currentValue = this.bitwig.getMasterLimiterThresholdValue();
@@ -138,7 +140,9 @@ class ControllerHW {
                     var bpm = Math.round(self.twister.TEMPO_MIN + (value / 127.0) * (self.twister.TEMPO_MAX - self.twister.TEMPO_MIN));
                     tempo.setRaw(bpm);
                 },
-                null,
+                function(pressed) {
+                    if (pressed && self.host) self.host.showPopupNotification("Tempo");
+                },
                 { r: 255, g: 255, b: 255 }
             );
 

@@ -1963,4 +1963,55 @@ function makeController(opts) {
     assert(ms.calls.indexOf('refresh') !== -1, 'selectGroup should auto-refresh mode switcher when _multiRec resets');
 })();
 
+// tempo encoder press shows "Tempo" growl
+(function() {
+    var tw = fakeTwister();
+    var h = fakeHost();
+    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
+    var ctrl = makeController({ twister: tw, bitwig: bw, host: h });
+    ctrl.selectGroup(16);
+    h.notifications.length = 0;
+    assert(tw.behaviors[4], "tempo encoder should have behavior");
+    assert(tw.behaviors[4].press, "tempo encoder should have press callback");
+    tw.behaviors[4].press(true);
+    assert(h.notifications.length === 1, "should show one notification");
+    assert(h.notifications[0] === "Tempo", 'notification should be "Tempo", got "' + h.notifications[0] + '"');
+})();
+
+// tempo encoder press with pressed=false is ignored
+(function() {
+    var tw = fakeTwister();
+    var h = fakeHost();
+    var bw = fakeBitwig({ topLevel: [], bpm: 120 });
+    var ctrl = makeController({ twister: tw, bitwig: bw, host: h });
+    ctrl.selectGroup(16);
+    h.notifications.length = 0;
+    tw.behaviors[4].press(false);
+    assert(h.notifications.length === 0, "release should not show notification");
+})();
+
+// master limiter encoder press shows "Limiter Threshold" growl
+(function() {
+    var tw = fakeTwister();
+    var h = fakeHost();
+    var masterDevice = {
+        setDirectParameterValueNormalized: function() {}
+    };
+    var bw = fakeBitwig({
+        topLevel: [],
+        masterTrack: { selectInMixer: function() {} },
+        masterCursorDevice: masterDevice,
+        masterLimiterThresholdId: 'threshold_id',
+        masterLimiterThresholdValue: 0.5
+    });
+    var ctrl = makeController({ twister: tw, bitwig: bw, host: h });
+    ctrl.selectGroup(16);
+    h.notifications.length = 0;
+    assert(tw.behaviors[1], "limiter encoder should have behavior");
+    assert(tw.behaviors[1].press, "limiter encoder should have press callback");
+    tw.behaviors[1].press(true);
+    assert(h.notifications.length === 1, "should show one notification");
+    assert(h.notifications[0] === "Limiter Threshold", 'notification should be "Limiter Threshold", got "' + h.notifications[0] + '"');
+})();
+
 process.exit(t.summary('Controller'));

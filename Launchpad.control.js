@@ -837,6 +837,7 @@ function init() {
     DeviceMapper = new DeviceMapperHW({
         twister: Twister,
         bitwig: Bitwig,
+        host: host,
         deviceMappings: DeviceMappings,
         debug: debug,
         println: println

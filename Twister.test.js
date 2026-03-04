@@ -43,7 +43,11 @@ function fakeTrack(opts) {
             return {
                 getItemAt: function(i) {
                     var sendVal = 0;
-                    return { value: function() { return { get: function() { return sendVal; }, set: function(v) { sendVal = v; } }; } };
+                    var sendName = (opts.sendNames && opts.sendNames[i]) || ('Send ' + (i + 1));
+                    return {
+                        name: function() { return { get: function() { return sendName; } }; },
+                        value: function() { return { get: function() { return sendVal; }, set: function(v) { sendVal = v; } }; }
+                    };
                 }
             };
         }
@@ -460,7 +464,7 @@ function makeTwister(opts) {
     assert(lastLed.data2 === 0, 'toggle LED should be 0 when value < 0.5, got ' + lastLed.data2);
 })();
 
-// continuous param (stepCount=-1) maps to turn behavior
+// continuous param (stepCount=-1) maps to turn + press (growl) behavior
 (function() {
     var bw = fakeBitwig({}, {
         remoteControls: ['Cutoff', '', '', '', '', '', '', ''],
@@ -471,7 +475,7 @@ function makeTwister(opts) {
     var behavior = tw._encoderBehaviors[5];
     assert(behavior !== undefined, 'continuous param should create a behavior');
     assert(behavior.turnCallback !== null, 'continuous param should have a turn callback');
-    assert(behavior.pressCallback === null || behavior.pressCallback === undefined, 'continuous param should NOT have a press callback');
+    assert(behavior.pressCallback !== null, 'continuous param should have a press callback (growl)');
 })();
 
 // continuous param turn callback sets value
@@ -586,6 +590,67 @@ function makeTwister(opts) {
     tw.handleEncoderPress(5, true);
     var param = bw.getRemoteControls().getParameter(0);
     assert(param.value().get() === 1, 'encoder press should toggle value to 1');
+})();
+
+// RC continuous param press shows growl with param name (device mode)
+(function() {
+    var h = fakeHost();
+    var bw = fakeBitwig({}, {
+        remoteControls: ['Cutoff', '', '', '', '', '', '', ''],
+        remoteControlValues: [0, 0, 0, 0, 0, 0, 0, 0],
+        discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ bitwig: bw, host: h });
+    tw.linkEncodersToRemoteControls();
+    tw.handleEncoderPress(5, true);
+    assert(h.notifications.length === 1, 'should show one notification');
+    assert(h.notifications[0] === 'Cutoff', 'notification should be param name "Cutoff", got "' + h.notifications[0] + '"');
+})();
+
+// RC continuous param press shows growl with param name (track mode)
+(function() {
+    var h = fakeHost();
+    var cachedRC = null;
+    var bw = {
+        getTrack: function() { return null; },
+        getFxTracks: function() { return []; },
+        getTrackRemoteControls: function() {
+            if (cachedRC) return cachedRC;
+            var val = 0;
+            cachedRC = {
+                getParameter: function(i) {
+                    return {
+                        name: function() { return { get: function() { return i === 0 ? 'Resonance' : ''; } }; },
+                        value: function() { return { get: function() { return val; }, set: function(v) { val = v; } }; },
+                        discreteValueCount: function() { return { get: function() { return -1; } }; }
+                    };
+                }
+            };
+            return cachedRC;
+        },
+        getRemoteControls: function() { return null; }
+    };
+    var tw = makeTwister({ bitwig: bw, host: h });
+    tw.linkEncodersToTrackRemoteControls();
+    tw.handleEncoderPress(5, true);
+    assert(h.notifications.length === 1, 'track RC should show one notification');
+    assert(h.notifications[0] === 'Resonance', 'track RC notification should be "Resonance", got "' + h.notifications[0] + '"');
+})();
+
+// send encoder press shows growl with send name
+(function() {
+    var h = fakeHost();
+    var track = fakeTrack({ name: 'Bass', sendNames: ['Delay', 'Reverb'] });
+    var bw = fakeBitwig({ 0: track });
+    var fxTrack = fakeTrack({ name: 'Delay FX', r: 0, g: 255, b: 0 });
+    bw.getFxTracks = function() {
+        return [{ number: 1, index: 0, track: fxTrack }];
+    };
+    var tw = makeTwister({ bitwig: bw, host: h });
+    tw.linkEncodersToTrackSends(0);
+    tw.handleEncoderPress(1, true);
+    assert(h.notifications.length === 1, 'send press should show notification');
+    assert(h.notifications[0] === 'Delay', 'send notification should be "Delay", got "' + h.notifications[0] + '"');
 })();
 
 // ---- summary ----
