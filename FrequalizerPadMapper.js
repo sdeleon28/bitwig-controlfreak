@@ -17,6 +17,7 @@ class FrequalizerPadMapper {
         this._pendingPadEntries = [];
         this._modeParamId = null;
         this._currentModeValue = -1;
+        this._deferredParamValues = {};
     }
 
     /**
@@ -30,6 +31,7 @@ class FrequalizerPadMapper {
         this._pendingPadEntries = [];
         this._modeParamId = null;
         this._currentModeValue = -1;
+        this._deferredParamValues = {};
 
         for (var i = 0; i < FREQ_PAD_CONFIG.length; i++) {
             var entry = FREQ_PAD_CONFIG[i];
@@ -47,6 +49,27 @@ class FrequalizerPadMapper {
     }
 
     /**
+     * Return cacheable state (only learned values, not structural config).
+     * @returns {Object} State snapshot
+     */
+    getState() {
+        return { currentModeValue: this._currentModeValue };
+    }
+
+    /**
+     * Restore cached state. Must be called AFTER activate() so _padEntries exist.
+     * @param {Object} state - State snapshot from getState()
+     */
+    restoreState(state) {
+        if (state && state.currentModeValue !== undefined) {
+            this._currentModeValue = state.currentModeValue;
+            if (this._padEntries.length > 0 && this._currentModeValue >= 0) {
+                this._repaintPadHighlights();
+            }
+        }
+    }
+
+    /**
      * Deactivate the pad mapper, clearing all internal state.
      */
     deactivate() {
@@ -55,6 +78,7 @@ class FrequalizerPadMapper {
         this._pendingPadEntries = [];
         this._modeParamId = null;
         this._currentModeValue = -1;
+        this._deferredParamValues = {};
     }
 
     /**
@@ -64,7 +88,11 @@ class FrequalizerPadMapper {
      * @param {number} value - Normalized value (0-1)
      */
     onParamValueChanged(id, value) {
-        if (!this._modeParamId || id !== this._modeParamId) return;
+        if (!this._modeParamId) {
+            this._deferredParamValues[id] = value;
+            return;
+        }
+        if (id !== this._modeParamId) return;
         this._currentModeValue = value;
         this._repaintPadHighlights();
     }
@@ -123,6 +151,10 @@ class FrequalizerPadMapper {
         // Track the mode param (all entries share the same param)
         if (!this._modeParamId) {
             this._modeParamId = paramId;
+            if (this._deferredParamValues[paramId] !== undefined) {
+                this._currentModeValue = this._deferredParamValues[paramId];
+            }
+            this._deferredParamValues = {};
         }
 
         // Register click: set the parameter to this pad's raw value

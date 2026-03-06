@@ -207,15 +207,18 @@ function makeSubject(opts) {
     assert(bw._soloed() === false, 'clicking solo pad again should toggle solo off');
 })();
 
-// pad 16 click calls deactivate then exit callback
+// pad 16 click calls exit callback then deactivate (callback runs while still active)
 (function() {
     var lp = fakeLaunchpad();
-    var exitCalled = false;
+    var wasActiveInCallback = false;
     var dq = makeSubject({ launchpad: lp });
-    dq.activate(function() { exitCalled = true; });
+    dq.activate(function() {
+        wasActiveInCallback = dq.isActive();
+        dq.deactivate(); // callback triggers deactivate (mirrors Controller.enterTrackMode)
+    });
     lp.behaviors[44].click();
-    assert(dq.isActive() === false, 'should deactivate on exit click');
-    assert(exitCalled === true, 'should call exit callback');
+    assert(wasActiveInCallback === true, 'should still be active when exit callback runs');
+    assert(dq.isActive() === false, 'should be deactivated after callback');
 })();
 
 // deactivate clears all quadrant pads

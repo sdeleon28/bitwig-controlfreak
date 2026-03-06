@@ -320,6 +320,7 @@ function fakeMapper() {
     var _clicks = {};
     var _holds = {};
     var _fedParams = [];
+    var _state = null;
     var obj = {
         calls: calls,
         _encoderParams: _encoderParams,
@@ -330,17 +331,25 @@ function fakeMapper() {
         handleClick: function(enc) { calls.push({ method: 'handleClick', encoder: enc }); return _clicks[enc] || null; },
         handleHold: function(enc, pressed) { calls.push({ method: 'handleHold', encoder: enc, pressed: pressed }); return _holds[enc] || null; },
         notifyButtonState: function(enc, pressed) { calls.push({ method: 'notifyButtonState', encoder: enc, pressed: pressed }); },
-        feed: function(id, value) { _fedParams.push({ id: id, value: value }); calls.push({ method: 'feed', id: id, value: value }); return true; }
+        feed: function(id, value) { _fedParams.push({ id: id, value: value }); calls.push({ method: 'feed', id: id, value: value }); return true; },
+        getState: function() { return _state || { ring: 'fake' }; },
+        restoreState: function(state) { _state = state; calls.push({ method: 'restoreState', state: state }); }
     };
     return obj;
 }
 
 function fakePadMapper() {
     var calls = [];
+    var _state = null;
+    var _paramValues = [];
     return {
         calls: calls,
+        _paramValues: _paramValues,
         activate: function(api) { calls.push('activate'); },
-        deactivate: function() { calls.push('deactivate'); }
+        deactivate: function() { calls.push('deactivate'); },
+        onParamValueChanged: function(id, value) { _paramValues.push({ id: id, value: value }); calls.push({ method: 'onParamValueChanged', id: id, value: value }); },
+        getState: function() { return _state || { currentModeValue: 0.25 }; },
+        restoreState: function(state) { _state = state; calls.push({ method: 'restoreState', state: state }); }
     };
 }
 
@@ -1327,19 +1336,19 @@ function makeController(opts) {
     assert(ctrl._activeMapper === null, "selectGroup should clear active mapper");
 })();
 
-// enterDeviceMode: switching to mapper clears previous mapper
+// enterDeviceMode: same device preserves existing mapper
 (function() {
     var mapper1 = fakeMapper();
-    var mapper2 = fakeMapper();
     var callCount = 0;
     var mappers = {
-        'DeviceA': function() { callCount++; return callCount === 1 ? mapper1 : mapper2; },
+        'DeviceA': function() { callCount++; return mapper1; },
     };
     var ctrl = makeController({ mappers: mappers });
     ctrl.enterDeviceMode('DeviceA');
     assert(ctrl._activeMapper === mapper1, "first call should use mapper1");
     ctrl.enterDeviceMode('DeviceA');
-    assert(ctrl._activeMapper === mapper2, "second call should create fresh mapper2");
+    assert(ctrl._activeMapper === mapper1, "second call should preserve mapper1");
+    assert(callCount === 1, "factory should only be called once");
 })();
 
 // enterDeviceMode: mapper calls twister.unlinkAll
@@ -2413,6 +2422,386 @@ function makeController(opts) {
     var ctrl = makeController({ bitwig: bw });
     ctrl.enterMasterTrackMode();
     assert(bw._remoteControlsSectionVisible === false, "remote controls should be closed on enterMasterTrackMode");
+})();
+
+// pending param values are replayed when mapper is created
+(function() {
+    var mapper;
+    var mappers = { 'Frequalizer Alt': function() { mapper = fakeMapper(); return mapper; } };
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 1;
+    var bw = fakeBitwig({ _cursorDeviceName: 'Frequalizer Alt' });
+    var ctrl = makeController({ mappers: mappers, deviceSelector: ds, bitwig: bw });
+    // Bitwig fires onDeviceChanged in grid mode (ignored for mode transitions)
+    ctrl.onDeviceChanged('Frequalizer Alt');
+    ctrl.enterTrackMode();
+    // Param values arrive before mapper exists
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID1', 0.8);
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID2', 0.5);
+    // User clicks device pad (cursor at position → creates mapper)
+    ds._onDeviceSelected(1);
+    assert(mapper._fedParams.length === 2, "mapper should receive pending param values");
+    assert(mapper._fedParams[0].id === 'CONTENTS/PID1', "first param id");
+    assert(mapper._fedParams[0].value === 0.8, "first param value");
+})();
+
+// double-click preserves existing mapper
+(function() {
+    var callCount = 0;
+    var mapper;
+    var mappers = { 'Frequalizer Alt': function() { callCount++; mapper = fakeMapper(); return mapper; } };
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 1;
+    var bw = fakeBitwig({ _cursorDeviceName: 'Frequalizer Alt' });
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ mappers: mappers, deviceSelector: ds, bitwig: bw, deviceQuadrant: dq });
+    ctrl.enterTrackMode();
+    // First click creates mapper
+    ds._onDeviceSelected(1);
+    var firstMapper = ctrl._activeMapper;
+    assert(callCount === 1, "factory called once on first click");
+    // Second click (double-click → enterDeviceMode)
+    ds._onDeviceSelected(1);
+    assert(ctrl._activeMapper === firstMapper, "same mapper instance preserved");
+    assert(callCount === 1, "factory NOT called again");
+})();
+
+// onDeviceChanged in device mode with different device recreates mapper
+(function() {
+    var dq = fakeDeviceQuadrant();
+    var mappers = {
+        'DevA': function() { return fakeMapper(); },
+        'DevB': function() { return fakeMapper(); }
+    };
+    var ctrl = makeController({ mappers: mappers, deviceQuadrant: dq });
+    ctrl.enterDeviceMode('DevA');
+    var firstMapper = ctrl._activeMapper;
+    ctrl.onDeviceChanged('DevB');
+    assert(ctrl._activeMapper !== firstMapper, "different device should create new mapper");
+    assert(ctrl._activeMapper !== null, "new mapper should exist for DevB");
+})();
+
+// full scenario: grid init → track mode → click device → double-click → encoders preserved
+(function() {
+    var mapper;
+    var callCount = 0;
+    var mappers = { 'Frequalizer Alt': function() { callCount++; mapper = fakeMapper(); return mapper; } };
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 0;
+    var dq = fakeDeviceQuadrant();
+    var bw = fakeBitwig({ _cursorDeviceName: 'Frequalizer Alt' });
+    var ctrl = makeController({
+        mappers: mappers, deviceSelector: ds, deviceQuadrant: dq, bitwig: bw
+    });
+    // Init: Bitwig sends device change + param values (grid mode, no mapper)
+    ctrl.onDeviceChanged("Frequalizer Alt"); // ignored in grid mode
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/Q1_ACTIVE', 1.0);
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/Q1_FREQ', 0.5);
+    // User enters track mode
+    ctrl.enterTrackMode();
+    // First click on device (cursor at position)
+    ds._onDeviceSelected(0);
+    assert(callCount === 1, "mapper created on first click");
+    assert(mapper._fedParams.length === 2, "mapper initialized with pending values");
+    // Second click (double-click → device mode)
+    ds._onDeviceSelected(0);
+    assert(ctrl._mode === 'device', "should enter device mode");
+    assert(callCount === 1, "factory NOT called again on double-click");
+    assert(ctrl._activeMapper === mapper, "same mapper preserved");
+})();
+
+// pending param values are cleared when device changes
+(function() {
+    var mapper;
+    var mappers = { 'DevB': function() { mapper = fakeMapper(); return mapper; } };
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 0;
+    var bw = fakeBitwig({ _cursorDeviceName: 'DevB' });
+    var ctrl = makeController({ mappers: mappers, deviceSelector: ds, bitwig: bw });
+    // Bitwig fires onDeviceChanged for old device + param values
+    ctrl.onDeviceChanged('OldDevice');
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/OLD_PARAM', 0.9);
+    // Device changes → pending values should be cleared
+    ctrl.enterTrackMode();
+    ctrl.onDeviceChanged('DevB');
+    // DevB's mapper should NOT receive OLD_PARAM
+    assert(mapper._fedParams.length === 0, "old pending values should be cleared on device change");
+})();
+
+// exit device mode and re-enter restores state to new mapper instance
+(function() {
+    var callCount = 0;
+    var latestMapper;
+    var mappers = { 'Dev': function() { callCount++; latestMapper = fakeMapper(); return latestMapper; } };
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 0;
+    var dq = fakeDeviceQuadrant();
+    var bw = fakeBitwig({ _cursorDeviceName: 'Dev' });
+    var ctrl = makeController({ mappers: mappers, deviceSelector: ds, deviceQuadrant: dq, bitwig: bw });
+    ctrl.onDeviceChanged('Dev');
+    ctrl.enterTrackMode();
+    ds._onDeviceSelected(0);   // first click → creates mapper
+    ds._onDeviceSelected(0);   // double-click → device mode
+    assert(callCount === 1, "mapper created once");
+    // Exit device mode via exit pad → state cached
+    dq._exitCallback();
+    assert(ctrl._mode === 'track', "should be in track mode");
+    assert(ctrl._activeMapper === null, "active mapper should be null in track mode");
+    assert(ctrl._mapperStateCache['Dev'] !== undefined, "state should be cached for Dev");
+    // Re-click same device → new mapper created with state restored
+    ds._onDeviceSelected(0);
+    ds._onDeviceSelected(0);
+    assert(callCount === 2, "factory called again for new instance");
+    var restoreCalls = latestMapper.calls.filter(function(c) { return c.method === 'restoreState'; });
+    assert(restoreCalls.length === 1, "restoreState called on new mapper");
+    assert(restoreCalls[0].state.ring === 'fake', "state snapshot passed to restoreState");
+})();
+
+// different device gets its own mapper, not restored from wrong device's cache
+(function() {
+    var mappers = {
+        'DevA': function() { return fakeMapper(); },
+        'DevB': function() { return fakeMapper(); }
+    };
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 0;
+    var dq = fakeDeviceQuadrant();
+    var bw = fakeBitwig({ _cursorDeviceName: 'DevA' });
+    var ctrl = makeController({ mappers: mappers, deviceSelector: ds, deviceQuadrant: dq, bitwig: bw });
+    ctrl.onDeviceChanged('DevA');
+    ctrl.enterTrackMode();
+    ds._onDeviceSelected(0);
+    ds._onDeviceSelected(0);
+    // Exit device mode → DevA state cached
+    dq._exitCallback();
+    assert(ctrl._mapperStateCache['DevA'] !== undefined, "DevA state cached");
+    // Different device selected
+    ctrl.onDeviceChanged('DevB');
+    // DevB mapper should NOT have DevA's restoreState called
+    var restoreCalls = ctrl._activeMapper.calls.filter(function(c) { return c.method === 'restoreState'; });
+    assert(restoreCalls.length === 0, "DevB should not get DevA's state");
+})();
+
+// state cache survives selectGroup (the key bug fix)
+(function() {
+    var callCount = 0;
+    var latestMapper;
+    var mappers = { 'Dev': function() { callCount++; latestMapper = fakeMapper(); return latestMapper; } };
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 0;
+    var dq = fakeDeviceQuadrant();
+    var bw = fakeBitwig({ _cursorDeviceName: 'Dev' });
+    var ctrl = makeController({ mappers: mappers, deviceSelector: ds, deviceQuadrant: dq, bitwig: bw });
+    // Enter device mode for 'Dev'
+    ctrl.enterDeviceMode('Dev');
+    assert(callCount === 1, "mapper created");
+    // Exit device mode → state cached
+    dq._exitCallback();
+    assert(ctrl._mapperStateCache['Dev'] !== undefined, "state cached after exit");
+    // selectGroup (the operation that used to clear _preservedMapper)
+    ctrl.selectGroup(16);
+    // State cache should survive
+    assert(ctrl._mapperStateCache['Dev'] !== undefined, "state cache survives selectGroup");
+    // Re-enter track mode and device mode for same device
+    ctrl.enterTrackMode();
+    ctrl.onDeviceChanged('Dev');
+    var restoreCalls = latestMapper.calls.filter(function(c) { return c.method === 'restoreState'; });
+    assert(restoreCalls.length === 1, "state restored after selectGroup flow");
+})();
+
+// state cache is cleared on cursor track change
+(function() {
+    var mappers = { 'Dev': function() { return fakeMapper(); } };
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ mappers: mappers, deviceQuadrant: dq });
+    ctrl.enterDeviceMode('Dev');
+    dq._exitCallback();
+    assert(ctrl._mapperStateCache['Dev'] !== undefined, "state cached after exit");
+    ctrl.onCursorTrackChanged('NewTrack');
+    assert(ctrl._mapperStateCache['Dev'] === undefined, "state cache cleared on cursor track change");
+})();
+
+// pending params are applied after state restore
+(function() {
+    var latestMapper;
+    var mappers = { 'Dev': function() { latestMapper = fakeMapper(); return latestMapper; } };
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 0;
+    var dq = fakeDeviceQuadrant();
+    var bw = fakeBitwig({ _cursorDeviceName: 'Dev' });
+    var ctrl = makeController({ mappers: mappers, deviceSelector: ds, deviceQuadrant: dq, bitwig: bw });
+    // Enter device mode, feed some params, exit
+    ctrl.enterDeviceMode('Dev');
+    var firstMapper = latestMapper;
+    dq._exitCallback();
+    // Param arrives while in track mode (after snapshot was taken)
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/NEW_PARAM', 0.7);
+    // Re-enter device mode
+    ctrl.enterTrackMode();
+    ctrl.onDeviceChanged('Dev');
+    // New mapper should get both restoreState AND the pending param
+    var restoreCalls = latestMapper.calls.filter(function(c) { return c.method === 'restoreState'; });
+    assert(restoreCalls.length === 1, "restoreState called");
+    var feedCalls = latestMapper._fedParams.filter(function(p) { return p.id === 'NEW_PARAM'; });
+    assert(feedCalls.length === 1, "pending param fed after restore");
+    assert(feedCalls[0].value === 0.7, "pending param has correct value");
+})();
+
+// ---- pad mapper state cache tests ----
+
+// pad mapper state cached on exit device mode
+(function() {
+    var testPadMapper = fakePadMapper();
+    var padMappers = { 'Dev': function() { return testPadMapper; } };
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ padMappers: padMappers, deviceQuadrant: dq });
+    ctrl.enterDeviceMode('Dev');
+    assert(ctrl._activePadMapper === testPadMapper, "pad mapper should be active");
+    dq._exitCallback();
+    assert(ctrl._padMapperStateCache['Dev'] !== undefined, "pad mapper state should be cached on exit");
+    assert(ctrl._padMapperStateCache['Dev'].currentModeValue === 0.25, "cached state should match getState");
+})();
+
+// pad mapper state restored on re-enter device mode
+(function() {
+    var callCount = 0;
+    var latestPadMapper;
+    var padMappers = { 'Dev': function() { callCount++; latestPadMapper = fakePadMapper(); return latestPadMapper; } };
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ padMappers: padMappers, deviceQuadrant: dq });
+    ctrl.enterDeviceMode('Dev');
+    dq._exitCallback();
+    assert(ctrl._padMapperStateCache['Dev'] !== undefined, "state cached");
+    // Re-enter device mode
+    ctrl.enterDeviceMode('Dev');
+    assert(callCount === 2, "factory called again");
+    var restoreCalls = latestPadMapper.calls.filter(function(c) { return c.method === 'restoreState'; });
+    assert(restoreCalls.length === 1, "restoreState called on new pad mapper");
+    assert(restoreCalls[0].state.currentModeValue === 0.25, "correct state restored");
+})();
+
+// pad mapper state cache survives selectGroup
+(function() {
+    var testPadMapper = fakePadMapper();
+    var padMappers = { 'Dev': function() { return testPadMapper; } };
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ padMappers: padMappers, deviceQuadrant: dq });
+    ctrl.enterDeviceMode('Dev');
+    dq._exitCallback();
+    assert(ctrl._padMapperStateCache['Dev'] !== undefined, "state cached after exit");
+    ctrl.selectGroup(16);
+    assert(ctrl._padMapperStateCache['Dev'] !== undefined, "pad mapper state cache survives selectGroup");
+})();
+
+// pad mapper state cache cleared on cursor track change
+(function() {
+    var testPadMapper = fakePadMapper();
+    var padMappers = { 'Dev': function() { return testPadMapper; } };
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ padMappers: padMappers, deviceQuadrant: dq });
+    ctrl.enterDeviceMode('Dev');
+    dq._exitCallback();
+    assert(ctrl._padMapperStateCache['Dev'] !== undefined, "state cached after exit");
+    ctrl.onCursorTrackChanged('NewTrack');
+    assert(ctrl._padMapperStateCache['Dev'] === undefined, "pad mapper state cache cleared on cursor track change");
+})();
+
+// ---- pending pad param tests ----
+
+// pending pad params buffered when DeviceQuadrant not active
+(function() {
+    var ctrl = makeController({});
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.5);
+    assert(ctrl._pendingPadParamValues['CONTENTS/PID_MODE'] === 0.5, "should buffer pad param when no device quadrant");
+})();
+
+// pending pad params NOT buffered when DeviceQuadrant is active
+(function() {
+    var dq = fakeDeviceQuadrant();
+    dq.activate(function() {});
+    var ctrl = makeController({ deviceQuadrant: dq });
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.5);
+    assert(ctrl._pendingPadParamValues['CONTENTS/PID_MODE'] === undefined, "should NOT buffer pad param when device quadrant active");
+})();
+
+// pending pad params forwarded to pad mapper on enterDeviceMode
+(function() {
+    var testPadMapper = fakePadMapper();
+    var padMappers = { 'Dev': function() { return testPadMapper; } };
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ padMappers: padMappers, deviceQuadrant: dq });
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.5);
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_OTHER', 0.3);
+    ctrl.enterDeviceMode('Dev');
+    var modeParams = testPadMapper._paramValues.filter(function(p) { return p.id === 'CONTENTS/PID_MODE'; });
+    assert(modeParams.length === 1, "pad mapper should receive PID_MODE");
+    assert(modeParams[0].value === 0.5, "pad mapper should receive correct value for PID_MODE");
+    var otherParams = testPadMapper._paramValues.filter(function(p) { return p.id === 'CONTENTS/PID_OTHER'; });
+    assert(otherParams.length === 1, "pad mapper should receive PID_OTHER");
+})();
+
+// pending pad params cleared after forwarding
+(function() {
+    var testPadMapper = fakePadMapper();
+    var padMappers = { 'Dev': function() { return testPadMapper; } };
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ padMappers: padMappers, deviceQuadrant: dq });
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.5);
+    ctrl.enterDeviceMode('Dev');
+    assert(Object.keys(ctrl._pendingPadParamValues).length === 0, "pending pad params should be cleared after forwarding");
+})();
+
+// pending pad params NOT forwarded when no pad mapper
+(function() {
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ deviceQuadrant: dq });
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.5);
+    ctrl.enterDeviceMode('UnmappedDevice');
+    // Should not throw, pending params just stay
+    assert(true, "should not throw when no pad mapper");
+})();
+
+// pending pad params cleared on device change
+(function() {
+    var ctrl = makeController({});
+    ctrl.onDeviceChanged('DevA');
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.5);
+    ctrl.onDeviceChanged('DevB');
+    assert(ctrl._pendingPadParamValues['CONTENTS/PID_MODE'] === undefined, "pending pad params should be cleared on device change");
+})();
+
+// pending pad params cleared on cursor track change
+(function() {
+    var ctrl = makeController({});
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.5);
+    ctrl.onCursorTrackChanged('NewTrack');
+    assert(ctrl._pendingPadParamValues['CONTENTS/PID_MODE'] === undefined, "pending pad params should be cleared on cursor track change");
+})();
+
+// pending pad params override cached state (forwarded after restoreState)
+(function() {
+    var callCount = 0;
+    var latestPadMapper;
+    var padMappers = { 'Dev': function() { callCount++; latestPadMapper = fakePadMapper(); return latestPadMapper; } };
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ padMappers: padMappers, deviceQuadrant: dq });
+    ctrl.enterDeviceMode('Dev');
+    dq._exitCallback();
+    assert(ctrl._padMapperStateCache['Dev'] !== undefined, "state cached after exit");
+    // Param arrives while in track mode
+    ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.75);
+    // Re-enter device mode
+    ctrl.enterDeviceMode('Dev');
+    // restoreState should be called first, then onParamValueChanged
+    var restoreIdx = -1;
+    var paramIdx = -1;
+    for (var i = 0; i < latestPadMapper.calls.length; i++) {
+        if (latestPadMapper.calls[i].method === 'restoreState' && restoreIdx === -1) restoreIdx = i;
+        if (latestPadMapper.calls[i].method === 'onParamValueChanged' && paramIdx === -1) paramIdx = i;
+    }
+    assert(restoreIdx >= 0, "restoreState should be called");
+    assert(paramIdx >= 0, "onParamValueChanged should be called");
+    assert(restoreIdx < paramIdx, "restoreState should come before onParamValueChanged (pending overrides cache)");
 })();
 
 process.exit(t.summary('Controller'));

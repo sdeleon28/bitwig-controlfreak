@@ -73,8 +73,8 @@ class DeviceQuadrantHW {
         this.pager.requestPaint(page, pads[15], this.launchpad.getBrightnessVariant(this.launchpad.colors.white, this.launchpad.brightness.bright));
         this.launchpad.registerPadBehavior(pads[15], function() {
             var cb = self._onExitCallback;
-            self.deactivate();
             if (cb) cb();
+            if (self._active) self.deactivate();
         }, null, this.pageNumber);
 
         // Activate pad mapper if provided

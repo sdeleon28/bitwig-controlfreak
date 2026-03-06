@@ -192,4 +192,136 @@ function fakeApi(opts) {
     assert(pad9.length > 0 && pad9[0].color === 1, 'Stereo pad should NOT highlight when Mid active');
 })();
 
+// getState returns currentModeValue after receiving param value
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    mapper.onParamValueChanged('PID_MODE', 0.25);
+    var state = mapper.getState();
+    assert(state.currentModeValue === 0.25, 'getState should return current mode value');
+})();
+
+// getState returns -1 when no param value received (cold state)
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    var state = mapper.getState();
+    assert(state.currentModeValue === -1, 'getState should return -1 for cold mapper');
+})();
+
+// restoreState after activate repaints highlights correctly
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    var paintsBefore = api.paints.length;
+    mapper.restoreState({ currentModeValue: 0.25 }); // Mid
+    var newPaints = api.paints.slice(paintsBefore);
+    var pad5 = newPaints.filter(function(p) { return p.padIndex === 5; });
+    assert(pad5.length > 0 && pad5[0].color === 21, 'Mid pad should highlight after restoreState');
+    var pad9 = newPaints.filter(function(p) { return p.padIndex === 9; });
+    assert(pad9.length > 0 && pad9[0].color === 1, 'Stereo pad should be deselected after restoreState');
+})();
+
+// round-trip: feed params → getState → new mapper → activate → restoreState → same highlights
+(function() {
+    var api1 = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper1 = new FrequalizerPadMapper();
+    mapper1.activate(api1);
+    mapper1.onParamValueChanged('PID_MODE', 0.5); // Side
+    var state = mapper1.getState();
+
+    var api2 = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper2 = new FrequalizerPadMapper();
+    mapper2.activate(api2);
+    var paintsBefore = api2.paints.length;
+    mapper2.restoreState(state);
+    var newPaints = api2.paints.slice(paintsBefore);
+    var pad6 = newPaints.filter(function(p) { return p.padIndex === 6; });
+    assert(pad6.length > 0 && pad6[0].color === 21, 'Side pad should highlight after round-trip restore');
+    var pad5 = newPaints.filter(function(p) { return p.padIndex === 5; });
+    assert(pad5.length > 0 && pad5[0].color === 1, 'Mid pad should be deselected after round-trip restore');
+})();
+
+// ---- deferred param value tests ----
+
+// onParamValueChanged buffers value when _modeParamId is null (deferred case)
+(function() {
+    var api = fakeApi({ paramNames: {} }); // no params resolved
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    assert(mapper._modeParamId === null, '_modeParamId should be null before resolution');
+    var paintsBefore = api.paints.length;
+    mapper.onParamValueChanged('PID_MODE', 0.5);
+    assert(mapper._deferredParamValues['PID_MODE'] === 0.5, 'should buffer value in _deferredParamValues');
+    assert(mapper._currentModeValue === -1, '_currentModeValue should remain -1');
+    assert(api.paints.length === paintsBefore, 'should not repaint');
+})();
+
+// deferred value replayed when entries resolve via onDirectParamNameChanged
+(function() {
+    var api = fakeApi({ paramNames: {} });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    // Feed param value before resolution
+    mapper.onParamValueChanged('PID_MODE', 0.5);
+    assert(mapper._deferredParamValues['PID_MODE'] === 0.5, 'value should be deferred');
+    // Now resolve the param name
+    var paintsBefore = api.paints.length;
+    mapper.onDirectParamNameChanged('PID_MODE', 'Mode');
+    assert(mapper._modeParamId === 'PID_MODE', '_modeParamId should be set');
+    assert(mapper._currentModeValue === 0.5, '_currentModeValue should be replayed from deferred');
+    // Should repaint with the deferred value (last paint wins after initial deselected)
+    var newPaints = api.paints.slice(paintsBefore);
+    var pad6 = newPaints.filter(function(p) { return p.padIndex === 6; });
+    assert(pad6.length > 0 && pad6[pad6.length - 1].color === 21, 'Side pad should highlight for deferred value 0.5');
+})();
+
+// non-deferred onParamValueChanged still works normally (immediate case)
+(function() {
+    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    assert(mapper._modeParamId === 'PID_MODE', '_modeParamId should be set immediately');
+    var paintsBefore = api.paints.length;
+    mapper.onParamValueChanged('PID_MODE', 0.25);
+    assert(mapper._currentModeValue === 0.25, '_currentModeValue should be updated');
+    var newPaints = api.paints.slice(paintsBefore);
+    var pad5 = newPaints.filter(function(p) { return p.padIndex === 5; });
+    assert(pad5.length > 0 && pad5[0].color === 21, 'Mid pad should highlight normally');
+})();
+
+// deferred values cleared after _modeParamId is set
+(function() {
+    var api = fakeApi({ paramNames: {} });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    mapper.onParamValueChanged('PID_MODE', 0.5);
+    mapper.onParamValueChanged('PID_OTHER', 0.3);
+    mapper.onDirectParamNameChanged('PID_MODE', 'Mode');
+    assert(Object.keys(mapper._deferredParamValues).length === 0, 'deferred values should be cleared after resolution');
+})();
+
+// deactivate clears deferred values
+(function() {
+    var api = fakeApi({ paramNames: {} });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    mapper.onParamValueChanged('PID_MODE', 0.5);
+    mapper.deactivate();
+    assert(Object.keys(mapper._deferredParamValues).length === 0, 'deferred values should be cleared on deactivate');
+})();
+
+// activate clears deferred values from previous activation
+(function() {
+    var api = fakeApi({ paramNames: {} });
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api);
+    mapper.onParamValueChanged('PID_MODE', 0.5);
+    mapper.activate(api); // re-activate
+    assert(Object.keys(mapper._deferredParamValues).length === 0, 'deferred values should be cleared on re-activate');
+})();
+
 process.exit(t.summary('FrequalizerPadMapper'));

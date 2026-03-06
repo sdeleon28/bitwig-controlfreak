@@ -233,6 +233,29 @@ class FrequalizerTwisterBandMapper {
             resolution: 19
         };
     }
+
+    getState() {
+        return {
+            ringValues: Object.assign({}, this._ringValues),
+            bandActive: Object.assign({}, this._bandActive)
+        };
+    }
+
+    restoreState(state) {
+        if (state.ringValues) {
+            for (var enc in state.ringValues) {
+                this._ringValues[parseInt(enc)] = state.ringValues[enc];
+            }
+        }
+        if (state.bandActive) {
+            for (var band in state.bandActive) {
+                this._bandActive[band] = state.bandActive[band];
+            }
+        }
+        // Silent state load only — no painting here.
+        // Parent calls _onModeChanged() which triggers _repaintAll() + _replayRings()
+        // reading from this restored state (UI = f(state) via existing paint path).
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +269,7 @@ class FrequalizerTwisterMapper {
         this._painter = deps.painter;
         this.println = deps.println || function() {};
 
+        this._mode = null;
         this._stereo = new FrequalizerTwisterBandMapper(deps, STEREO_CONFIG);
         this._mid = new FrequalizerTwisterBandMapper(deps, MID_CONFIG);
         this._mid.enabled = false;
@@ -265,6 +289,7 @@ class FrequalizerTwisterMapper {
     }
 
     _onModeChanged(mode) {
+        this._mode = mode;
         if (this._active) this._active.enabled = false;
 
         for (var i = 1; i <= 16; i++) this._painter.off(i);
@@ -314,6 +339,22 @@ class FrequalizerTwisterMapper {
         var sideHandled = this._side.feed(id, value);
         if (stereoHandled || midHandled || sideHandled) return true;
         return this._device.feed(id, value);
+    }
+
+    getState() {
+        return {
+            mode: this._mode,
+            stereo: this._stereo.getState(),
+            mid: this._mid.getState(),
+            side: this._side.getState()
+        };
+    }
+
+    restoreState(state) {
+        if (state.stereo) this._stereo.restoreState(state.stereo);
+        if (state.mid) this._mid.restoreState(state.mid);
+        if (state.side) this._side.restoreState(state.side);
+        this._onModeChanged(state.mode || FrequalizerDevice.Mode.STEREO);
     }
 }
 

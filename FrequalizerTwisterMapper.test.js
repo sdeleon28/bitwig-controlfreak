@@ -897,6 +897,102 @@ for (var ssi = 0; ssi < sideSoloTests.length; ssi++) {
     assert(enc1Ring[0].data2 === 95, 'side ring cache: 0.75 * 127 = 95, got ' + enc1Ring[0].data2);
 })();
 
+// ===========================================================================
+// getState / restoreState protocol tests
+// ===========================================================================
+
+// getState returns ring values and band active states
+(function() {
+    var s = makeMapper();
+    s.mapper.feed(PARAM_IDS.Q2_FREQ, 0.5);
+    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
+    s.mapper.feed(PARAM_IDS.Q5_ACTIVE, 1.0);
+
+    var state = s.mapper.getState();
+    assert(state.stereo !== undefined, 'getState has stereo');
+    assert(state.mid !== undefined, 'getState has mid');
+    assert(state.side !== undefined, 'getState has side');
+    assert(state.stereo.ringValues[1] === 64, 'stereo ring value for encoder 1 = 64');
+    assert(state.stereo.bandActive['Low'] === true, 'stereo Low is active');
+    assert(state.stereo.bandActive['High'] === true, 'stereo High is active');
+})();
+
+// restoreState applies state and repaints via _onModeChanged
+(function() {
+    var s = makeMapper();
+    s.mapper.feed(PARAM_IDS.Q2_FREQ, 0.5);
+    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
+    var state = s.mapper.getState();
+
+    // Create a fresh mapper and restore
+    var s2 = makeMapper();
+    s2.output.messages.length = 0;
+    s2.mapper.restoreState(state);
+
+    // Should have repainted: mode switch clears 16 encoders + repaints active bands + replays rings
+    var offMsgs = s2.output.messages.filter(function(m) { return m.status === 0xB2 && m.data2 === 17; });
+    assert(offMsgs.length >= 16, 'restoreState: at least 16 off messages, got ' + offMsgs.length);
+    var colorMsgs = s2.output.messages.filter(function(m) { return m.status === 0xB1; });
+    assert(colorMsgs.length === 3, 'restoreState: 3 color msgs for Low band, got ' + colorMsgs.length);
+    var ringMsgs = s2.output.messages.filter(function(m) { return m.status === 0xB0; });
+    assert(ringMsgs.length === 1, 'restoreState: 1 ring msg replayed, got ' + ringMsgs.length);
+})();
+
+// getState/restoreState round-trip: feed params → getState → new mapper → restoreState → same LED output
+(function() {
+    var s = makeMapper();
+    s.mapper.feed(PARAM_IDS.Q2_FREQ, 0.5);
+    s.mapper.feed(PARAM_IDS.Q3_GAIN, 0.8);
+    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
+    s.mapper.feed(PARAM_IDS.Q5_ACTIVE, 1.0);
+    var state = s.mapper.getState();
+
+    var s2 = makeMapper();
+    s2.mapper.restoreState(state);
+
+    // Verify band active state round-tripped
+    var click9 = s2.mapper.handleClick(9);  // Low toggle button
+    assert(click9.value === 0, 'round-trip: Low was active, toggles to 0');
+    var click12 = s2.mapper.handleClick(12); // High toggle button
+    assert(click12.value === 0, 'round-trip: High was active, toggles to 0');
+    var click10 = s2.mapper.handleClick(10); // LowMids toggle button
+    assert(click10.value === 1, 'round-trip: LowMids was inactive, toggles to 1');
+})();
+
+// mid mode state round-trip
+(function() {
+    var s = makeMapper();
+    switchToMid(s.mapper);
+    s.mapper.feed(PARAM_IDS.Q8_FREQ, 0.75);
+    s.mapper.feed(PARAM_IDS.Q8_ACTIVE, 1.0);
+    var state = s.mapper.getState();
+
+    assert(state.mode === Mode.MID, 'getState captures mid mode');
+
+    var s2 = makeMapper();
+    s2.mapper.restoreState(state);
+
+    // Should be in mid mode after restore
+    assert(s2.mapper.encoderParamId(1) === PARAM_IDS.Q8_FREQ, 'restored mapper is in mid mode');
+    // Band active state should be restored
+    var click9 = s2.mapper.handleClick(9); // Mid Low toggle
+    assert(click9.value === 0, 'mid round-trip: Low was active, toggles to 0');
+})();
+
+// restoreState with null mode stays in stereo (default)
+(function() {
+    var s = makeMapper();
+    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
+    var state = s.mapper.getState();
+    // mode is null since no mode change was triggered
+    assert(state.mode === null, 'stereo default: mode is null');
+
+    var s2 = makeMapper();
+    s2.mapper.restoreState(state);
+    // Should still work in stereo (default)
+    assert(s2.mapper.encoderParamId(1) === PARAM_IDS.Q2_FREQ, 'null mode: stays in stereo');
+})();
+
 // ---- summary ----
 
 process.exit(t.summary('FrequalizerTwisterMapper'));

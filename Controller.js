@@ -55,6 +55,12 @@ class ControllerHW {
         this._selectedDeviceIndex = null;
         this._lastDeviceName = null;
         this._masterTrackMode = false;
+        this._pendingParamValues = {};
+        this._pendingPadParamValues = {};
+        this._pendingParamDevice = null;
+        this._mapperStateCache = {};
+        this._padMapperStateCache = {};
+        this._activePadMapper = null;
     }
 
     get _multiRec() {
@@ -172,6 +178,7 @@ class ControllerHW {
         this.selectedGroup = groupNumber;
         this._mode = 'grid';
         this._activeMapper = null;
+        this._activePadMapper = null;
         this._selectedDeviceIndex = null;
         this._lastDeviceName = null;
         this._masterTrackMode = false;
@@ -611,7 +618,17 @@ class ControllerHW {
 
         this._mode = 'track';
         this._masterTrackMode = false;
+        if (this._lastDeviceName) {
+            if (this._activeMapper && this._activeMapper.getState) {
+                this._mapperStateCache[this._lastDeviceName] = this._activeMapper.getState();
+                this._pendingParamValues = {};
+            }
+            if (this._activePadMapper && this._activePadMapper.getState) {
+                this._padMapperStateCache[this._lastDeviceName] = this._activePadMapper.getState();
+            }
+        }
         this._activeMapper = null;
+        this._activePadMapper = null;
         this._selectedDeviceIndex = null;
         this._lastDeviceName = null;
         if (!this._devicePaneShown && this.bitwig._application) {
@@ -639,8 +656,15 @@ class ControllerHW {
             if (!this.deviceSelector.isActive()) {
                 this.deviceSelector.activate(
                     function(deviceIndex) {
+                        self.println("[TRACE] DeviceSelector pad pressed: deviceIndex=" + deviceIndex +
+                            " _selectedDeviceIndex=" + self._selectedDeviceIndex +
+                            " _lastDeviceName=" + self._lastDeviceName +
+                            " _cursorDevicePosition=" + self.deviceSelector._cursorDevicePosition +
+                            " _activeMapper=" + (self._activeMapper ? "SET" : "null") +
+                            " _mode=" + self._mode);
                         // Double-click same device → enter device mode
                         if (deviceIndex === self._selectedDeviceIndex && self._lastDeviceName) {
+                            self.println("[TRACE] → double-click detected, calling enterDeviceMode(" + self._lastDeviceName + ")");
                             self.enterDeviceMode(self._lastDeviceName);
                             return;
                         }
@@ -649,6 +673,7 @@ class ControllerHW {
                         if (deviceIndex === self.deviceSelector._cursorDevicePosition) {
                             // Cursor already here — observer won't fire, so trigger manually
                             var name = self.bitwig.getCursorDevice().name().get();
+                            self.println("[TRACE] → cursor already at position, calling onDeviceChanged(" + name + ")");
                             if (name) self.onDeviceChanged(name);
                         } else {
                             // Navigate cursor — onDeviceChanged() will be called by Bitwig's observer
@@ -690,6 +715,7 @@ class ControllerHW {
         this._mode = 'track';
         this._masterTrackMode = true;
         this._activeMapper = null;
+        this._activePadMapper = null;
         this._selectedDeviceIndex = null;
         this._lastDeviceName = null;
 
@@ -744,7 +770,10 @@ class ControllerHW {
      * @param {string} deviceName - Name of the focused device
      */
     _mapDeviceToTwister(deviceName) {
+        this.println("[TRACE] _mapDeviceToTwister(" + deviceName + ") called. _activeMapper was " + (this._activeMapper ? "SET" : "null") + " _mode=" + this._mode);
+        this.println("[TRACE] " + new Error().stack.split('\n').slice(1, 4).join(' <- '));
         this._activeMapper = null;
+        this._paramDropLogged = false;
         this.twister.unlinkAll();
         if (this.deviceMapper) this.deviceMapper.resetGenericMode();
         this._pendingRCCheck = false;
@@ -756,6 +785,17 @@ class ControllerHW {
                 painter: this.painter,
                 println: this.println
             });
+            // Restore cached state if available
+            if (this._mapperStateCache[deviceName] && this._activeMapper.restoreState) {
+                this._activeMapper.restoreState(this._mapperStateCache[deviceName]);
+            }
+            // Feed any pending params (first-time values OR post-snapshot changes)
+            var pending = this._pendingParamValues;
+            this._pendingParamValues = {};
+            this._pendingParamDevice = null;
+            for (var pid in pending) {
+                this._activeMapper.feed(pid, pending[pid]);
+            }
         } else {
             this._pendingRCCheck = true;
             var self = this;
@@ -780,8 +820,10 @@ class ControllerHW {
      * @param {string} deviceName - Name of the focused device
      */
     enterDeviceMode(deviceName) {
+        this.println("[TRACE] enterDeviceMode(" + deviceName + ") _activeMapper=" + (this._activeMapper ? "SET" : "null") + " _mode=" + this._mode);
         this._mode = 'device';
         this._masterTrackMode = false;
+        this._lastDeviceName = deviceName;
         if (this.host) this.host.showPopupNotification("Device: " + deviceName);
 
         var cursorDevice = this.bitwig.getCursorDevice();
@@ -791,7 +833,9 @@ class ControllerHW {
             cursorDevice.isRemoteControlsSectionVisible().set(true);
         }
 
-        this._mapDeviceToTwister(deviceName);
+        if (!this._activeMapper) {
+            this._mapDeviceToTwister(deviceName);
+        }
 
         // Deactivate DeviceSelector if active
         if (this.deviceSelector && this.deviceSelector.isActive()) {
@@ -803,6 +847,7 @@ class ControllerHW {
         if (this.padMappers[deviceName]) {
             padMapper = this.padMappers[deviceName]();
         }
+        this._activePadMapper = padMapper;
 
         if (this.deviceQuadrant) {
             if (!this.deviceQuadrant.isActive()) {
@@ -815,6 +860,20 @@ class ControllerHW {
                 this.deviceQuadrant.applyPadMapper(padMapper);
             }
         }
+
+        // Restore pad mapper state after activate (needs _padEntries for repaint)
+        if (padMapper && this._padMapperStateCache[deviceName] && padMapper.restoreState) {
+            padMapper.restoreState(this._padMapperStateCache[deviceName]);
+        }
+
+        // Forward pending pad params (latest Bitwig state)
+        if (padMapper) {
+            var pendingPad = this._pendingPadParamValues;
+            this._pendingPadParamValues = {};
+            for (var pid in pendingPad) {
+                padMapper.onParamValueChanged(pid, pendingPad[pid]);
+            }
+        }
     }
 
     /**
@@ -823,6 +882,12 @@ class ControllerHW {
      */
     onDeviceChanged(deviceName) {
         if (!deviceName) return;
+        if (this._pendingParamDevice !== null && this._pendingParamDevice !== deviceName) {
+            this._pendingParamValues = {};
+            this._pendingPadParamValues = {};
+        }
+        this._pendingParamDevice = deviceName;
+        this.println("[TRACE] onDeviceChanged(" + deviceName + ") _mode=" + this._mode + " _activeMapper=" + (this._activeMapper ? "SET" : "null") + " _masterTrackMode=" + this._masterTrackMode);
 
         if (this._masterTrackMode) {
             this._lastDeviceName = deviceName;
@@ -835,6 +900,7 @@ class ControllerHW {
             this._lastDeviceName = deviceName;
             if (this.host) this.host.showPopupNotification("Device: " + deviceName);
         } else if (this._mode === 'device') {
+            this._activeMapper = null;
             this.enterDeviceMode(deviceName);
         } else {
             // grid mode
@@ -851,6 +917,9 @@ class ControllerHW {
      * @param {string} name - Cursor track name
      */
     onCursorTrackChanged(name) {
+        this._mapperStateCache = {};
+        this._padMapperStateCache = {};
+        this._pendingPadParamValues = {};
         if (this._masterTrackMode) return;
         if (this._mode === 'track' || this._mode === 'device') {
             this._suppressNextDeviceChange = true;
@@ -887,9 +956,19 @@ class ControllerHW {
      * @param {number} value - Normalized value (0-1)
      */
     onDeviceParamChanged(id, value) {
+        var normalizedId = id.replace('ROOT_GENERIC_MODULE/', '');
         if (this._activeMapper) {
-            var normalizedId = id.replace('ROOT_GENERIC_MODULE/', '');
             this._activeMapper.feed(normalizedId, value);
+        } else {
+            this._pendingParamValues[normalizedId] = value;
+            if (!this._paramDropLogged) {
+                this.println("[TRACE] onDeviceParamChanged BUFFERING (no mapper): id=" + id + " value=" + value);
+                this._paramDropLogged = true;
+            }
+        }
+        // Buffer for pad mapper when DeviceQuadrant isn't forwarding
+        if (!this.deviceQuadrant || !this.deviceQuadrant.isActive()) {
+            this._pendingPadParamValues[normalizedId] = value;
         }
     }
 
