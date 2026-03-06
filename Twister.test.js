@@ -759,6 +759,135 @@ function makeTwister(opts) {
     assert(tw._projectRCMode === false, 'unlinkAll should clear _projectRCMode');
 })();
 
+// project RC index 7 (tempo) uses invokeAction instead of setting param value
+(function() {
+    var bw = fakeBitwig({}, {});
+    var actions = [];
+    bw.invokeAction = function(action) { actions.push(action); };
+    var cachedProjectRC = null;
+    bw.getProjectRemoteControls = function() {
+        if (cachedProjectRC) return cachedProjectRC;
+        var params = {};
+        for (var i = 0; i < 8; i++) {
+            (function(idx) {
+                var val = 0;
+                params[idx] = {
+                    name: function() { return { get: function() { return 'Param ' + idx; } }; },
+                    value: function() { return { get: function() { return val; }, set: function(v) { val = v; } }; },
+                    discreteValueCount: function() { return { get: function() { return -1; } }; }
+                };
+            })(i);
+        }
+        cachedProjectRC = { getParameter: function(i) { return params[i]; } };
+        return cachedProjectRC;
+    };
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToProjectRemoteControls();
+    // RC index 7 maps to encoder ((7+4)%8)+1 = 4
+    var encoderNum = 4;
+    // First turn: establishes baseline, no action fired
+    tw.handleEncoderTurn(encoderNum, 64);
+    assert(actions.length === 0, 'first turn should not fire any action');
+    // Second turn: increase by 1
+    tw.handleEncoderTurn(encoderNum, 65);
+    assert(actions.length === 1, 'should fire one action, got ' + actions.length);
+    assert(actions[0] === 'increase_tempo_one_bpm', 'should fire increase_tempo_one_bpm, got ' + actions[0]);
+})();
+
+// project RC index 7 (tempo) decrease direction fires decrease action
+(function() {
+    var bw = fakeBitwig({}, {});
+    var actions = [];
+    bw.invokeAction = function(action) { actions.push(action); };
+    var cachedProjectRC = null;
+    bw.getProjectRemoteControls = function() {
+        if (cachedProjectRC) return cachedProjectRC;
+        var params = {};
+        for (var i = 0; i < 8; i++) {
+            (function(idx) {
+                var val = 0;
+                params[idx] = {
+                    name: function() { return { get: function() { return 'Param ' + idx; } }; },
+                    value: function() { return { get: function() { return val; }, set: function(v) { val = v; } }; },
+                    discreteValueCount: function() { return { get: function() { return -1; } }; }
+                };
+            })(i);
+        }
+        cachedProjectRC = { getParameter: function(i) { return params[i]; } };
+        return cachedProjectRC;
+    };
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToProjectRemoteControls();
+    tw.handleEncoderTurn(4, 64); // baseline
+    tw.handleEncoderTurn(4, 62); // decrease by 2
+    assert(actions.length === 2, 'should fire two actions for delta of 2, got ' + actions.length);
+    assert(actions[0] === 'decrease_tempo_one_bpm', 'first action should be decrease');
+    assert(actions[1] === 'decrease_tempo_one_bpm', 'second action should be decrease');
+})();
+
+// project RC index 7 (tempo) multi-step increase fires action multiple times
+(function() {
+    var bw = fakeBitwig({}, {});
+    var actions = [];
+    bw.invokeAction = function(action) { actions.push(action); };
+    var cachedProjectRC = null;
+    bw.getProjectRemoteControls = function() {
+        if (cachedProjectRC) return cachedProjectRC;
+        var params = {};
+        for (var i = 0; i < 8; i++) {
+            (function(idx) {
+                var val = 0;
+                params[idx] = {
+                    name: function() { return { get: function() { return 'Param ' + idx; } }; },
+                    value: function() { return { get: function() { return val; }, set: function(v) { val = v; } }; },
+                    discreteValueCount: function() { return { get: function() { return -1; } }; }
+                };
+            })(i);
+        }
+        cachedProjectRC = { getParameter: function(i) { return params[i]; } };
+        return cachedProjectRC;
+    };
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToProjectRemoteControls();
+    tw.handleEncoderTurn(4, 50); // baseline
+    tw.handleEncoderTurn(4, 55); // increase by 5
+    assert(actions.length === 5, 'should fire 5 actions for delta of 5, got ' + actions.length);
+    for (var a = 0; a < 5; a++) {
+        assert(actions[a] === 'increase_tempo_one_bpm', 'action ' + a + ' should be increase');
+    }
+})();
+
+// project RC non-index-7 encoders still use standard param value setting
+(function() {
+    var bw = fakeBitwig({}, {});
+    var actions = [];
+    bw.invokeAction = function(action) { actions.push(action); };
+    var cachedProjectRC = null;
+    bw.getProjectRemoteControls = function() {
+        if (cachedProjectRC) return cachedProjectRC;
+        var params = {};
+        for (var i = 0; i < 8; i++) {
+            (function(idx) {
+                var val = 0;
+                params[idx] = {
+                    name: function() { return { get: function() { return 'Param ' + idx; } }; },
+                    value: function() { return { get: function() { return val; }, set: function(v) { val = v; } }; },
+                    discreteValueCount: function() { return { get: function() { return -1; } }; }
+                };
+            })(i);
+        }
+        cachedProjectRC = { getParameter: function(i) { return params[i]; } };
+        return cachedProjectRC;
+    };
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToProjectRemoteControls();
+    // RC index 0 maps to encoder ((0+4)%8)+1 = 5
+    tw.handleEncoderTurn(5, 100);
+    var param = bw.getProjectRemoteControls().getParameter(0);
+    assert(Math.abs(param.value().get() - 100/127) < 0.01, 'non-tempo encoder should set param value normally');
+    assert(actions.length === 0, 'non-tempo encoder should not invoke any actions');
+})();
+
 // ---- summary ----
 
 process.exit(t.summary('Twister'));

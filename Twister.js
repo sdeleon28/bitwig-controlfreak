@@ -371,6 +371,30 @@ class TwisterHW {
                 })(param);
                 this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
                 this.setEncoderLED(encoderNum, value >= 0.5 ? 127 : 0);
+            } else if (i === 7) {
+                // Tempo (RC slot 8): use integer BPM actions instead of normalized value
+                var turnCb = (function(lastRef, bitwigRef) {
+                    return function(val) {
+                        if (lastRef.v === -1) { lastRef.v = val; return; }
+                        var delta = val - lastRef.v;
+                        lastRef.v = val;
+                        if (delta === 0) return;
+                        var action = delta > 0
+                            ? 'increase_tempo_one_bpm'
+                            : 'decrease_tempo_one_bpm';
+                        var steps = Math.abs(delta);
+                        for (var s = 0; s < steps; s++) {
+                            bitwigRef.invokeAction(action);
+                        }
+                    };
+                })({ v: -1 }, this.bitwig);
+                var pressCb = (function(p, h) {
+                    return function(pressed) {
+                        if (pressed && h) h.showPopupNotification(p.name().get());
+                    };
+                })(param, this.host);
+                this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
+                this.setEncoderLED(encoderNum, Math.round(value * 127));
             } else {
                 var turnCb = (function(p) {
                     return function(val) { p.value().set(val / 127.0); };
