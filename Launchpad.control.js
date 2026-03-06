@@ -287,9 +287,13 @@ function init() {
     }
     Bitwig.initTrackRemoteControls(trackRemoteControls);
 
-    // Device bank for device selector (13 device slots)
-    var deviceBank = cursorTrack.createDeviceBank(13);
-    for (var db = 0; db < 13; db++) {
+    // End-of-chain insertion point for adding devices from empty pads
+    var endOfChainInsertionPoint = cursorTrack.endOfDeviceChainInsertionPoint();
+    Bitwig.initEndOfChainInsertionPoint(endOfChainInsertionPoint);
+
+    // Device bank for device selector (12 device slots)
+    var deviceBank = cursorTrack.createDeviceBank(12);
+    for (var db = 0; db < 12; db++) {
         var bankDevice = deviceBank.getItemAt(db);
         bankDevice.exists().markInterested();
         bankDevice.name().markInterested();

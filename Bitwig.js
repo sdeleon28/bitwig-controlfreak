@@ -537,6 +537,14 @@ class BitwigHW {
         return this._deviceBank;
     }
 
+    initEndOfChainInsertionPoint(insertionPoint) {
+        this._endOfChainInsertionPoint = insertionPoint;
+    }
+
+    getEndOfChainInsertionPoint() {
+        return this._endOfChainInsertionPoint;
+    }
+
     /**
      * Select a track in mixer (XOR - deselects others)
      * @param {number} trackId - Track ID to select

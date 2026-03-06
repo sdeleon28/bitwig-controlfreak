@@ -1,7 +1,7 @@
 /**
  * Device selector quadrant - shows devices on the cursor track for selection.
  * Replaces bottom-left track grid when in track mode.
- * Pads 1-13: device slots, Pad 14: reserved, Pad 15: solo toggle, Pad 16: exit.
+ * Pads 1-12: device slots, Pads 13-14: reserved, Pad 15: solo toggle, Pad 16: exit.
  */
 class DeviceSelectorHW {
     /**
@@ -32,7 +32,7 @@ class DeviceSelectorHW {
         this._cursorDevicePosition = -1;
         this._cursorTrackSoloed = false;
 
-        for (var i = 0; i < 13; i++) {
+        for (var i = 0; i < 12; i++) {
             this._deviceExists[i] = false;
             this._deviceNames[i] = '';
         }
@@ -48,6 +48,14 @@ class DeviceSelectorHW {
         this._onDeviceSelected = onDeviceSelected || null;
         this._onExit = onExit || null;
 
+        // Sync device existence from Bitwig to avoid stale observer state
+        var deviceBank = this.bitwig.getDeviceBank();
+        if (deviceBank) {
+            for (var i = 0; i < 12; i++) {
+                this._deviceExists[i] = deviceBank.getItemAt(i).exists().get();
+            }
+        }
+
         var pads = this.launchpadQuadrant.bottomLeft.pads;
         var page = this.pager.getActivePage();
 
@@ -57,8 +65,11 @@ class DeviceSelectorHW {
             this.launchpad.clearPadBehavior(pads[i]);
         }
 
-        // Paint device pads (1-13)
+        // Paint device pads (1-12)
         this._paintDevicePads();
+
+        // Pad 13 (index 12) = reserved (dark)
+        this.pager.requestPaint(page, pads[12], this.launchpad.colors.off);
 
         // Pad 14 (index 13) = reserved (dark)
         this.pager.requestPaint(page, pads[13], this.launchpad.colors.off);
@@ -110,24 +121,26 @@ class DeviceSelectorHW {
 
     /**
      * Called by Bitwig observer when device existence changes.
-     * @param {number} index - Device index (0-12)
+     * @param {number} index - Device index (0-11)
      * @param {boolean} exists - Whether device exists at this slot
      */
     onDeviceExistsChanged(index, exists) {
-        if (index < 0 || index >= 13) return;
+        if (index < 0 || index >= 12) return;
         this._deviceExists[index] = exists;
         if (this._active) {
-            this._paintDevicePad(index);
+            for (var i = 0; i < 12; i++) {
+                this._paintDevicePad(i);
+            }
         }
     }
 
     /**
      * Called by Bitwig observer when device name changes.
-     * @param {number} index - Device index (0-12)
+     * @param {number} index - Device index (0-11)
      * @param {string} name - Device name
      */
     onDeviceNameChanged(index, name) {
-        if (index < 0 || index >= 13) return;
+        if (index < 0 || index >= 12) return;
         this._deviceNames[index] = name;
     }
 
@@ -140,10 +153,10 @@ class DeviceSelectorHW {
         this._cursorDevicePosition = position;
         if (this._active) {
             // Repaint old and new position
-            if (oldPosition >= 0 && oldPosition < 13) {
+            if (oldPosition >= 0 && oldPosition < 12) {
                 this._paintDevicePad(oldPosition);
             }
-            if (position >= 0 && position < 13) {
+            if (position >= 0 && position < 12) {
                 this._paintDevicePad(position);
             }
         }
@@ -164,17 +177,28 @@ class DeviceSelectorHW {
         var self = this;
         var pads = this.launchpadQuadrant.bottomLeft.pads;
 
-        for (var i = 0; i < 13; i++) {
+        for (var i = 0; i < 12; i++) {
             this._paintDevicePad(i);
             // Register click behavior
             (function(deviceIndex) {
                 self.launchpad.registerPadBehavior(pads[deviceIndex], function() {
-                    if (self._deviceExists[deviceIndex] && self._onDeviceSelected) {
-                        self._onDeviceSelected(deviceIndex);
+                    if (self._deviceExists[deviceIndex]) {
+                        if (self._onDeviceSelected) self._onDeviceSelected(deviceIndex);
+                    } else {
+                        var ip = self.bitwig.getEndOfChainInsertionPoint();
+                        if (ip) ip.browse();
                     }
                 }, null, self.pageNumber);
             })(i);
         }
+    }
+
+    _isFirstEmptySlot(index) {
+        if (this._deviceExists[index]) return false;
+        for (var i = 0; i < index; i++) {
+            if (!this._deviceExists[i]) return false;
+        }
+        return true;
     }
 
     _paintDevicePad(index) {
@@ -182,7 +206,11 @@ class DeviceSelectorHW {
         var page = this.pager.getActivePage();
 
         if (!this._deviceExists[index]) {
-            this.pager.requestPaint(page, pads[index], this.launchpad.colors.off);
+            if (this._isFirstEmptySlot(index)) {
+                this.pager.requestPaint(page, pads[index], this.launchpad.getBrightnessVariant(this.launchpad.colors.green, this.launchpad.brightness.dim));
+            } else {
+                this.pager.requestPaint(page, pads[index], this.launchpad.colors.off);
+            }
         } else if (index === this._cursorDevicePosition) {
             this.pager.requestPaint(page, pads[index], this.launchpad.getBrightnessVariant(this.launchpad.colors.cyan, this.launchpad.brightness.bright));
         } else {

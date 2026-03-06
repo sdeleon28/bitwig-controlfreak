@@ -48,6 +48,7 @@ function fakePager(activePage) {
 function fakeBitwig(opts) {
     opts = opts || {};
     var _soloed = false;
+    var _browseCalls = [];
     return {
         getCursorTrack: function() {
             return {
@@ -65,7 +66,24 @@ function fakeBitwig(opts) {
             };
         },
         getDeviceBank: function() { return opts.deviceBank || null; },
-        _soloed: function() { return _soloed; }
+        getEndOfChainInsertionPoint: function() {
+            return { browse: function() { _browseCalls.push(true); } };
+        },
+        _soloed: function() { return _soloed; },
+        _browseCalls: _browseCalls
+    };
+}
+
+function fakeDeviceBank(existsArray) {
+    existsArray = existsArray || [];
+    return {
+        getItemAt: function(index) {
+            return {
+                exists: function() {
+                    return { get: function() { return !!existsArray[index]; } };
+                }
+            };
+        }
     };
 }
 
@@ -106,13 +124,18 @@ function makeSubject(opts) {
     assert(unlinkCalls.length === 16, 'should unlink all 16 pads');
 })();
 
-// activate paints empty device pads dark (pads 1-13)
+// activate paints first empty device pad dim green, rest dark (pads 1-12)
 (function() {
     var pager = fakePager(1);
     var ds = makeSubject({ pager: pager });
     ds.activate();
     var pads = fakeQuadrant().bottomLeft.pads;
-    for (var i = 0; i < 13; i++) {
+    // First empty pad (index 0) should be dim green
+    var firstPaint = pager.paints.filter(function(p) { return p.pad === pads[0]; });
+    assert(firstPaint.length > 0 && firstPaint[firstPaint.length - 1].color === '21_dim',
+        'first empty device pad should be dim green');
+    // Rest should be dark
+    for (var i = 1; i < 12; i++) {
         var found = pager.paints.some(function(p) { return p.pad === pads[i] && p.color === 0; });
         assert(found, 'empty device pad ' + (i + 1) + ' should be painted dark');
     }
@@ -147,14 +170,18 @@ function makeSubject(opts) {
         'cursor device pad should be bright cyan');
 })();
 
-// activate paints pad 14 (reserved) dark
+// activate paints pads 13 and 14 (reserved) dark
 (function() {
     var pager = fakePager(1);
     var ds = makeSubject({ pager: pager });
     ds.activate();
-    var reservedPaint = pager.paints.filter(function(p) { return p.pad === 42; });
-    assert(reservedPaint.length > 0, 'should paint reserved pad');
-    assert(reservedPaint[0].color === 0, 'reserved pad should be dark');
+    var pads = fakeQuadrant().bottomLeft.pads;
+    var reserved13Paint = pager.paints.filter(function(p) { return p.pad === pads[12]; });
+    assert(reserved13Paint.length > 0, 'should paint reserved pad 13');
+    assert(reserved13Paint[0].color === 0, 'reserved pad 13 should be dark');
+    var reserved14Paint = pager.paints.filter(function(p) { return p.pad === pads[13]; });
+    assert(reserved14Paint.length > 0, 'should paint reserved pad 14');
+    assert(reserved14Paint[0].color === 0, 'reserved pad 14 should be dark');
 })();
 
 // activate paints pad 15 (solo) with dim yellow
@@ -212,14 +239,16 @@ function makeSubject(opts) {
     assert(selectedDevice === 2, 'clicking existing device should call onDeviceSelected with index');
 })();
 
-// clicking empty device pad is no-op
+// clicking empty device pad opens device browser
 (function() {
     var lp = fakeLaunchpad();
+    var bw = fakeBitwig();
     var selectedDevice = null;
-    var ds = makeSubject({ launchpad: lp });
+    var ds = makeSubject({ launchpad: lp, bitwig: bw });
     ds.activate(function(idx) { selectedDevice = idx; }, function() {});
     lp.behaviors[11].click(); // device 0 doesn't exist
-    assert(selectedDevice === null, 'clicking empty device pad should be no-op');
+    assert(selectedDevice === null, 'clicking empty device pad should not call onDeviceSelected');
+    assert(bw._browseCalls.length === 1, 'clicking empty device pad should call browse()');
 })();
 
 // deactivate clears all pads
@@ -243,7 +272,7 @@ function makeSubject(opts) {
     assert(pager.clears.length === 0, 'second deactivate should be no-op');
 })();
 
-// onDeviceExistsChanged updates pad when active
+// onDeviceExistsChanged repaints all 12 device pads when active
 (function() {
     var pager = fakePager(1);
     var ds = makeSubject({ pager: pager });
@@ -252,9 +281,13 @@ function makeSubject(opts) {
     ds.onDeviceExistsChanged(3, true);
     var newPaints = pager.paints.slice(paintsBefore);
     var pads = fakeQuadrant().bottomLeft.pads;
+    // Should repaint all 12 device pads
+    for (var i = 0; i < 12; i++) {
+        var padPaint = newPaints.filter(function(p) { return p.pad === pads[i]; });
+        assert(padPaint.length > 0, 'should repaint device pad ' + i);
+    }
     var pad4Paint = newPaints.filter(function(p) { return p.pad === pads[3]; });
-    assert(pad4Paint.length > 0, 'should repaint pad when device exists changes');
-    assert(pad4Paint[0].color === '41_dim', 'new device should be dim cyan');
+    assert(pad4Paint[pad4Paint.length - 1].color === '41_dim', 'new device should be dim cyan');
 })();
 
 // onDeviceExistsChanged is no-op when inactive
@@ -337,6 +370,92 @@ function makeSubject(opts) {
     ds.deactivate();
     assert(!lp.behaviors[43], 'deactivate should clear solo pad behavior');
     assert(!lp.behaviors[44], 'deactivate should clear exit pad behavior');
+})();
+
+// first empty pad after existing devices is dim green, subsequent empties are dark
+(function() {
+    var pager = fakePager(1);
+    var ds = makeSubject({ pager: pager });
+    ds._deviceExists[0] = true;
+    ds._deviceExists[1] = true;
+    ds.activate();
+    var pads = fakeQuadrant().bottomLeft.pads;
+    // Pad 3 (index 2) is the first empty slot
+    var pad3Paint = pager.paints.filter(function(p) { return p.pad === pads[2]; });
+    assert(pad3Paint.length > 0 && pad3Paint[pad3Paint.length - 1].color === '21_dim',
+        'first empty pad after devices should be dim green');
+    // Pad 4 (index 3) should be dark
+    var pad4Paint = pager.paints.filter(function(p) { return p.pad === pads[3]; });
+    assert(pad4Paint.length > 0 && pad4Paint[pad4Paint.length - 1].color === 0,
+        'subsequent empty pad should be dark');
+})();
+
+// onDeviceExistsChanged repaints add-indicator correctly and shifts green to next empty
+(function() {
+    var pager = fakePager(1);
+    var ds = makeSubject({ pager: pager });
+    ds.activate();
+    // Initially pad 0 is first empty (dim green)
+    var paintsBefore = pager.paints.length;
+    ds.onDeviceExistsChanged(0, true);
+    var newPaints = pager.paints.slice(paintsBefore);
+    var pads = fakeQuadrant().bottomLeft.pads;
+    // Pad 0 should now be dim cyan (existing device)
+    var pad0Paint = newPaints.filter(function(p) { return p.pad === pads[0]; });
+    assert(pad0Paint.length > 0 && pad0Paint[pad0Paint.length - 1].color === '41_dim', 'pad 0 should be dim cyan after device added');
+    // Pad 1 should now be dim green (new first empty slot)
+    var pad1Paint = newPaints.filter(function(p) { return p.pad === pads[1]; });
+    assert(pad1Paint.length > 0 && pad1Paint[pad1Paint.length - 1].color === '21_dim', 'pad 1 should become dim green add-indicator');
+    // Pad 2 should be dark (not the first empty)
+    var pad2Paint = newPaints.filter(function(p) { return p.pad === pads[2]; });
+    assert(pad2Paint.length > 0 && pad2Paint[pad2Paint.length - 1].color === 0, 'pad 2 should remain dark');
+})();
+
+// onDeviceExistsChanged repaints all 12 pads so green indicator shifts mid-chain
+(function() {
+    var pager = fakePager(1);
+    var ds = makeSubject({ pager: pager });
+    ds._deviceExists[0] = true;
+    ds._deviceExists[1] = true;
+    ds.activate();
+    // Pad 2 is currently the first empty (dim green)
+    var paintsBefore = pager.paints.length;
+    ds.onDeviceExistsChanged(2, true);
+    var newPaints = pager.paints.slice(paintsBefore);
+    var pads = fakeQuadrant().bottomLeft.pads;
+    // Pad 2 should now be dim cyan
+    var pad2Paint = newPaints.filter(function(p) { return p.pad === pads[2]; });
+    assert(pad2Paint.length > 0 && pad2Paint[pad2Paint.length - 1].color === '41_dim', 'pad 2 should be dim cyan after device added');
+    // Pad 3 should now be dim green (new first empty)
+    var pad3Paint = newPaints.filter(function(p) { return p.pad === pads[3]; });
+    assert(pad3Paint.length > 0 && pad3Paint[pad3Paint.length - 1].color === '21_dim', 'pad 3 should become dim green add-indicator');
+})();
+
+// activate() syncs _deviceExists from device bank (fixes stale observer state)
+(function() {
+    var pager = fakePager(1);
+    var bank = fakeDeviceBank([true, true, true, true, true]);
+    var bw = fakeBitwig({ deviceBank: bank });
+    var ds = makeSubject({ pager: pager, bitwig: bw });
+    // _deviceExists is all-false by default (simulating missed observers)
+    assert(ds._deviceExists[0] === false, 'precondition: _deviceExists[0] should be false');
+    ds.activate();
+    for (var i = 0; i < 5; i++) {
+        assert(ds._deviceExists[i] === true, 'activate should sync _deviceExists[' + i + '] to true from bank');
+    }
+    for (var i = 5; i < 12; i++) {
+        assert(ds._deviceExists[i] === false, '_deviceExists[' + i + '] should remain false');
+    }
+    // Verify painting: first 5 pads should be cyan, pad 6 should be dim green (first empty)
+    var pads = fakeQuadrant().bottomLeft.pads;
+    for (var i = 0; i < 5; i++) {
+        var padPaint = pager.paints.filter(function(p) { return p.pad === pads[i]; });
+        assert(padPaint.length > 0 && padPaint[padPaint.length - 1].color === '41_dim',
+            'device pad ' + i + ' should be dim cyan after bank sync');
+    }
+    var pad5Paint = pager.paints.filter(function(p) { return p.pad === pads[5]; });
+    assert(pad5Paint.length > 0 && pad5Paint[pad5Paint.length - 1].color === '21_dim',
+        'first empty pad after synced devices should be dim green');
 })();
 
 process.exit(t.summary('DeviceSelector'));
