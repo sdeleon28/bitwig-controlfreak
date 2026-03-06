@@ -234,28 +234,6 @@ class FrequalizerTwisterBandMapper {
         };
     }
 
-    getState() {
-        return {
-            ringValues: Object.assign({}, this._ringValues),
-            bandActive: Object.assign({}, this._bandActive)
-        };
-    }
-
-    restoreState(state) {
-        if (state.ringValues) {
-            for (var enc in state.ringValues) {
-                this._ringValues[parseInt(enc)] = state.ringValues[enc];
-            }
-        }
-        if (state.bandActive) {
-            for (var band in state.bandActive) {
-                this._bandActive[band] = state.bandActive[band];
-            }
-        }
-        // Silent state load only — no painting here.
-        // Parent calls _onModeChanged() which triggers _repaintAll() + _replayRings()
-        // reading from this restored state (UI = f(state) via existing paint path).
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -286,6 +264,13 @@ class FrequalizerTwisterMapper {
         this._device.onModeChanged(function(mode) {
             self._onModeChanged(mode);
         });
+    }
+
+    resync() {
+        if (this._active) {
+            this._active._repaintAll();
+            this._active._replayRings();
+        }
     }
 
     _onModeChanged(mode) {
@@ -341,21 +326,6 @@ class FrequalizerTwisterMapper {
         return this._device.feed(id, value);
     }
 
-    getState() {
-        return {
-            mode: this._mode,
-            stereo: this._stereo.getState(),
-            mid: this._mid.getState(),
-            side: this._side.getState()
-        };
-    }
-
-    restoreState(state) {
-        if (state.stereo) this._stereo.restoreState(state.stereo);
-        if (state.mid) this._mid.restoreState(state.mid);
-        if (state.side) this._side.restoreState(state.side);
-        this._onModeChanged(state.mode || FrequalizerDevice.Mode.STEREO);
-    }
 }
 
 if (typeof module !== 'undefined') module.exports = FrequalizerTwisterMapper;

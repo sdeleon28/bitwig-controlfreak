@@ -22,6 +22,7 @@ load('NanoKey2.js');
 // Layer 3: Isolation
 load('Pager.js');
 load('Animations.js');
+load('MapperCache.js');
 
 // Layer 3.5: Mapper infrastructure
 load('TwisterPainter.js');

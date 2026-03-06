@@ -898,99 +898,55 @@ for (var ssi = 0; ssi < sideSoloTests.length; ssi++) {
 })();
 
 // ===========================================================================
-// getState / restoreState protocol tests
+// resync() tests
 // ===========================================================================
 
-// getState returns ring values and band active states
+// resync replays band colors and ring values for the active mapper
 (function() {
     var s = makeMapper();
-    s.mapper.feed(PARAM_IDS.Q2_FREQ, 0.5);
+    // activate Low and feed ring values
     s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
-    s.mapper.feed(PARAM_IDS.Q5_ACTIVE, 1.0);
-
-    var state = s.mapper.getState();
-    assert(state.stereo !== undefined, 'getState has stereo');
-    assert(state.mid !== undefined, 'getState has mid');
-    assert(state.side !== undefined, 'getState has side');
-    assert(state.stereo.ringValues[1] === 64, 'stereo ring value for encoder 1 = 64');
-    assert(state.stereo.bandActive['Low'] === true, 'stereo Low is active');
-    assert(state.stereo.bandActive['High'] === true, 'stereo High is active');
-})();
-
-// restoreState applies state and repaints via _onModeChanged
-(function() {
-    var s = makeMapper();
-    s.mapper.feed(PARAM_IDS.Q2_FREQ, 0.5);
-    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
-    var state = s.mapper.getState();
-
-    // Create a fresh mapper and restore
-    var s2 = makeMapper();
-    s2.output.messages.length = 0;
-    s2.mapper.restoreState(state);
-
-    // Should have repainted: mode switch clears 16 encoders + repaints active bands + replays rings
-    var offMsgs = s2.output.messages.filter(function(m) { return m.status === 0xB2 && m.data2 === 17; });
-    assert(offMsgs.length >= 16, 'restoreState: at least 16 off messages, got ' + offMsgs.length);
-    var colorMsgs = s2.output.messages.filter(function(m) { return m.status === 0xB1; });
-    assert(colorMsgs.length === 3, 'restoreState: 3 color msgs for Low band, got ' + colorMsgs.length);
-    var ringMsgs = s2.output.messages.filter(function(m) { return m.status === 0xB0; });
-    assert(ringMsgs.length === 1, 'restoreState: 1 ring msg replayed, got ' + ringMsgs.length);
-})();
-
-// getState/restoreState round-trip: feed params → getState → new mapper → restoreState → same LED output
-(function() {
-    var s = makeMapper();
     s.mapper.feed(PARAM_IDS.Q2_FREQ, 0.5);
     s.mapper.feed(PARAM_IDS.Q3_GAIN, 0.8);
-    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
-    s.mapper.feed(PARAM_IDS.Q5_ACTIVE, 1.0);
-    var state = s.mapper.getState();
+    s.output.messages.length = 0;
 
-    var s2 = makeMapper();
-    s2.mapper.restoreState(state);
+    s.mapper.resync();
+    var msgs = s.output.messages;
 
-    // Verify band active state round-tripped
-    var click9 = s2.mapper.handleClick(9);  // Low toggle button
-    assert(click9.value === 0, 'round-trip: Low was active, toggles to 0');
-    var click12 = s2.mapper.handleClick(12); // High toggle button
-    assert(click12.value === 0, 'round-trip: High was active, toggles to 0');
-    var click10 = s2.mapper.handleClick(10); // LowMids toggle button
-    assert(click10.value === 1, 'round-trip: LowMids was inactive, toggles to 1');
+    // repaintAll: Low active (3 encoders × 2 msgs = 6 paint) + 5 other bands off (10+2 = 12 off msgs)
+    var paintColorMsgs = msgs.filter(function(m) { return m.status === 0xB1; });
+    assert(paintColorMsgs.length === 3, 'resync: 3 color msgs for active Low band, got ' + paintColorMsgs.length);
+
+    // replayRings: 2 ring messages (Q2_FREQ and Q3_GAIN)
+    var ringMsgs = msgs.filter(function(m) { return m.status === 0xB0; });
+    assert(ringMsgs.length === 2, 'resync: 2 ring messages replayed, got ' + ringMsgs.length);
 })();
 
-// mid mode state round-trip
+// resync does nothing when no active mapper (null _active)
+(function() {
+    var s = makeMapper();
+    s.mapper._active = null;
+    s.output.messages.length = 0;
+    s.mapper.resync();
+    assert(s.output.messages.length === 0, 'resync: no output when _active is null');
+})();
+
+// resync in mid mode replays mid state
 (function() {
     var s = makeMapper();
     switchToMid(s.mapper);
-    s.mapper.feed(PARAM_IDS.Q8_FREQ, 0.75);
     s.mapper.feed(PARAM_IDS.Q8_ACTIVE, 1.0);
-    var state = s.mapper.getState();
+    s.mapper.feed(PARAM_IDS.Q8_FREQ, 0.75);
+    s.output.messages.length = 0;
 
-    assert(state.mode === Mode.MID, 'getState captures mid mode');
+    s.mapper.resync();
+    var msgs = s.output.messages;
 
-    var s2 = makeMapper();
-    s2.mapper.restoreState(state);
+    var paintColorMsgs = msgs.filter(function(m) { return m.status === 0xB1; });
+    assert(paintColorMsgs.length === 3, 'resync mid: 3 color msgs for active Low band, got ' + paintColorMsgs.length);
 
-    // Should be in mid mode after restore
-    assert(s2.mapper.encoderParamId(1) === PARAM_IDS.Q8_FREQ, 'restored mapper is in mid mode');
-    // Band active state should be restored
-    var click9 = s2.mapper.handleClick(9); // Mid Low toggle
-    assert(click9.value === 0, 'mid round-trip: Low was active, toggles to 0');
-})();
-
-// restoreState with null mode stays in stereo (default)
-(function() {
-    var s = makeMapper();
-    s.mapper.feed(PARAM_IDS.Q2_ACTIVE, 1.0);
-    var state = s.mapper.getState();
-    // mode is null since no mode change was triggered
-    assert(state.mode === null, 'stereo default: mode is null');
-
-    var s2 = makeMapper();
-    s2.mapper.restoreState(state);
-    // Should still work in stereo (default)
-    assert(s2.mapper.encoderParamId(1) === PARAM_IDS.Q2_FREQ, 'null mode: stays in stereo');
+    var ringMsgs = msgs.filter(function(m) { return m.status === 0xB0; });
+    assert(ringMsgs.length === 1, 'resync mid: 1 ring message replayed, got ' + ringMsgs.length);
 })();
 
 // ---- summary ----

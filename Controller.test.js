@@ -1,3 +1,5 @@
+// MapperCacheHW must be global before requiring Controller (which references it)
+global.MapperCacheHW = require('./MapperCache');
 var ControllerHW = require('./Controller');
 var t = require('./test-assert');
 var assert = t.assert;
@@ -320,7 +322,6 @@ function fakeMapper() {
     var _clicks = {};
     var _holds = {};
     var _fedParams = [];
-    var _state = null;
     var obj = {
         calls: calls,
         _encoderParams: _encoderParams,
@@ -331,25 +332,20 @@ function fakeMapper() {
         handleClick: function(enc) { calls.push({ method: 'handleClick', encoder: enc }); return _clicks[enc] || null; },
         handleHold: function(enc, pressed) { calls.push({ method: 'handleHold', encoder: enc, pressed: pressed }); return _holds[enc] || null; },
         notifyButtonState: function(enc, pressed) { calls.push({ method: 'notifyButtonState', encoder: enc, pressed: pressed }); },
-        feed: function(id, value) { _fedParams.push({ id: id, value: value }); calls.push({ method: 'feed', id: id, value: value }); return true; },
-        getState: function() { return _state || { ring: 'fake' }; },
-        restoreState: function(state) { _state = state; calls.push({ method: 'restoreState', state: state }); }
+        feed: function(id, value) { _fedParams.push({ id: id, value: value }); calls.push({ method: 'feed', id: id, value: value }); return true; }
     };
     return obj;
 }
 
 function fakePadMapper() {
     var calls = [];
-    var _state = null;
     var _paramValues = [];
     return {
         calls: calls,
         _paramValues: _paramValues,
         activate: function(api) { calls.push('activate'); },
         deactivate: function() { calls.push('deactivate'); },
-        onParamValueChanged: function(id, value) { _paramValues.push({ id: id, value: value }); calls.push({ method: 'onParamValueChanged', id: id, value: value }); },
-        getState: function() { return _state || { currentModeValue: 0.25 }; },
-        restoreState: function(state) { _state = state; calls.push({ method: 'restoreState', state: state }); }
+        onParamValueChanged: function(id, value) { _paramValues.push({ id: id, value: value }); calls.push({ method: 'onParamValueChanged', id: id, value: value }); }
     };
 }
 
@@ -2528,7 +2524,7 @@ function makeController(opts) {
     assert(mapper._fedParams.length === 0, "old pending values should be cleared on device change");
 })();
 
-// exit device mode and re-enter restores state to new mapper instance
+// exit device mode and re-enter returns cached instance (no re-creation)
 (function() {
     var callCount = 0;
     var latestMapper;
@@ -2543,21 +2539,20 @@ function makeController(opts) {
     ds._onDeviceSelected(0);   // first click → creates mapper
     ds._onDeviceSelected(0);   // double-click → device mode
     assert(callCount === 1, "mapper created once");
-    // Exit device mode via exit pad → state cached
+    var firstMapper = latestMapper;
+    // Exit device mode via exit pad
     dq._exitCallback();
     assert(ctrl._mode === 'track', "should be in track mode");
     assert(ctrl._activeMapper === null, "active mapper should be null in track mode");
-    assert(ctrl._mapperStateCache['Dev'] !== undefined, "state should be cached for Dev");
-    // Re-click same device → new mapper created with state restored
+    assert(ctrl._cache._mappers['Dev'] === firstMapper, "instance should be cached");
+    // Re-click same device → same instance returned
     ds._onDeviceSelected(0);
     ds._onDeviceSelected(0);
-    assert(callCount === 2, "factory called again for new instance");
-    var restoreCalls = latestMapper.calls.filter(function(c) { return c.method === 'restoreState'; });
-    assert(restoreCalls.length === 1, "restoreState called on new mapper");
-    assert(restoreCalls[0].state.ring === 'fake', "state snapshot passed to restoreState");
+    assert(callCount === 1, "factory NOT called again (instance cached)");
+    assert(ctrl._activeMapper === firstMapper, "same mapper instance reused");
 })();
 
-// different device gets its own mapper, not restored from wrong device's cache
+// different device gets its own cached instance
 (function() {
     var mappers = {
         'DevA': function() { return fakeMapper(); },
@@ -2572,21 +2567,21 @@ function makeController(opts) {
     ctrl.enterTrackMode();
     ds._onDeviceSelected(0);
     ds._onDeviceSelected(0);
-    // Exit device mode → DevA state cached
+    var devAMapper = ctrl._activeMapper;
+    // Exit device mode → DevA instance stays in cache
     dq._exitCallback();
-    assert(ctrl._mapperStateCache['DevA'] !== undefined, "DevA state cached");
+    assert(ctrl._cache._mappers['DevA'] === devAMapper, "DevA instance cached");
     // Different device selected
     ctrl.onDeviceChanged('DevB');
-    // DevB mapper should NOT have DevA's restoreState called
-    var restoreCalls = ctrl._activeMapper.calls.filter(function(c) { return c.method === 'restoreState'; });
-    assert(restoreCalls.length === 0, "DevB should not get DevA's state");
+    assert(ctrl._activeMapper !== devAMapper, "DevB should get its own instance");
+    assert(ctrl._cache._mappers['DevB'] !== undefined, "DevB should be cached");
 })();
 
-// state cache survives selectGroup (the key bug fix)
+// instance cache survives selectGroup
 (function() {
     var callCount = 0;
-    var latestMapper;
-    var mappers = { 'Dev': function() { callCount++; latestMapper = fakeMapper(); return latestMapper; } };
+    var firstMapper;
+    var mappers = { 'Dev': function() { callCount++; firstMapper = fakeMapper(); return firstMapper; } };
     var ds = fakeDeviceSelector();
     ds._cursorDevicePosition = 0;
     var dq = fakeDeviceQuadrant();
@@ -2595,33 +2590,33 @@ function makeController(opts) {
     // Enter device mode for 'Dev'
     ctrl.enterDeviceMode('Dev');
     assert(callCount === 1, "mapper created");
-    // Exit device mode → state cached
+    // Exit device mode
     dq._exitCallback();
-    assert(ctrl._mapperStateCache['Dev'] !== undefined, "state cached after exit");
-    // selectGroup (the operation that used to clear _preservedMapper)
+    assert(ctrl._cache._mappers['Dev'] === firstMapper, "instance cached after exit");
+    // selectGroup
     ctrl.selectGroup(16);
-    // State cache should survive
-    assert(ctrl._mapperStateCache['Dev'] !== undefined, "state cache survives selectGroup");
+    // Instance cache should survive
+    assert(ctrl._cache._mappers['Dev'] === firstMapper, "instance cache survives selectGroup");
     // Re-enter track mode and device mode for same device
     ctrl.enterTrackMode();
     ctrl.onDeviceChanged('Dev');
-    var restoreCalls = latestMapper.calls.filter(function(c) { return c.method === 'restoreState'; });
-    assert(restoreCalls.length === 1, "state restored after selectGroup flow");
+    assert(ctrl._activeMapper === firstMapper, "same instance returned after selectGroup flow");
+    assert(callCount === 1, "factory NOT called again");
 })();
 
-// state cache is cleared on cursor track change
+// instance cache is cleared on cursor track change
 (function() {
     var mappers = { 'Dev': function() { return fakeMapper(); } };
     var dq = fakeDeviceQuadrant();
     var ctrl = makeController({ mappers: mappers, deviceQuadrant: dq });
     ctrl.enterDeviceMode('Dev');
     dq._exitCallback();
-    assert(ctrl._mapperStateCache['Dev'] !== undefined, "state cached after exit");
+    assert(ctrl._cache._mappers['Dev'] !== undefined, "instance cached after exit");
     ctrl.onCursorTrackChanged('NewTrack');
-    assert(ctrl._mapperStateCache['Dev'] === undefined, "state cache cleared on cursor track change");
+    assert(ctrl._cache._mappers['Dev'] === undefined, "instance cache cleared on cursor track change");
 })();
 
-// pending params are applied after state restore
+// pending params are fed to cached instance on re-entry
 (function() {
     var latestMapper;
     var mappers = { 'Dev': function() { latestMapper = fakeMapper(); return latestMapper; } };
@@ -2634,22 +2629,20 @@ function makeController(opts) {
     ctrl.enterDeviceMode('Dev');
     var firstMapper = latestMapper;
     dq._exitCallback();
-    // Param arrives while in track mode (after snapshot was taken)
+    // Param arrives while in track mode (buffered in cache)
     ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/NEW_PARAM', 0.7);
-    // Re-enter device mode
+    // Re-enter device mode — same instance, pending params fed
     ctrl.enterTrackMode();
     ctrl.onDeviceChanged('Dev');
-    // New mapper should get both restoreState AND the pending param
-    var restoreCalls = latestMapper.calls.filter(function(c) { return c.method === 'restoreState'; });
-    assert(restoreCalls.length === 1, "restoreState called");
-    var feedCalls = latestMapper._fedParams.filter(function(p) { return p.id === 'NEW_PARAM'; });
-    assert(feedCalls.length === 1, "pending param fed after restore");
+    assert(ctrl._activeMapper === firstMapper, "same instance returned");
+    var feedCalls = firstMapper._fedParams.filter(function(p) { return p.id === 'NEW_PARAM'; });
+    assert(feedCalls.length === 1, "pending param fed to cached instance");
     assert(feedCalls[0].value === 0.7, "pending param has correct value");
 })();
 
-// ---- pad mapper state cache tests ----
+// ---- pad mapper instance cache tests ----
 
-// pad mapper state cached on exit device mode
+// pad mapper instance cached on exit device mode
 (function() {
     var testPadMapper = fakePadMapper();
     var padMappers = { 'Dev': function() { return testPadMapper; } };
@@ -2658,29 +2651,26 @@ function makeController(opts) {
     ctrl.enterDeviceMode('Dev');
     assert(ctrl._activePadMapper === testPadMapper, "pad mapper should be active");
     dq._exitCallback();
-    assert(ctrl._padMapperStateCache['Dev'] !== undefined, "pad mapper state should be cached on exit");
-    assert(ctrl._padMapperStateCache['Dev'].currentModeValue === 0.25, "cached state should match getState");
+    assert(ctrl._cache._padMappers['Dev'] === testPadMapper, "pad mapper instance should be cached");
 })();
 
-// pad mapper state restored on re-enter device mode
+// pad mapper instance reused on re-enter device mode
 (function() {
     var callCount = 0;
-    var latestPadMapper;
-    var padMappers = { 'Dev': function() { callCount++; latestPadMapper = fakePadMapper(); return latestPadMapper; } };
+    var firstPadMapper;
+    var padMappers = { 'Dev': function() { callCount++; firstPadMapper = fakePadMapper(); return firstPadMapper; } };
     var dq = fakeDeviceQuadrant();
     var ctrl = makeController({ padMappers: padMappers, deviceQuadrant: dq });
     ctrl.enterDeviceMode('Dev');
     dq._exitCallback();
-    assert(ctrl._padMapperStateCache['Dev'] !== undefined, "state cached");
+    assert(ctrl._cache._padMappers['Dev'] === firstPadMapper, "instance cached");
     // Re-enter device mode
     ctrl.enterDeviceMode('Dev');
-    assert(callCount === 2, "factory called again");
-    var restoreCalls = latestPadMapper.calls.filter(function(c) { return c.method === 'restoreState'; });
-    assert(restoreCalls.length === 1, "restoreState called on new pad mapper");
-    assert(restoreCalls[0].state.currentModeValue === 0.25, "correct state restored");
+    assert(callCount === 1, "factory NOT called again (instance cached)");
+    assert(ctrl._activePadMapper === firstPadMapper, "same pad mapper instance reused");
 })();
 
-// pad mapper state cache survives selectGroup
+// pad mapper instance cache survives selectGroup
 (function() {
     var testPadMapper = fakePadMapper();
     var padMappers = { 'Dev': function() { return testPadMapper; } };
@@ -2688,12 +2678,12 @@ function makeController(opts) {
     var ctrl = makeController({ padMappers: padMappers, deviceQuadrant: dq });
     ctrl.enterDeviceMode('Dev');
     dq._exitCallback();
-    assert(ctrl._padMapperStateCache['Dev'] !== undefined, "state cached after exit");
+    assert(ctrl._cache._padMappers['Dev'] === testPadMapper, "instance cached after exit");
     ctrl.selectGroup(16);
-    assert(ctrl._padMapperStateCache['Dev'] !== undefined, "pad mapper state cache survives selectGroup");
+    assert(ctrl._cache._padMappers['Dev'] === testPadMapper, "pad mapper instance cache survives selectGroup");
 })();
 
-// pad mapper state cache cleared on cursor track change
+// pad mapper instance cache cleared on cursor track change
 (function() {
     var testPadMapper = fakePadMapper();
     var padMappers = { 'Dev': function() { return testPadMapper; } };
@@ -2701,9 +2691,9 @@ function makeController(opts) {
     var ctrl = makeController({ padMappers: padMappers, deviceQuadrant: dq });
     ctrl.enterDeviceMode('Dev');
     dq._exitCallback();
-    assert(ctrl._padMapperStateCache['Dev'] !== undefined, "state cached after exit");
+    assert(ctrl._cache._padMappers['Dev'] === testPadMapper, "instance cached after exit");
     ctrl.onCursorTrackChanged('NewTrack');
-    assert(ctrl._padMapperStateCache['Dev'] === undefined, "pad mapper state cache cleared on cursor track change");
+    assert(ctrl._cache._padMappers['Dev'] === undefined, "pad mapper instance cache cleared on cursor track change");
 })();
 
 // ---- pending pad param tests ----
@@ -2712,7 +2702,7 @@ function makeController(opts) {
 (function() {
     var ctrl = makeController({});
     ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.5);
-    assert(ctrl._pendingPadParamValues['CONTENTS/PID_MODE'] === 0.5, "should buffer pad param when no device quadrant");
+    assert(ctrl._cache._pendingPadParams['CONTENTS/PID_MODE'] === 0.5, "should buffer pad param when no device quadrant");
 })();
 
 // pending pad params NOT buffered when DeviceQuadrant is active
@@ -2721,7 +2711,7 @@ function makeController(opts) {
     dq.activate(function() {});
     var ctrl = makeController({ deviceQuadrant: dq });
     ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.5);
-    assert(ctrl._pendingPadParamValues['CONTENTS/PID_MODE'] === undefined, "should NOT buffer pad param when device quadrant active");
+    assert(ctrl._cache._pendingPadParams['CONTENTS/PID_MODE'] === undefined, "should NOT buffer pad param when device quadrant active");
 })();
 
 // pending pad params forwarded to pad mapper on enterDeviceMode
@@ -2748,7 +2738,7 @@ function makeController(opts) {
     var ctrl = makeController({ padMappers: padMappers, deviceQuadrant: dq });
     ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.5);
     ctrl.enterDeviceMode('Dev');
-    assert(Object.keys(ctrl._pendingPadParamValues).length === 0, "pending pad params should be cleared after forwarding");
+    assert(Object.keys(ctrl._cache._pendingPadParams).length === 0, "pending pad params should be cleared after forwarding");
 })();
 
 // pending pad params NOT forwarded when no pad mapper
@@ -2767,7 +2757,7 @@ function makeController(opts) {
     ctrl.onDeviceChanged('DevA');
     ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.5);
     ctrl.onDeviceChanged('DevB');
-    assert(ctrl._pendingPadParamValues['CONTENTS/PID_MODE'] === undefined, "pending pad params should be cleared on device change");
+    assert(ctrl._cache._pendingPadParams['CONTENTS/PID_MODE'] === undefined, "pending pad params should be cleared on device change");
 })();
 
 // pending pad params cleared on cursor track change
@@ -2775,33 +2765,104 @@ function makeController(opts) {
     var ctrl = makeController({});
     ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.5);
     ctrl.onCursorTrackChanged('NewTrack');
-    assert(ctrl._pendingPadParamValues['CONTENTS/PID_MODE'] === undefined, "pending pad params should be cleared on cursor track change");
+    assert(ctrl._cache._pendingPadParams['CONTENTS/PID_MODE'] === undefined, "pending pad params should be cleared on cursor track change");
 })();
 
-// pending pad params override cached state (forwarded after restoreState)
+// pending pad params flushed into cached instance on re-enter
 (function() {
-    var callCount = 0;
-    var latestPadMapper;
-    var padMappers = { 'Dev': function() { callCount++; latestPadMapper = fakePadMapper(); return latestPadMapper; } };
+    var testPadMapper = fakePadMapper();
+    var padMappers = { 'Dev': function() { return testPadMapper; } };
     var dq = fakeDeviceQuadrant();
     var ctrl = makeController({ padMappers: padMappers, deviceQuadrant: dq });
     ctrl.enterDeviceMode('Dev');
     dq._exitCallback();
-    assert(ctrl._padMapperStateCache['Dev'] !== undefined, "state cached after exit");
+    assert(ctrl._cache._padMappers['Dev'] === testPadMapper, "instance cached after exit");
     // Param arrives while in track mode
     ctrl.onDeviceParamChanged('ROOT_GENERIC_MODULE/CONTENTS/PID_MODE', 0.75);
-    // Re-enter device mode
+    // Re-enter device mode — same instance, pending params flushed
     ctrl.enterDeviceMode('Dev');
-    // restoreState should be called first, then onParamValueChanged
-    var restoreIdx = -1;
-    var paramIdx = -1;
-    for (var i = 0; i < latestPadMapper.calls.length; i++) {
-        if (latestPadMapper.calls[i].method === 'restoreState' && restoreIdx === -1) restoreIdx = i;
-        if (latestPadMapper.calls[i].method === 'onParamValueChanged' && paramIdx === -1) paramIdx = i;
-    }
-    assert(restoreIdx >= 0, "restoreState should be called");
-    assert(paramIdx >= 0, "onParamValueChanged should be called");
-    assert(restoreIdx < paramIdx, "restoreState should come before onParamValueChanged (pending overrides cache)");
+    var modeParams = testPadMapper._paramValues.filter(function(p) { return p.id === 'CONTENTS/PID_MODE'; });
+    assert(modeParams.length > 0, "pending pad param should be flushed into cached instance");
+    assert(modeParams[modeParams.length - 1].value === 0.75, "flushed value should be 0.75");
+})();
+
+// selectGroup keeps mapper instances in cache (device→grid round-trip)
+(function() {
+    var testMapper = fakeMapper();
+    var testPadMapper = fakePadMapper();
+    var mappers = { 'TestDevice': function() { return testMapper; } };
+    var padMappers = { 'TestDevice': function() { return testPadMapper; } };
+    var dq = fakeDeviceQuadrant();
+    var ctrl = makeController({ mappers: mappers, padMappers: padMappers, deviceQuadrant: dq });
+    ctrl._lastDeviceName = 'TestDevice';
+    ctrl._activeMapper = testMapper;
+    ctrl._activePadMapper = testPadMapper;
+    // Prime the cache so instances are stored
+    ctrl._cache._mappers['TestDevice'] = testMapper;
+    ctrl._cache._padMappers['TestDevice'] = testPadMapper;
+
+    ctrl.selectGroup(16);
+
+    assert(ctrl._activeMapper === null, "selectGroup should clear active mapper");
+    assert(ctrl._lastDeviceName === null, "selectGroup should clear _lastDeviceName");
+    assert(ctrl._cache._mappers['TestDevice'] === testMapper, "mapper instance should remain in cache");
+    assert(ctrl._cache._padMappers['TestDevice'] === testPadMapper, "pad mapper instance should remain in cache");
+})();
+
+// selectGroup without _lastDeviceName clears active mapper
+(function() {
+    var ctrl = makeController({});
+    ctrl._lastDeviceName = null;
+    ctrl._activeMapper = fakeMapper();
+
+    ctrl.selectGroup(16);
+
+    assert(ctrl._activeMapper === null, "selectGroup should clear active mapper even without _lastDeviceName");
+    assert(Object.keys(ctrl._cache._mappers).length === 0, "no mapper instances should be in cache");
+})();
+
+// _mapDeviceToTwister calls resync() on cached mapper that has it
+(function() {
+    var resyncCalls = 0;
+    var mapper = fakeMapper();
+    mapper.resync = function() { resyncCalls++; };
+    var ctrl = makeController({
+        mappers: { 'Dev': function() { return mapper; } }
+    });
+    ctrl._mapDeviceToTwister('Dev');
+    assert(resyncCalls === 1, "should call resync() on mapper, got " + resyncCalls);
+})();
+
+// _mapDeviceToTwister does not crash when mapper has no resync()
+(function() {
+    var mapper = fakeMapper();
+    var ctrl = makeController({
+        mappers: { 'Dev': function() { return mapper; } }
+    });
+    ctrl._mapDeviceToTwister('Dev');
+    assert(ctrl._activeMapper === mapper, "mapper without resync() still assigned");
+})();
+
+// re-entering device mode with cached mapper calls resync()
+(function() {
+    var resyncCalls = 0;
+    var mapper = fakeMapper();
+    mapper.resync = function() { resyncCalls++; };
+    var dq = fakeDeviceQuadrant();
+    var ds = fakeDeviceSelector();
+    var ctrl = makeController({
+        mappers: { 'Dev': function() { return mapper; } },
+        deviceQuadrant: dq,
+        deviceSelector: ds
+    });
+    ctrl.enterDeviceMode('Dev');
+    assert(resyncCalls === 1, "first enterDeviceMode calls resync");
+    // Go back to track mode (clears _activeMapper)
+    ctrl.enterTrackMode();
+    assert(ctrl._activeMapper === null, "track mode clears active mapper");
+    // Re-enter device mode — mapper comes from cache
+    ctrl.enterDeviceMode('Dev');
+    assert(resyncCalls === 2, "second enterDeviceMode calls resync again, got " + resyncCalls);
 })();
 
 process.exit(t.summary('Controller'));

@@ -55,11 +55,7 @@ class ControllerHW {
         this._selectedDeviceIndex = null;
         this._lastDeviceName = null;
         this._masterTrackMode = false;
-        this._pendingParamValues = {};
-        this._pendingPadParamValues = {};
-        this._pendingParamDevice = null;
-        this._mapperStateCache = {};
-        this._padMapperStateCache = {};
+        this._cache = deps.mapperStateCache || new MapperCacheHW();
         this._activePadMapper = null;
     }
 
@@ -618,15 +614,6 @@ class ControllerHW {
 
         this._mode = 'track';
         this._masterTrackMode = false;
-        if (this._lastDeviceName) {
-            if (this._activeMapper && this._activeMapper.getState) {
-                this._mapperStateCache[this._lastDeviceName] = this._activeMapper.getState();
-                this._pendingParamValues = {};
-            }
-            if (this._activePadMapper && this._activePadMapper.getState) {
-                this._padMapperStateCache[this._lastDeviceName] = this._activePadMapper.getState();
-            }
-        }
         this._activeMapper = null;
         this._activePadMapper = null;
         this._selectedDeviceIndex = null;
@@ -781,20 +768,12 @@ class ControllerHW {
         var seq = this._deviceChangeSeq;
 
         if (this.mappers[deviceName]) {
-            this._activeMapper = this.mappers[deviceName]({
+            this._activeMapper = this._cache.getMapper(deviceName, this.mappers[deviceName], {
                 painter: this.painter,
                 println: this.println
             });
-            // Restore cached state if available
-            if (this._mapperStateCache[deviceName] && this._activeMapper.restoreState) {
-                this._activeMapper.restoreState(this._mapperStateCache[deviceName]);
-            }
-            // Feed any pending params (first-time values OR post-snapshot changes)
-            var pending = this._pendingParamValues;
-            this._pendingParamValues = {};
-            this._pendingParamDevice = null;
-            for (var pid in pending) {
-                this._activeMapper.feed(pid, pending[pid]);
+            if (this._activeMapper && this._activeMapper.resync) {
+                this._activeMapper.resync();
             }
         } else {
             this._pendingRCCheck = true;
@@ -842,11 +821,8 @@ class ControllerHW {
             this.deviceSelector.deactivate();
         }
 
-        // Independent pad mapper lookup
-        var padMapper = null;
-        if (this.padMappers[deviceName]) {
-            padMapper = this.padMappers[deviceName]();
-        }
+        // Independent pad mapper lookup (instance cached)
+        var padMapper = this._cache.getPadMapper(deviceName, this.padMappers[deviceName]);
         this._activePadMapper = padMapper;
 
         if (this.deviceQuadrant) {
@@ -861,19 +837,7 @@ class ControllerHW {
             }
         }
 
-        // Restore pad mapper state after activate (needs _padEntries for repaint)
-        if (padMapper && this._padMapperStateCache[deviceName] && padMapper.restoreState) {
-            padMapper.restoreState(this._padMapperStateCache[deviceName]);
-        }
-
-        // Forward pending pad params (latest Bitwig state)
-        if (padMapper) {
-            var pendingPad = this._pendingPadParamValues;
-            this._pendingPadParamValues = {};
-            for (var pid in pendingPad) {
-                padMapper.onParamValueChanged(pid, pendingPad[pid]);
-            }
-        }
+        this._cache.flushPendingPadParams(padMapper);
     }
 
     /**
@@ -882,11 +846,7 @@ class ControllerHW {
      */
     onDeviceChanged(deviceName) {
         if (!deviceName) return;
-        if (this._pendingParamDevice !== null && this._pendingParamDevice !== deviceName) {
-            this._pendingParamValues = {};
-            this._pendingPadParamValues = {};
-        }
-        this._pendingParamDevice = deviceName;
+        this._cache.onDeviceChanged(deviceName);
         this.println("[TRACE] onDeviceChanged(" + deviceName + ") _mode=" + this._mode + " _activeMapper=" + (this._activeMapper ? "SET" : "null") + " _masterTrackMode=" + this._masterTrackMode);
 
         if (this._masterTrackMode) {
@@ -917,9 +877,7 @@ class ControllerHW {
      * @param {string} name - Cursor track name
      */
     onCursorTrackChanged(name) {
-        this._mapperStateCache = {};
-        this._padMapperStateCache = {};
-        this._pendingPadParamValues = {};
+        this._cache.clearAll();
         if (this._masterTrackMode) return;
         if (this._mode === 'track' || this._mode === 'device') {
             this._suppressNextDeviceChange = true;
@@ -957,18 +915,14 @@ class ControllerHW {
      */
     onDeviceParamChanged(id, value) {
         var normalizedId = id.replace('ROOT_GENERIC_MODULE/', '');
-        if (this._activeMapper) {
-            this._activeMapper.feed(normalizedId, value);
-        } else {
-            this._pendingParamValues[normalizedId] = value;
-            if (!this._paramDropLogged) {
-                this.println("[TRACE] onDeviceParamChanged BUFFERING (no mapper): id=" + id + " value=" + value);
-                this._paramDropLogged = true;
-            }
+        this._cache.feedParam(this._activeMapper, normalizedId, value);
+        if (!this._activeMapper && !this._paramDropLogged) {
+            this.println("[TRACE] onDeviceParamChanged BUFFERING (no mapper): id=" + id + " value=" + value);
+            this._paramDropLogged = true;
         }
         // Buffer for pad mapper when DeviceQuadrant isn't forwarding
         if (!this.deviceQuadrant || !this.deviceQuadrant.isActive()) {
-            this._pendingPadParamValues[normalizedId] = value;
+            this._cache.bufferPadParam(normalizedId, value);
         }
     }
 

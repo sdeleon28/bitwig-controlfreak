@@ -91,16 +91,18 @@ function fakeApi(opts) {
     assert(api.paints.length === paintsBefore, 'should not repaint for unrelated param');
 })();
 
-// deactivate clears state
+// deactivate clears structural state but keeps _currentModeValue
 (function() {
     var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
     var mapper = new FrequalizerPadMapper();
     mapper.activate(api);
+    mapper.onParamValueChanged('PID_MODE', 0.5);
     mapper.deactivate();
     assert(mapper._padEntries.length === 0, 'pad entries should be cleared');
     assert(mapper._modeParamId === null, 'mode param should be cleared');
     assert(mapper._pendingPadEntries.length === 0, 'pending entries should be cleared');
     assert(mapper._api === null, 'api reference should be cleared');
+    assert(mapper._currentModeValue === 0.5, '_currentModeValue should persist after deactivate');
 })();
 
 // deferred resolution: unresolvable names stashed as pending
@@ -192,57 +194,24 @@ function fakeApi(opts) {
     assert(pad9.length > 0 && pad9[0].color === 1, 'Stereo pad should NOT highlight when Mid active');
 })();
 
-// getState returns currentModeValue after receiving param value
-(function() {
-    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
-    var mapper = new FrequalizerPadMapper();
-    mapper.activate(api);
-    mapper.onParamValueChanged('PID_MODE', 0.25);
-    var state = mapper.getState();
-    assert(state.currentModeValue === 0.25, 'getState should return current mode value');
-})();
-
-// getState returns -1 when no param value received (cold state)
-(function() {
-    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
-    var mapper = new FrequalizerPadMapper();
-    mapper.activate(api);
-    var state = mapper.getState();
-    assert(state.currentModeValue === -1, 'getState should return -1 for cold mapper');
-})();
-
-// restoreState after activate repaints highlights correctly
-(function() {
-    var api = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
-    var mapper = new FrequalizerPadMapper();
-    mapper.activate(api);
-    var paintsBefore = api.paints.length;
-    mapper.restoreState({ currentModeValue: 0.25 }); // Mid
-    var newPaints = api.paints.slice(paintsBefore);
-    var pad5 = newPaints.filter(function(p) { return p.padIndex === 5; });
-    assert(pad5.length > 0 && pad5[0].color === 21, 'Mid pad should highlight after restoreState');
-    var pad9 = newPaints.filter(function(p) { return p.padIndex === 9; });
-    assert(pad9.length > 0 && pad9[0].color === 1, 'Stereo pad should be deselected after restoreState');
-})();
-
-// round-trip: feed params → getState → new mapper → activate → restoreState → same highlights
+// _currentModeValue persists across deactivate/activate (instance caching)
 (function() {
     var api1 = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
-    var mapper1 = new FrequalizerPadMapper();
-    mapper1.activate(api1);
-    mapper1.onParamValueChanged('PID_MODE', 0.5); // Side
-    var state = mapper1.getState();
-
+    var mapper = new FrequalizerPadMapper();
+    mapper.activate(api1);
+    mapper.onParamValueChanged('PID_MODE', 0.25); // Mid
+    assert(mapper._currentModeValue === 0.25, 'mode value should be set');
+    mapper.deactivate();
+    assert(mapper._currentModeValue === 0.25, 'mode value should persist after deactivate');
+    // Re-activate with new API — should repaint from persisted value
     var api2 = fakeApi({ paramNames: { 'PID_MODE': 'Mode' } });
-    var mapper2 = new FrequalizerPadMapper();
-    mapper2.activate(api2);
     var paintsBefore = api2.paints.length;
-    mapper2.restoreState(state);
+    mapper.activate(api2);
     var newPaints = api2.paints.slice(paintsBefore);
-    var pad6 = newPaints.filter(function(p) { return p.padIndex === 6; });
-    assert(pad6.length > 0 && pad6[0].color === 21, 'Side pad should highlight after round-trip restore');
     var pad5 = newPaints.filter(function(p) { return p.padIndex === 5; });
-    assert(pad5.length > 0 && pad5[0].color === 1, 'Mid pad should be deselected after round-trip restore');
+    assert(pad5.length > 0 && pad5[pad5.length - 1].color === 21, 'Mid pad should highlight after re-activate');
+    var pad9 = newPaints.filter(function(p) { return p.padIndex === 9; });
+    assert(pad9.length > 0 && pad9[pad9.length - 1].color === 1, 'Stereo pad should be deselected after re-activate');
 })();
 
 // ---- deferred param value tests ----

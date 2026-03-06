@@ -30,7 +30,6 @@ class FrequalizerPadMapper {
         this._padEntries = [];
         this._pendingPadEntries = [];
         this._modeParamId = null;
-        this._currentModeValue = -1;
         this._deferredParamValues = {};
 
         for (var i = 0; i < FREQ_PAD_CONFIG.length; i++) {
@@ -49,35 +48,13 @@ class FrequalizerPadMapper {
     }
 
     /**
-     * Return cacheable state (only learned values, not structural config).
-     * @returns {Object} State snapshot
-     */
-    getState() {
-        return { currentModeValue: this._currentModeValue };
-    }
-
-    /**
-     * Restore cached state. Must be called AFTER activate() so _padEntries exist.
-     * @param {Object} state - State snapshot from getState()
-     */
-    restoreState(state) {
-        if (state && state.currentModeValue !== undefined) {
-            this._currentModeValue = state.currentModeValue;
-            if (this._padEntries.length > 0 && this._currentModeValue >= 0) {
-                this._repaintPadHighlights();
-            }
-        }
-    }
-
-    /**
-     * Deactivate the pad mapper, clearing all internal state.
+     * Deactivate the pad mapper, clearing structural state (keeps _currentModeValue).
      */
     deactivate() {
         this._api = null;
         this._padEntries = [];
         this._pendingPadEntries = [];
         this._modeParamId = null;
-        this._currentModeValue = -1;
         this._deferredParamValues = {};
     }
 
