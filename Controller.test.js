@@ -814,6 +814,51 @@ function makeController(opts) {
     assert(tw.calls.length === callsBefore, "should be no-op when no group selected");
 })();
 
+// handleTrackNameChange schedules track grid refresh when track is renamed
+(function() {
+    var tw = fakeTwister();
+    var lp = fakeLaunchpad();
+    var h = fakeHost();
+    var bw = fakeBitwig({
+        trackDepths: { 5: 0 },
+        tracks: { 5: fakeTrack("Synth (3)") }
+    });
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, host: h });
+    ctrl.selectedGroup = 16;
+    ctrl.handleTrackNameChange(5, "Synth (5)");
+    assert(h.scheduled.length === 1, "should schedule a refresh task on track rename");
+})();
+
+// handleTrackNameChange schedules refresh when group is renamed
+(function() {
+    var tw = fakeTwister();
+    var lp = fakeLaunchpad();
+    var h = fakeHost();
+    var bw = fakeBitwig({
+        tracks: { 2: fakeTrack("Group (1)", { isGroup: true }) }
+    });
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, host: h });
+    ctrl.selectedGroup = 1;
+    ctrl.handleTrackNameChange(2, "Group (2)");
+    assert(h.scheduled.length === 1, "should schedule a refresh task on group rename");
+    var unlinkAllBefore = lp.calls.filter(function(c) { return c === 'unlinkAllPads'; }).length;
+    h.scheduled[0].fn();
+    var unlinkAllAfter = lp.calls.filter(function(c) { return c === 'unlinkAllPads'; }).length;
+    assert(unlinkAllAfter > unlinkAllBefore, "scheduled task should call refreshGroupDisplay");
+})();
+
+// handleTrackNameChange does not schedule refresh for tracks outside selected group
+(function() {
+    var tw = fakeTwister();
+    var lp = fakeLaunchpad();
+    var h = fakeHost();
+    var bw = fakeBitwig({ trackDepths: { 10: 1 } }); // depth 1, not top-level
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, host: h });
+    ctrl.selectedGroup = 16;
+    ctrl.handleTrackNameChange(10, "New (5)");
+    assert(h.scheduled.length === 0, "should not schedule refresh for tracks outside selected group");
+})();
+
 // syncEncoderToTrack finds track and links encoder
 (function() {
     var tw = fakeTwister();

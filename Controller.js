@@ -353,6 +353,17 @@ class ControllerHW {
             return;
         }
 
+        // If renamed track is a group, refresh group display and track grid
+        var renamedTrack = this.bitwig.getTrack(trackId);
+        if (renamedTrack && renamedTrack.isGroup().get()) {
+            var self = this;
+            this.host.scheduleTask(function() {
+                self.refreshGroupDisplay();
+                self.refreshTrackGrid();
+            }, null, 100);
+            return;
+        }
+
         var isInGroup = false;
 
         if (this.selectedGroup === 16) {
@@ -394,6 +405,11 @@ class ControllerHW {
                 this.twister.unlinkEncoder(previousEncoder);
             }
         }
+
+        var self = this;
+        this.host.scheduleTask(function() {
+            self.refreshTrackGrid();
+        }, null, 100);
     }
 
     /**
