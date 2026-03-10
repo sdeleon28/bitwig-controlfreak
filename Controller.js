@@ -855,6 +855,11 @@ class ControllerHW {
             return;
         }
 
+        if (this._suppressNextDeviceChange) {
+            this._suppressNextDeviceChange = false;
+            return;
+        }
+
         if (this._mode === 'track') {
             this._mapDeviceToTwister(deviceName);
             this._lastDeviceName = deviceName;
@@ -863,12 +868,7 @@ class ControllerHW {
             this._activeMapper = null;
             this.enterDeviceMode(deviceName);
         } else {
-            // grid mode
-            if (this._suppressNextDeviceChange) {
-                this._suppressNextDeviceChange = false;
-                return;
-            }
-            // Ignore device changes in grid mode (don't auto-enter device mode)
+            // grid mode — ignore device changes
         }
     }
 

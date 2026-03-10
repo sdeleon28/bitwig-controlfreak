@@ -1625,6 +1625,33 @@ function makeController(opts) {
     assert(ctrl._mode === 'device', "should stay in device mode");
 })();
 
+// onDeviceChanged in track mode with suppress flag clears flag and does not map device
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl._mode = 'track';
+    ctrl._suppressNextDeviceChange = true;
+    tw.calls.length = 0;
+    ctrl.onDeviceChanged("SomePlugin");
+    assert(ctrl._suppressNextDeviceChange === false, "should clear suppress flag");
+    assert(ctrl._mode === 'track', "should remain in track mode");
+    assert(tw.calls.indexOf('unlinkAll') === -1, "should not call unlinkAll (no device mapping)");
+    assert(ctrl._lastDeviceName !== "SomePlugin", "should not set _lastDeviceName");
+})();
+
+// onDeviceChanged in track mode without suppress maps device normally
+(function() {
+    var tw = fakeTwister();
+    var ctrl = makeController({ twister: tw });
+    ctrl._mode = 'track';
+    ctrl._suppressNextDeviceChange = false;
+    tw.calls.length = 0;
+    ctrl.onDeviceChanged("SomePlugin");
+    assert(ctrl._mode === 'track', "should remain in track mode");
+    assert(ctrl._lastDeviceName === "SomePlugin", "should set _lastDeviceName");
+    assert(tw.calls.indexOf('unlinkAll') !== -1, "should call unlinkAll (device mapping)");
+})();
+
 // onDeviceChanged in grid mode with suppress flag clears flag and returns
 (function() {
     var tw = fakeTwister();
