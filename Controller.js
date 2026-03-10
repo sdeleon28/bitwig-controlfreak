@@ -256,8 +256,14 @@ class ControllerHW {
 
                 this.launchpad.linkPadToTrack(padNote, trackId, page);
 
+                var holdFn = (function(tid) {
+                    return function() {
+                        if (self.favBar) self.favBar.enterSetFavMode(tid, self.pageMainControl.pageNumber);
+                    };
+                })(trackId);
+
                 if (padMode === 'mute') {
-                    (function(tid, pn) {
+                    (function(tid, pn, hf) {
                         self.launchpad.registerPadBehavior(pn, function() {
                             var track = self.bitwig.getTrack(tid);
                             if (track) {
@@ -266,10 +272,10 @@ class ControllerHW {
                                 track.makeVisibleInArranger();
                                 if (self.host) self.host.showPopupNotification((wasMuted ? "Unmute: " : "Mute: ") + track.name().get());
                             }
-                        }, null, self.pageMainControl.pageNumber);
-                    })(trackId, padNote);
+                        }, hf, self.pageMainControl.pageNumber);
+                    })(trackId, padNote, holdFn);
                 } else if (padMode === 'solo') {
-                    (function(tid, pn) {
+                    (function(tid, pn, hf) {
                         self.launchpad.registerPadBehavior(pn, function() {
                             var track = self.bitwig.getTrack(tid);
                             if (track) {
@@ -278,10 +284,10 @@ class ControllerHW {
                                 track.makeVisibleInArranger();
                                 if (self.host) self.host.showPopupNotification((wasSoloed ? "Unsolo: " : "Solo: ") + track.name().get());
                             }
-                        }, null, self.pageMainControl.pageNumber);
-                    })(trackId, padNote);
+                        }, hf, self.pageMainControl.pageNumber);
+                    })(trackId, padNote, holdFn);
                 } else if (padMode === 'recordArm') {
-                    (function(tid, pn) {
+                    (function(tid, pn, hf) {
                         self.launchpad.registerPadBehavior(pn, function() {
                             var track = self.bitwig.getTrack(tid);
                             if (track) {
@@ -302,20 +308,20 @@ class ControllerHW {
                                     track.makeVisibleInArranger();
                                 }
                             }
-                        }, null, self.pageMainControl.pageNumber);
-                    })(trackId, padNote);
+                        }, hf, self.pageMainControl.pageNumber);
+                    })(trackId, padNote, holdFn);
                 } else if (padMode === 'sendA') {
-                    (function(tid, pn) {
+                    (function(tid, pn, hf) {
                         self.launchpad.registerPadBehavior(pn, function() {
                             var track = self.bitwig.getTrack(tid);
                             if (track) {
                                 if (self.host) self.host.showPopupNotification(track.name().get() + " → Sends");
                                 self.twister.linkEncodersToTrackSends(tid);
                             }
-                        }, null, self.pageMainControl.pageNumber);
-                    })(trackId, padNote);
+                        }, hf, self.pageMainControl.pageNumber);
+                    })(trackId, padNote, holdFn);
                 } else if (padMode === 'select') {
-                    (function(tid, pn) {
+                    (function(tid, pn, hf) {
                         self.launchpad.registerPadBehavior(pn, function() {
                             var track = self.bitwig.getTrack(tid);
                             if (track) {
@@ -325,8 +331,8 @@ class ControllerHW {
                                 track.makeVisibleInArranger();
                                 if (self.host) self.host.showPopupNotification(track.name().get() + " → Track Mode");
                             }
-                        }, null, self.pageMainControl.pageNumber);
-                    })(trackId, padNote);
+                        }, hf, self.pageMainControl.pageNumber);
+                    })(trackId, padNote, holdFn);
                 }
             }
         }

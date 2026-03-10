@@ -6,10 +6,16 @@ var assert = t.assert;
 
 function fakeTrack(name, opts) {
     opts = opts || {};
+    var _name = name;
     var _armed = opts.armed || false;
     var _color = opts.color || { r: 0.5, g: 0.5, b: 0.5 };
     return {
-        name: function() { return { get: function() { return name; } }; },
+        name: function() {
+            return {
+                get: function() { return _name; },
+                set: function(v) { _name = v; }
+            };
+        },
         arm: function() {
             return {
                 get: function() { return _armed; },
@@ -45,7 +51,7 @@ function fakeLaunchpad() {
     return {
         registeredBehaviors: behaviors,
         clearedBehaviors: clearedBehaviors,
-        colors: { red: 5, green: 21, amber: 17 },
+        colors: { red: 5, green: 21, amber: 17, white: 3 },
         brightness: { bright: 'bright', dim: 'dim' },
         registerPadBehavior: function(pad, click, hold, page) {
             behaviors[pad] = { click: click, hold: hold, page: page };
@@ -67,10 +73,13 @@ function fakeLaunchpad() {
 function fakePager() {
     var paints = [];
     var clears = [];
+    var flashings = [];
     return {
         paints: paints,
         clears: clears,
+        flashings: flashings,
         requestPaint: function(page, pad, color) { paints.push({ page: page, pad: pad, color: color }); },
+        requestPaintFlashing: function(page, pad, color) { flashings.push({ page: page, pad: pad, color: color }); },
         requestClear: function(page, pad) { clears.push({ page: page, pad: pad }); }
     };
 }
@@ -412,6 +421,137 @@ function makeFavBar(opts) {
     lp.registeredBehaviors[51].click();
 
     assert(selectedIds.length === 0, 'onTrackSelected not called for empty slot');
+})();
+
+// enterSetFavMode flashes all 8 pads white and registers behaviors
+(function() {
+    var pager = fakePager();
+    var lp = fakeLaunchpad();
+    var tracks = {};
+    tracks[7] = fakeTrack('Vocals (3)');
+    var bw = fakeBitwig(tracks);
+    var host = fakeHost();
+    var fb = makeFavBar({ pager: pager, launchpad: lp, bitwig: bw, host: host });
+
+    fb.enterSetFavMode(7, 1);
+
+    assert(fb.isSetFavMode() === true, 'set fav mode is ON');
+    assert(pager.flashings.length === 8, 'all 8 pads flashed');
+    for (var i = 0; i < 8; i++) {
+        assert(pager.flashings[i].pad === fb.pads[i], 'pad ' + fb.pads[i] + ' flashed');
+        assert(pager.flashings[i].color === 3, 'pad flashed white');
+    }
+    assert(lp.registeredBehaviors[51] !== undefined, 'pad 51 behavior registered');
+    assert(lp.registeredBehaviors[58] !== undefined, 'pad 58 behavior registered');
+    assert(host.notifications[0] === 'Vocals (3) → pick fav slot', 'popup shown');
+})();
+
+// _assignFavSlot renames track with {slot} suffix
+(function() {
+    var tracks = {};
+    tracks[7] = fakeTrack('Vocals');
+    var bw = fakeBitwig(tracks);
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var fb = makeFavBar({ bitwig: bw, launchpad: lp, pager: pager });
+    fb._setFavMode = true;
+    fb._pendingTrackId = 7;
+
+    fb._assignFavSlot(3, 1);
+
+    assert(tracks[7].name().get() === 'Vocals {3}', 'track renamed with {3}');
+    assert(fb.isSetFavMode() === false, 'set fav mode OFF after assign');
+    assert(fb.isFavMode() === true, 'fav mode ON after assign');
+})();
+
+// _assignFavSlot strips existing {M} from pending track before adding new {slot}
+(function() {
+    var tracks = {};
+    tracks[7] = fakeTrack('Vocals {2}');
+    var bw = fakeBitwig(tracks);
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var fb = makeFavBar({ bitwig: bw, launchpad: lp, pager: pager });
+    fb._setFavMode = true;
+    fb._pendingTrackId = 7;
+
+    fb._assignFavSlot(5, 1);
+
+    assert(tracks[7].name().get() === 'Vocals {5}', 'old {2} stripped, new {5} set');
+})();
+
+// _assignFavSlot strips {slot} from clashing track
+(function() {
+    var tracks = {};
+    tracks[7] = fakeTrack('Vocals');
+    tracks[12] = fakeTrack('Bass {3}');
+    var bw = fakeBitwig(tracks);
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var fb = makeFavBar({ bitwig: bw, launchpad: lp, pager: pager });
+    fb._setFavMode = true;
+    fb._pendingTrackId = 7;
+
+    fb._assignFavSlot(3, 1);
+
+    assert(tracks[7].name().get() === 'Vocals {3}', 'target track gets {3}');
+    assert(tracks[12].name().get() === 'Bass', 'clashing track stripped of {3}');
+})();
+
+// _assignFavSlot entering fav mode clears quick actions
+(function() {
+    var tracks = {};
+    tracks[7] = fakeTrack('Vocals');
+    var bw = fakeBitwig(tracks);
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var qa = fakeQuickActions();
+    var fb = makeFavBar({ bitwig: bw, launchpad: lp, pager: pager, quickActions: qa });
+    fb._setFavMode = true;
+    fb._pendingTrackId = 7;
+
+    fb._assignFavSlot(1, 1);
+
+    var clearCall = qa.calls.find(function(c) { return c.method === 'clear'; });
+    assert(clearCall !== undefined, 'quick actions cleared when entering fav mode via assign');
+})();
+
+// exitSetFavMode restores fav mode state
+(function() {
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var tracks = {};
+    tracks[5] = fakeTrack('Vocals {1}', { color: { r: 0, g: 1, b: 0 } });
+    var bw = fakeBitwig(tracks);
+    var fb = makeFavBar({ launchpad: lp, pager: pager, bitwig: bw });
+    fb._favMode = true;
+    fb._favTracks = { 1: 5 };
+    fb._setFavMode = true;
+    fb._pendingTrackId = 7;
+
+    fb.exitSetFavMode(1);
+
+    assert(fb.isSetFavMode() === false, 'set fav mode OFF');
+    assert(fb._pendingTrackId === null, 'pending track cleared');
+    // Should have re-registered fav behaviors (since _favMode is true)
+    assert(lp.registeredBehaviors[51] !== undefined, 'fav behaviors restored');
+})();
+
+// exitSetFavMode restores quick actions when fav mode is OFF
+(function() {
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var qa = fakeQuickActions();
+    var fb = makeFavBar({ launchpad: lp, pager: pager, quickActions: qa });
+    fb._favMode = false;
+    fb._setFavMode = true;
+    fb._pendingTrackId = 7;
+
+    fb.exitSetFavMode(1);
+
+    assert(fb.isSetFavMode() === false, 'set fav mode OFF');
+    var registerCall = qa.calls.find(function(c) { return c.method === 'registerBehaviors'; });
+    assert(registerCall !== undefined, 'quick actions restored when not in fav mode');
 })();
 
 // ---- summary ----

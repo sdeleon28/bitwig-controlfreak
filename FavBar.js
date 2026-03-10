@@ -28,6 +28,8 @@ class FavBarHW {
         this.pads = [51, 52, 53, 54, 55, 56, 57, 58]; // row 5: fav slots {1}..{8}
         this._favTracks = {}; // slot (1-8) → trackId
         this._pageNumber = 1;
+        this._setFavMode = false;
+        this._pendingTrackId = null;
     }
 
     isFavMode() {
@@ -179,6 +181,89 @@ class FavBarHW {
         // Refresh pads if in fav mode
         if (this._favMode) {
             this.refreshFavPads(this._pageNumber);
+        }
+    }
+
+    isSetFavMode() {
+        return this._setFavMode;
+    }
+
+    enterSetFavMode(trackId, pageNumber) {
+        if (typeof pageNumber === 'undefined') pageNumber = this._pageNumber;
+        this._setFavMode = true;
+        this._pendingTrackId = trackId;
+
+        var track = this.bitwig.getTrack(trackId);
+        var trackName = track ? track.name().get() : 'track';
+        if (this.host) this.host.showPopupNotification(trackName + " → pick fav slot");
+
+        var self = this;
+        for (var i = 0; i < this.pads.length; i++) {
+            this.pager.requestPaintFlashing(pageNumber, this.pads[i], this.launchpad.colors.white);
+            (function(slot, padNote) {
+                self.launchpad.registerPadBehavior(padNote, function() {
+                    self._assignFavSlot(slot, pageNumber);
+                }, null, pageNumber);
+            })(i + 1, this.pads[i]);
+        }
+    }
+
+    _assignFavSlot(slot, pageNumber) {
+        if (typeof pageNumber === 'undefined') pageNumber = this._pageNumber;
+        var trackId = this._pendingTrackId;
+        if (trackId === null || trackId === undefined) return;
+
+        var track = this.bitwig.getTrack(trackId);
+        if (!track) return;
+
+        // Strip existing {M} from pending track
+        var name = track.name().get();
+        var cleanName = name.replace(/\s*\{\d+\}/, '');
+
+        // Strip {slot} from any other track that currently claims this slot
+        for (var i = 0; i < 64; i++) {
+            if (i === trackId) continue;
+            var other = this.bitwig.getTrack(i);
+            if (!other) continue;
+            var otherName = other.name().get();
+            if (!otherName) continue;
+            var match = otherName.match(/\{(\d+)\}/);
+            if (match && parseInt(match[1]) === slot) {
+                other.name().set(otherName.replace(/\s*\{\d+\}/, ''));
+            }
+        }
+
+        // Set new name with {slot}
+        track.name().set(cleanName + " {" + slot + "}");
+
+        this._setFavMode = false;
+        this._pendingTrackId = null;
+
+        // Enter fav mode
+        this._favMode = true;
+        if (this.quickActions) {
+            this.quickActions.clear(pageNumber);
+        }
+        this._clearRow5Markers(pageNumber);
+        this.registerFavBehaviors(pageNumber);
+        this.refreshFavPads(pageNumber);
+    }
+
+    exitSetFavMode(pageNumber) {
+        if (typeof pageNumber === 'undefined') pageNumber = this._pageNumber;
+        this._setFavMode = false;
+        this._pendingTrackId = null;
+
+        // Restore previous state
+        if (this._favMode) {
+            this.registerFavBehaviors(pageNumber);
+            this.refreshFavPads(pageNumber);
+        } else {
+            this._clearFavPads(pageNumber);
+            if (this.quickActions) {
+                this.quickActions.registerBehaviors(pageNumber);
+                this.quickActions.refresh(pageNumber);
+            }
         }
     }
 

@@ -366,6 +366,7 @@ function makeController(opts) {
         mappers: opts.mappers || {},
         padMappers: opts.padMappers || {},
         painter: opts.painter || null,
+        favBar: opts.favBar || null,
         host: opts.host || fakeHost(),
         debug: false,
         println: function() {}
@@ -617,6 +618,46 @@ function makeController(opts) {
     assert(ctrl._suppressNextDeviceChange === true, "should suppress next device change");
     var trackRCCalls = tw.calls.filter(function(c) { return c === 'linkEncodersToTrackRemoteControls'; });
     assert(trackRCCalls.length === 1, "should call linkEncodersToTrackRemoteControls");
+})();
+
+// hold on track pad calls favBar.enterSetFavMode with correct trackId
+(function() {
+    var tw = fakeTwister();
+    tw.links[1] = { trackId: 3 };
+    var bw = fakeBitwig({ tracks: { 3: fakeTrack("Kick (1)") } });
+    var lp = fakeLaunchpad();
+    var ms = fakeModeSwitcher('mute');
+    var setFavCalls = [];
+    var fb = {
+        enterSetFavMode: function(tid, page) { setFavCalls.push({ trackId: tid, page: page }); }
+    };
+    var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, launchpadModeSwitcher: ms, favBar: fb });
+    ctrl.refreshTrackGrid();
+    lp.behaviors[11].hold();
+    assert(setFavCalls.length === 1, "hold should call enterSetFavMode once");
+    assert(setFavCalls[0].trackId === 3, "enterSetFavMode called with correct trackId");
+    assert(setFavCalls[0].page === 1, "enterSetFavMode called with correct page");
+})();
+
+// hold callback is registered for all pad modes
+(function() {
+    var modes = ['mute', 'solo', 'recordArm', 'sendA', 'select'];
+    for (var m = 0; m < modes.length; m++) {
+        var tw = fakeTwister();
+        tw.links[1] = { trackId: 3 };
+        var bw = fakeBitwig({ tracks: { 3: fakeTrack("Kick (1)") } });
+        var lp = fakeLaunchpad();
+        var ms = fakeModeSwitcher(modes[m]);
+        var setFavCalls = [];
+        var fb = {
+            enterSetFavMode: function(tid, page) { setFavCalls.push({ trackId: tid, page: page }); }
+        };
+        var ctrl = makeController({ twister: tw, bitwig: bw, launchpad: lp, launchpadModeSwitcher: ms, favBar: fb });
+        ctrl.refreshTrackGrid();
+        assert(lp.behaviors[11].hold !== null, modes[m] + " mode should have hold callback");
+        lp.behaviors[11].hold();
+        assert(setFavCalls.length === 1, modes[m] + " mode hold should call enterSetFavMode");
+    }
 })();
 
 // mute growl shows "Mute: TrackName" when muting
