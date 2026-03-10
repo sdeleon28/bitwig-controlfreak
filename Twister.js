@@ -319,13 +319,14 @@ class TwisterHW {
             if (stepCount === 2) {
                 this._rcToggleParams[i] = true;
                 var turnCb = null;
-                var pressCb = (function(p) {
+                var pressCb = (function(p, h) {
                     return function(pressed) {
                         if (!pressed) return;
                         var cur = p.value().get();
                         p.value().set(cur >= 0.5 ? 0 : 1);
+                        h.showPopupNotification(p.name().get() + ': ' + (cur >= 0.5 ? 'OFF' : 'ON'));
                     };
-                })(param);
+                })(param, this.host);
                 this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
                 this.setEncoderLED(encoderNum, value >= 0.5 ? 127 : 0);
             } else {
@@ -399,13 +400,14 @@ class TwisterHW {
             if (stepCount === 2) {
                 this._rcToggleParams[i] = true;
                 var turnCb = null;
-                var pressCb = (function(p) {
+                var pressCb = (function(p, h) {
                     return function(pressed) {
                         if (!pressed) return;
                         var cur = p.value().get();
                         p.value().set(cur >= 0.5 ? 0 : 1);
+                        h.showPopupNotification(p.name().get() + ': ' + (cur >= 0.5 ? 'OFF' : 'ON'));
                     };
-                })(param);
+                })(param, this.host);
                 this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
                 this.setEncoderLED(encoderNum, value >= 0.5 ? 127 : 0);
             } else if (i === 7) {
@@ -524,13 +526,14 @@ class TwisterHW {
             if (stepCount === 2) {
                 this._rcToggleParams[i] = true;
                 var turnCb = null;
-                var pressCb = (function(p) {
+                var pressCb = (function(p, h) {
                     return function(pressed) {
                         if (!pressed) return;
                         var cur = p.value().get();
                         p.value().set(cur >= 0.5 ? 0 : 1);
+                        h.showPopupNotification(p.name().get() + ': ' + (cur >= 0.5 ? 'OFF' : 'ON'));
                     };
-                })(param);
+                })(param, this.host);
                 this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
                 this.setEncoderLED(encoderNum, value >= 0.5 ? 127 : 0);
             } else {
