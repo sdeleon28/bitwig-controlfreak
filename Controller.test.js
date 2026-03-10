@@ -821,6 +821,33 @@ function makeController(opts) {
     assert(h.scheduled.length === 1, "should schedule mode switcher refresh");
 })();
 
+// clearAllMute skips tracks inside "top refs" group
+(function() {
+    var tracks = {};
+    // Track 0: normal muted track (depth 0)
+    tracks[0] = fakeTrack("Bass (1)", { muted: true });
+    // Track 1: "Top Refs" group (depth 0)
+    tracks[1] = fakeTrack("Top Refs", { isGroup: true, muted: true });
+    // Track 2: child inside top refs (depth 1)
+    tracks[2] = fakeTrack("Ref Kick", { muted: true });
+    // Track 3: nested child inside top refs (depth 2)
+    tracks[3] = fakeTrack("Ref Sub", { muted: true });
+    // Track 4: back to top level (depth 0)
+    tracks[4] = fakeTrack("Drums (2)", { muted: true });
+    for (var i = 5; i < 64; i++) tracks[i] = fakeTrack("Track " + i);
+    var depths = { 0: 0, 1: 0, 2: 1, 3: 2, 4: 0 };
+    var lp = fakeLaunchpad();
+    var ms = fakeModeSwitcher();
+    var h = fakeHost();
+    var ctrl = makeController({ bitwig: fakeBitwig({ tracks: tracks, trackDepths: depths }), launchpad: lp, launchpadModeSwitcher: ms, host: h });
+    ctrl.clearAllMute();
+    assert(tracks[0].mute().get() === false, "normal track should be unmuted");
+    assert(tracks[1].mute().get() === true, "top refs group should stay muted");
+    assert(tracks[2].mute().get() === true, "child of top refs should stay muted");
+    assert(tracks[3].mute().get() === true, "nested child of top refs should stay muted");
+    assert(tracks[4].mute().get() === false, "track after top refs group should be unmuted");
+})();
+
 // clearAllSolo clears all soloed tracks
 (function() {
     var tracks = {};

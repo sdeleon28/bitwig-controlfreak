@@ -419,9 +419,24 @@ class ControllerHW {
 
         this.launchpad.setPadColor(modeConfig.note, this.launchpad.colors.white);
 
+        var skipUntilDepth = -1;
         for (var i = 0; i < 64; i++) {
             var track = this.bitwig.getTrack(i);
-            if (track && track.mute().get()) {
+            if (!track) continue;
+            var depth = this.bitwig._trackDepths[i] || 0;
+
+            if (skipUntilDepth >= 0) {
+                if (depth > skipUntilDepth) continue;
+                skipUntilDepth = -1;
+            }
+
+            var name = track.name().get();
+            if (track.isGroup().get() && name.toLowerCase().startsWith("top refs")) {
+                skipUntilDepth = depth;
+                continue;
+            }
+
+            if (track.mute().get()) {
                 track.mute().set(false);
             }
         }
