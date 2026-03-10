@@ -709,7 +709,12 @@ function init() {
         host: host,
         quickActions: QuickActions,
         debug: debug,
-        println: println
+        println: println,
+        onTrackSelected: function(trackId) {
+            Bitwig.selectTrack(trackId);
+            Controller._suppressNextDeviceChange = true;
+            Controller.enterTrackMode();
+        }
     });
 
     // Initialize control buttons

@@ -101,6 +101,7 @@ function makeFavBar(opts) {
         bitwig: opts.bitwig || fakeBitwig(),
         host: opts.host || fakeHost(),
         quickActions: opts.quickActions || fakeQuickActions(),
+        onTrackSelected: opts.onTrackSelected || null,
         debug: false,
         println: function() {}
     });
@@ -373,6 +374,44 @@ function makeFavBar(opts) {
 
     assert(pager.paints.length === 0, 'no paints for non-fav track');
     assert(pager.clears.length === 0, 'no clears for non-fav track');
+})();
+
+// _armFavTrack calls onTrackSelected with the correct trackId
+(function() {
+    var selectedIds = [];
+    var tracks = {};
+    tracks[5] = fakeTrack('Vocals {1}');
+    var bw = fakeBitwig(tracks);
+    var lp = fakeLaunchpad();
+    var fb = makeFavBar({
+        bitwig: bw,
+        launchpad: lp,
+        onTrackSelected: function(id) { selectedIds.push(id); }
+    });
+    fb._favTracks = { 1: 5 };
+    fb._favMode = true;
+    fb.registerFavBehaviors(1);
+
+    lp.registeredBehaviors[51].click();
+
+    assert(selectedIds.length === 1, 'onTrackSelected called once');
+    assert(selectedIds[0] === 5, 'onTrackSelected called with trackId 5');
+})();
+
+// _armFavTrack does NOT call onTrackSelected for empty slots
+(function() {
+    var selectedIds = [];
+    var lp = fakeLaunchpad();
+    var fb = makeFavBar({
+        launchpad: lp,
+        onTrackSelected: function(id) { selectedIds.push(id); }
+    });
+    fb._favMode = true;
+    fb.registerFavBehaviors(1);
+
+    lp.registeredBehaviors[51].click();
+
+    assert(selectedIds.length === 0, 'onTrackSelected not called for empty slot');
 })();
 
 // ---- summary ----

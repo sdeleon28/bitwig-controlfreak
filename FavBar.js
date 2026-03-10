@@ -22,6 +22,7 @@ class FavBarHW {
         this.quickActions = deps.quickActions || null;
         this.debug = deps.debug || false;
         this.println = deps.println || function() {};
+        this.onTrackSelected = deps.onTrackSelected || null;
 
         this._favMode = false;
         this.pads = [51, 52, 53, 54, 55, 56, 57, 58]; // row 5: fav slots {1}..{8}
@@ -87,7 +88,7 @@ class FavBarHW {
         }
         track.arm().set(true);
         track.makeVisibleInArranger();
-        if (this.host) this.host.showPopupNotification("Rec: " + track.name().get());
+        if (this.onTrackSelected) this.onTrackSelected(trackId);
     }
 
     refreshFavPads(pageNumber) {
