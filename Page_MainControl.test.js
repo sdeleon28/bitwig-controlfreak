@@ -9,8 +9,16 @@ function fakeLaunchpadLane() {
     return {
         calls: calls,
         registerMarkerBehaviors: function() { calls.push('registerMarkerBehaviors'); },
-        registerActionBehaviors: function() { calls.push('registerActionBehaviors'); },
         refresh: function() { calls.push('refresh'); }
+    };
+}
+
+function fakeFavBar() {
+    var calls = [];
+    return {
+        calls: calls,
+        activate: function(page) { calls.push({ method: 'activate', page: page }); },
+        deactivate: function(page) { calls.push({ method: 'deactivate', page: page }); }
     };
 }
 
@@ -74,6 +82,7 @@ function makePage(opts) {
         launchpadModeSwitcher: opts.launchpadModeSwitcher || fakeLaunchpadModeSwitcher(),
         launchpad: opts.launchpad || fakeLaunchpad(),
         launchpadQuadrant: opts.launchpadQuadrant || fakeLaunchpadQuadrant(),
+        favBar: opts.favBar || fakeFavBar(),
         debug: false,
         println: function() {}
     });
@@ -88,14 +97,17 @@ function makePage(opts) {
     assert(page.pageNumber === 1, "pageNumber should be 1");
 })();
 
-// show() registers marker and action behaviors on LaunchpadLane
+// show() registers marker behaviors on LaunchpadLane and activates favBar
 (function() {
     var lane = fakeLaunchpadLane();
-    var page = makePage({ launchpadLane: lane });
+    var fb = fakeFavBar();
+    var page = makePage({ launchpadLane: lane, favBar: fb });
     page.show();
     assert(lane.calls.indexOf('registerMarkerBehaviors') !== -1, "should register marker behaviors");
-    assert(lane.calls.indexOf('registerActionBehaviors') !== -1, "should register action behaviors");
     assert(lane.calls.indexOf('refresh') !== -1, "should refresh lane");
+    var activateCall = fb.calls.find(function(c) { return c.method === 'activate'; });
+    assert(activateCall !== undefined, "should activate favBar");
+    assert(activateCall.page === 1, "should activate favBar on page 1");
 })();
 
 // show() refreshes controller display
@@ -214,6 +226,15 @@ function makePage(opts) {
     assert(result === true, "should return true");
     assert(ctrl.calls[0].method === 'selectGroup', "should call selectGroup when in track mode");
     assert(ctrl.calls[0].num === 16, "should select group 16");
+})();
+
+// hide() deactivates favBar
+(function() {
+    var fb = fakeFavBar();
+    var page = makePage({ favBar: fb });
+    page.hide();
+    var deactivateCall = fb.calls.find(function(c) { return c.method === 'deactivate'; });
+    assert(deactivateCall !== undefined, "should deactivate favBar on hide");
 })();
 
 // init() and hide() do not throw

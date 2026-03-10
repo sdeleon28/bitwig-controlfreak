@@ -35,6 +35,10 @@ load('DeviceMapper.js');
 load('DeviceQuadrant.js');
 load('DeviceSelector.js');
 
+// Layer 3.6: Row 5 management
+load('QuickActions.js');
+load('FavBar.js');
+
 // Layer 4: UI components
 load('LaunchpadQuadrant.js');
 load('LaunchpadModeSwitcher.js');
@@ -537,6 +541,7 @@ function init() {
                     var color = Launchpad.getTrackGridPadColor(trackId);
                     Launchpad.setPadColor(padNumber, color);
                 }
+                FavBar.onTrackArmChanged(trackId);
             });
 
             // Add color observer that checks for encoder and pad links
@@ -685,6 +690,28 @@ function init() {
         println: println
     });
 
+    // Initialize quick actions (extracted from LaunchpadLane)
+    QuickActions = new QuickActionsHW({
+        launchpad: Launchpad,
+        pager: Pager,
+        bitwig: Bitwig,
+        bitwigActions: BitwigActions,
+        host: host,
+        debug: debug,
+        println: println
+    });
+
+    // Initialize fav bar (manages row 5 toggle between quick actions and fav mode)
+    FavBar = new FavBarHW({
+        launchpad: Launchpad,
+        pager: Pager,
+        bitwig: Bitwig,
+        host: host,
+        quickActions: QuickActions,
+        debug: debug,
+        println: println
+    });
+
     // Initialize control buttons
     LaunchpadTopButtons = new LaunchpadTopButtonsHW({
         launchpad: Launchpad,
@@ -801,8 +828,10 @@ function init() {
         println: println
     });
 
-    // Fix stale refs: LaunchpadLane and LaunchpadTopButtons were constructed before Pager/Pages/ProjectExplorer/ClipLauncher/ClipGestures
+    // Fix stale refs: LaunchpadLane, QuickActions, FavBar and LaunchpadTopButtons were constructed before Pager/Pages/ProjectExplorer/ClipLauncher/ClipGestures
     LaunchpadLane.pager = Pager;
+    QuickActions.pager = Pager;
+    FavBar.pager = Pager;
     LaunchpadTopButtons.pager = Pager;
     LaunchpadTopButtons.pages = Pages;
     LaunchpadTopButtons.projectExplorer = ProjectExplorer;
@@ -962,6 +991,7 @@ function init() {
         mappers: mappers,
         padMappers: padMappers,
         painter: twisterPainter,
+        favBar: FavBar,
         host: host,
         debug: debug,
         println: println
@@ -973,9 +1003,10 @@ function init() {
     // Fix stale ref: LaunchpadLane was constructed before Controller existed
     LaunchpadLane.controller = Controller;
 
-    // Fix stale ref: Page_MainControl was constructed before Controller/LaunchpadModeSwitcher existed
+    // Fix stale ref: Page_MainControl was constructed before Controller/LaunchpadModeSwitcher/FavBar existed
     Page_MainControl.controller = Controller;
     Page_MainControl.launchpadModeSwitcher = LaunchpadModeSwitcher;
+    Page_MainControl.favBar = FavBar;
 
     // Initialize pagination system (after pages registered, after mode switcher ready)
     Pages.init();

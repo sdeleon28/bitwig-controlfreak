@@ -28,25 +28,12 @@ class LaunchpadLaneHW {
         this._queuedPad = null;
         this._playingPad = null;
 
-        // Action pads configuration
-        this.actionPads = {
-            pads: [55, 56, 57, 58],
-            indices: [28, 29, 30, 31],
-            colors: {
-                toggleMode: 53,
-                insertSilence: 49,
-                copy: 37,
-                paste: 21
-            }
-        };
-
-        // Top lane pad configuration
+        // Top lane pad configuration (rows 6-8 only, 24 markers)
         this.topLane = {
             pads: [
                 81, 82, 83, 84, 85, 86, 87, 88,
                 71, 72, 73, 74, 75, 76, 77, 78,
-                61, 62, 63, 64, 65, 66, 67, 68,
-                51, 52, 53, 54, 55, 56, 57, 58
+                61, 62, 63, 64, 65, 66, 67, 68
             ],
             _padToMarkerIndex: null,
             getMarkerIndex: function(padNote) {
@@ -69,8 +56,6 @@ class LaunchpadLaneHW {
         var self = this;
 
         for (var i = 0; i < this.topLane.pads.length; i++) {
-            if (this.actionPads.indices.indexOf(i) !== -1) continue;
-
             var padNote = this.topLane.pads[i];
             (function(markerIndex) {
                 var clickCallback = function() {
@@ -88,58 +73,20 @@ class LaunchpadLaneHW {
             })(i);
         }
 
-        if (this.debug) this.println("Marker behaviors registered (excluding action pads)");
-    }
-
-    registerActionBehaviors() {
-        var self = this;
-        var colors = this.actionPads.colors;
-
-        this.launchpad.registerPadBehavior(55, function() {
-            self.bitwig.invokeAction(self.bitwigActions.TOGGLE_OBJECT_TIME_SELECTION);
-            self.host.showPopupNotification("Toggle Obj/Time Mode");
-        }, null, 1);
-
-        this.launchpad.registerPadBehavior(56, function() {
-            self.bitwig.invokeAction(self.bitwigActions.INSERT_SILENCE);
-            self.host.showPopupNotification("Insert Silence");
-        }, function() {
-            self.bitwig.invokeAction(self.bitwigActions.REMOVE_TIME);
-            self.host.showPopupNotification("Remove Time");
-        }, 1);
-
-        this.launchpad.registerPadBehavior(57, function() {
-            self.bitwig._application.copy();
-            self.host.showPopupNotification("Copy");
-        }, function() {
-            self.bitwig.invokeAction(self.bitwigActions.CUT_TIME);
-            self.host.showPopupNotification("Cut Time");
-        }, 1);
-
-        this.launchpad.registerPadBehavior(58, function() {
-            self.bitwig._application.paste();
-            self.bitwig.invokeAction(self.bitwigActions.INSERT_CUE_MARKER);
-            self.host.showPopupNotification("Paste + Marker");
-        }, null, 1);
-
-        if (this.debug) this.println("Action behaviors registered for pads 55-58");
+        if (this.debug) this.println("Marker behaviors registered");
     }
 
     refresh(pageNumber) {
         if (typeof pageNumber === 'undefined') pageNumber = 1;
 
         for (var i = 0; i < this.topLane.pads.length; i++) {
-            if (this.actionPads.indices.indexOf(i) === -1) {
-                this.pager.requestClear(pageNumber, this.topLane.pads[i]);
-            }
+            this.pager.requestClear(pageNumber, this.topLane.pads[i]);
         }
 
         var markerBank = this.bitwig.getMarkerBank();
         if (!markerBank) return;
 
         for (var i = 0; i < this.topLane.pads.length; i++) {
-            if (this.actionPads.indices.indexOf(i) !== -1) continue;
-
             var marker = markerBank.getItemAt(i);
             if (marker && marker.exists().get()) {
                 var color = marker.getColor();
@@ -152,18 +99,7 @@ class LaunchpadLaneHW {
             }
         }
 
-        this.refreshActionPads(pageNumber);
-
         if (this.debug) this.println("LaunchpadLane refreshed for page " + pageNumber);
-    }
-
-    refreshActionPads(pageNumber) {
-        if (typeof pageNumber === 'undefined') pageNumber = 1;
-        var colors = this.actionPads.colors;
-        this.pager.requestPaint(pageNumber, 55, colors.toggleMode);
-        this.pager.requestPaint(pageNumber, 56, colors.insertSilence);
-        this.pager.requestPaint(pageNumber, 57, colors.copy);
-        this.pager.requestPaint(pageNumber, 58, colors.paste);
     }
 
     updatePlayheadIndicator(beat) {

@@ -20,6 +20,7 @@ class ControllerHW {
      * @param {Object} deps.mappers - Dict of device name → twister mapper factory function
      * @param {Object} deps.padMappers - Dict of device name → pad mapper factory function
      * @param {Object} deps.painter - TwisterPainter instance
+     * @param {Object} deps.favBar - FavBar instance
      * @param {boolean} deps.debug - Debug flag
      * @param {Function} deps.println - Print function
      */
@@ -41,6 +42,7 @@ class ControllerHW {
         this.mappers = deps.mappers || {};
         this.padMappers = deps.padMappers || {};
         this.painter = deps.painter || null;
+        this.favBar = deps.favBar || null;
         this.debug = deps.debug || false;
         this.println = deps.println || function() {};
 
@@ -74,6 +76,7 @@ class ControllerHW {
      */
     init() {
         this.selectGroup(16);
+        if (this.favBar) this.favBar.scanFavTracks();
         if (this.debug) this.println("Controller initialized");
     }
 
@@ -335,6 +338,11 @@ class ControllerHW {
      * @param {string} newName - New track name
      */
     handleTrackNameChange(trackId, newName) {
+        // Delegate {n} pattern to FavBar (always, regardless of group)
+        if (this.favBar) {
+            this.favBar.handleTrackNameChange(trackId, newName);
+        }
+
         if (!this.selectedGroup) {
             return;
         }

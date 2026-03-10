@@ -106,7 +106,15 @@ class LaunchpadModeSwitcherHW {
                 var modeConfig = this.modes[mode];
                 var isActive = (mode === this._currentEncoderMode || mode === this._currentPadMode);
 
-                if (isActive) {
+                // Send B lights up when fav mode is ON
+                if (mode === 'sendB') {
+                    if (this.controller && this.controller.favBar && this.controller.favBar.isFavMode()) {
+                        var dimColor = this.launchpad.getBrightnessVariant(modeConfig.color, this.launchpad.brightness.dim);
+                        this.pager.requestPaint(pageNumber, modeConfig.note, dimColor);
+                    } else {
+                        this.pager.requestClear(pageNumber, modeConfig.note);
+                    }
+                } else if (isActive) {
                     var color = modeConfig.color;
                     if (mode === 'recordArm' && this.controller && this.controller._multiRec) {
                         color = this.launchpad.colors.pink;
@@ -193,7 +201,13 @@ class LaunchpadModeSwitcherHW {
             self.selectPadMode('select');
         }, null, page);
 
-        // Placeholder: sendB has no behavior (stays off)
+        // Send B: toggle fav mode
+        this.launchpad.registerPadBehavior(modes.sendB.note, function() {
+            if (self.controller && self.controller.favBar) {
+                self.controller.favBar.toggleFavMode();
+                self.refresh();
+            }
+        }, null, page);
     }
 }
 

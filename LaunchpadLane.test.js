@@ -103,13 +103,14 @@ function makeLane(opts) {
 
 // ---- tests ----
 
-// topLane.getMarkerIndex maps pad notes correctly
+// topLane.getMarkerIndex maps pad notes correctly (rows 6-8, 24 pads)
 (function() {
     var lane = makeLane();
     assert(lane.topLane.getMarkerIndex(81) === 0, 'pad 81 -> marker 0');
     assert(lane.topLane.getMarkerIndex(88) === 7, 'pad 88 -> marker 7');
     assert(lane.topLane.getMarkerIndex(71) === 8, 'pad 71 -> marker 8');
-    assert(lane.topLane.getMarkerIndex(58) === 31, 'pad 58 -> marker 31');
+    assert(lane.topLane.getMarkerIndex(68) === 23, 'pad 68 -> marker 23');
+    assert(lane.topLane.getMarkerIndex(51) === null, 'pad 51 not in lane (row 5 removed)');
 })();
 
 // topLane.getMarkerIndex returns null for unknown pad
@@ -137,10 +138,10 @@ function makeLane(opts) {
     assert(markerPaints.length >= 2, 'at least 2 marker pads painted');
 })();
 
-// refresh skips action pad indices (28-31)
+// refresh paints all 24 marker pads (no action pad skipping)
 (function() {
     var markers = {};
-    for (var i = 0; i < 32; i++) {
+    for (var i = 0; i < 24; i++) {
         markers[i] = fakeMarker({ exists: true, r: 1, g: 0, b: 0, position: i * 4 });
     }
     var mb = fakeMarkerBank(markers);
@@ -150,33 +151,15 @@ function makeLane(opts) {
 
     lane.refresh(1);
 
-    // Action pads (55, 56, 57, 58) should be painted with action colors, not marker colors
-    var actionPaints = pager.paints.filter(function(p) {
-        return [55, 56, 57, 58].indexOf(p.pad) !== -1;
-    });
-    // Action pads are painted by refreshActionPads with specific colors
-    var hasToggleMode = actionPaints.some(function(p) { return p.pad === 55 && p.color === 53; });
-    assert(hasToggleMode, 'pad 55 painted with toggleMode color (53)');
+    // All 24 pads should be painted with marker colors (24 clears + 24 paints)
+    var markerPaints = pager.paints.filter(function(p) { return p.color === 5; }); // red=5
+    assert(markerPaints.length === 24, 'all 24 marker pads painted');
 })();
 
-// refreshActionPads paints pads 55-58 with fixed colors
-(function() {
-    var pager = fakePager();
-    var lane = makeLane({ pager: pager });
-
-    lane.refreshActionPads(1);
-
-    assert(pager.paints.length === 4, 'exactly 4 action pads painted');
-    assert(pager.paints[0].pad === 55 && pager.paints[0].color === 53, 'pad 55: toggleMode (pink 53)');
-    assert(pager.paints[1].pad === 56 && pager.paints[1].color === 49, 'pad 56: insertSilence (purple 49)');
-    assert(pager.paints[2].pad === 57 && pager.paints[2].color === 37, 'pad 57: copy (cyan 37)');
-    assert(pager.paints[3].pad === 58 && pager.paints[3].color === 21, 'pad 58: paste (green 21)');
-})();
-
-// registerMarkerBehaviors registers for non-action pads, skips action pads
+// registerMarkerBehaviors registers for all 24 pads in rows 6-8
 (function() {
     var markers = {};
-    for (var i = 0; i < 32; i++) {
+    for (var i = 0; i < 24; i++) {
         markers[i] = fakeMarker({ exists: true, position: i * 4 });
     }
     var mb = fakeMarkerBank(markers);
@@ -186,12 +169,13 @@ function makeLane(opts) {
 
     lane.registerMarkerBehaviors();
 
-    // Action pad notes should NOT have behaviors registered
-    assert(lp.registeredBehaviors[55] === undefined, 'pad 55 (action) not registered');
-    assert(lp.registeredBehaviors[56] === undefined, 'pad 56 (action) not registered');
-    // Regular pad notes should have behaviors
+    // All pads in rows 6-8 should have behaviors
     assert(lp.registeredBehaviors[81] !== undefined, 'pad 81 (marker 0) registered');
     assert(lp.registeredBehaviors[71] !== undefined, 'pad 71 (marker 8) registered');
+    assert(lp.registeredBehaviors[68] !== undefined, 'pad 68 (marker 23) registered');
+    // Row 5 pads should NOT be registered (managed by FavBar now)
+    assert(lp.registeredBehaviors[51] === undefined, 'pad 51 not registered (row 5)');
+    assert(lp.registeredBehaviors[55] === undefined, 'pad 55 not registered (row 5)');
 })();
 
 // marker click callback launches marker and queues pad

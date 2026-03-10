@@ -10,6 +10,7 @@ class PageMainControlHW {
      * @param {Object} deps.launchpadModeSwitcher - LaunchpadModeSwitcher instance (set after construction)
      * @param {Object} deps.launchpad - Launchpad instance
      * @param {Object} deps.launchpadQuadrant - LaunchpadQuadrant instance
+     * @param {Object} deps.favBar - FavBar instance (set after construction)
      * @param {boolean} deps.debug - Debug flag
      * @param {Function} deps.println - Print function
      */
@@ -20,6 +21,7 @@ class PageMainControlHW {
         this.launchpadModeSwitcher = deps.launchpadModeSwitcher || null;
         this.launchpad = deps.launchpad || null;
         this.launchpadQuadrant = deps.launchpadQuadrant || null;
+        this.favBar = deps.favBar || null;
         this.debug = deps.debug || false;
         this.println = deps.println || function() {};
 
@@ -35,7 +37,11 @@ class PageMainControlHW {
         // Register marker behaviors (one pad per marker)
         if (this.launchpadLane) {
             this.launchpadLane.registerMarkerBehaviors();
-            this.launchpadLane.registerActionBehaviors();
+        }
+
+        // Activate fav bar (handles quick actions vs fav mode)
+        if (this.favBar) {
+            this.favBar.activate(this.pageNumber);
         }
 
         // Display all main control elements
@@ -55,6 +61,9 @@ class PageMainControlHW {
     }
 
     hide() {
+        if (this.favBar) {
+            this.favBar.deactivate(this.pageNumber);
+        }
         if (this.debug) this.println("Hiding main control page");
     }
 
