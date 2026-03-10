@@ -269,7 +269,33 @@ function init() {
         })(rc);
     }
 
-    Bitwig.initCursor(cursorTrack, cursorDevice, remoteControls);
+    // Device RC page 2 (pinned to page index 1)
+    var remoteControls2 = cursorDevice.createCursorRemoteControlsPage("device-rc-2", 8, "");
+    remoteControls2.pageCount().markInterested();
+    remoteControls2.selectedPageIndex().markInterested();
+
+    function readjustDeviceRC2() {
+        if (remoteControls2.pageCount().get() < 2) return;
+        if (remoteControls2.selectedPageIndex().get() === 1) return;
+        host.scheduleTask(function() { remoteControls2.selectedPageIndex().set(1); }, null, 100);
+    }
+    remoteControls2.pageCount().addValueObserver(function(count) { Bitwig.setRC2PageCount('device', count); readjustDeviceRC2(); });
+    remoteControls2.selectedPageIndex().addValueObserver(function() { readjustDeviceRC2(); });
+
+    for (var rc2 = 0; rc2 < 8; rc2++) {
+        var param2 = remoteControls2.getParameter(rc2);
+        param2.markInterested();
+        param2.value().markInterested();
+        param2.name().markInterested();
+        param2.discreteValueCount().markInterested();
+        (function(paramIndex) {
+            param2.value().addValueObserver(function(value) {
+                Twister.updateRemoteControlLED(paramIndex + 8, value);
+            });
+        })(rc2);
+    }
+
+    Bitwig.initCursor(cursorTrack, cursorDevice, remoteControls, remoteControls2);
 
     // Track-level remote controls (separate from device RCs)
     var trackRemoteControls = cursorTrack.createCursorRemoteControlsPage("track-rc", 8, "");
@@ -285,7 +311,33 @@ function init() {
             });
         })(trc);
     }
-    Bitwig.initTrackRemoteControls(trackRemoteControls);
+    // Track RC page 2 (pinned to page index 1)
+    var trackRemoteControls2 = cursorTrack.createCursorRemoteControlsPage("track-rc-2", 8, "");
+    trackRemoteControls2.pageCount().markInterested();
+    trackRemoteControls2.selectedPageIndex().markInterested();
+
+    function readjustTrackRC2() {
+        if (trackRemoteControls2.pageCount().get() < 2) return;
+        if (trackRemoteControls2.selectedPageIndex().get() === 1) return;
+        host.scheduleTask(function() { trackRemoteControls2.selectedPageIndex().set(1); }, null, 100);
+    }
+    trackRemoteControls2.pageCount().addValueObserver(function(count) { Bitwig.setRC2PageCount('track', count); readjustTrackRC2(); });
+    trackRemoteControls2.selectedPageIndex().addValueObserver(function() { readjustTrackRC2(); });
+
+    for (var trc2 = 0; trc2 < 8; trc2++) {
+        var trc2Param = trackRemoteControls2.getParameter(trc2);
+        trc2Param.markInterested();
+        trc2Param.value().markInterested();
+        trc2Param.name().markInterested();
+        trc2Param.discreteValueCount().markInterested();
+        (function(paramIndex) {
+            trc2Param.value().addValueObserver(function(value) {
+                Twister.updateTrackRemoteControlLED(paramIndex + 8, value);
+            });
+        })(trc2);
+    }
+
+    Bitwig.initTrackRemoteControls(trackRemoteControls, trackRemoteControls2);
 
     // End-of-chain insertion point for adding devices from empty pads
     var endOfChainInsertionPoint = cursorTrack.endOfDeviceChainInsertionPoint();
@@ -366,7 +418,33 @@ function init() {
             });
         })(prc);
     }
-    Bitwig.initProjectRemoteControls(projectRemoteControls);
+    // Project RC page 2 (pinned to page index 1)
+    var projectRemoteControls2 = rootTrackGroup.createCursorRemoteControlsPage("project-rc-2", 8, "");
+    projectRemoteControls2.pageCount().markInterested();
+    projectRemoteControls2.selectedPageIndex().markInterested();
+
+    function readjustProjectRC2() {
+        if (projectRemoteControls2.pageCount().get() < 2) return;
+        if (projectRemoteControls2.selectedPageIndex().get() === 1) return;
+        host.scheduleTask(function() { projectRemoteControls2.selectedPageIndex().set(1); }, null, 100);
+    }
+    projectRemoteControls2.pageCount().addValueObserver(function(count) { Bitwig.setRC2PageCount('project', count); readjustProjectRC2(); });
+    projectRemoteControls2.selectedPageIndex().addValueObserver(function() { readjustProjectRC2(); });
+
+    for (var prc2 = 0; prc2 < 8; prc2++) {
+        var prc2Param = projectRemoteControls2.getParameter(prc2);
+        prc2Param.markInterested();
+        prc2Param.value().markInterested();
+        prc2Param.name().markInterested();
+        prc2Param.discreteValueCount().markInterested();
+        (function(paramIndex) {
+            prc2Param.value().addValueObserver(function(value) {
+                Twister.updateProjectRemoteControlLED(paramIndex + 8, value);
+            });
+        })(prc2);
+    }
+
+    Bitwig.initProjectRemoteControls(projectRemoteControls, projectRemoteControls2);
 
     // Observe cursor device enabled state (for DeviceQuadrant bypass pad)
     cursorDevice.isEnabled().markInterested();

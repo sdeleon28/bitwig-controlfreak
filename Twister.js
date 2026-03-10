@@ -341,6 +341,43 @@ class TwisterHW {
                 this.setEncoderLED(encoderNum, Math.round(value * 127));
             }
         }
+
+        // Page 2: link to encoders 9-16
+        var trackRC2 = this.bitwig.getTrackRemoteControls2();
+        if (trackRC2 && this.bitwig.getRC2PageCount('track') >= 2) {
+            for (var i = 0; i < 8; i++) {
+                var param = trackRC2.getParameter(i);
+                var encoderNum = ((i + 4) % 8) + 9;
+                var value = param.value().get();
+                var stepCount = param.discreteValueCount().get();
+                this._rcParamToEncoder[i + 8] = encoderNum;
+
+                if (stepCount === 2) {
+                    this._rcToggleParams[i + 8] = true;
+                    var turnCb = null;
+                    var pressCb = (function(p) {
+                        return function(pressed) {
+                            if (!pressed) return;
+                            var cur = p.value().get();
+                            p.value().set(cur >= 0.5 ? 0 : 1);
+                        };
+                    })(param);
+                    this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
+                    this.setEncoderLED(encoderNum, value >= 0.5 ? 127 : 0);
+                } else {
+                    var turnCb = (function(p) {
+                        return function(val) { p.value().set(val / 127.0); };
+                    })(param);
+                    var pressCb = (function(p, h) {
+                        return function(pressed) {
+                            if (pressed && h) h.showPopupNotification(p.name().get());
+                        };
+                    })(param, this.host);
+                    this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
+                    this.setEncoderLED(encoderNum, Math.round(value * 127));
+                }
+            }
+        }
     }
 
     linkEncodersToProjectRemoteControls() {
@@ -408,6 +445,43 @@ class TwisterHW {
                 this.setEncoderLED(encoderNum, Math.round(value * 127));
             }
         }
+
+        // Page 2: link to encoders 9-16 (no special tempo handling)
+        var projectRC2 = this.bitwig.getProjectRemoteControls2();
+        if (projectRC2 && this.bitwig.getRC2PageCount('project') >= 2) {
+            for (var i = 0; i < 8; i++) {
+                var param = projectRC2.getParameter(i);
+                var encoderNum = ((i + 4) % 8) + 9;
+                var value = param.value().get();
+                var stepCount = param.discreteValueCount().get();
+                this._rcParamToEncoder[i + 8] = encoderNum;
+
+                if (stepCount === 2) {
+                    this._rcToggleParams[i + 8] = true;
+                    var turnCb = null;
+                    var pressCb = (function(p) {
+                        return function(pressed) {
+                            if (!pressed) return;
+                            var cur = p.value().get();
+                            p.value().set(cur >= 0.5 ? 0 : 1);
+                        };
+                    })(param);
+                    this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
+                    this.setEncoderLED(encoderNum, value >= 0.5 ? 127 : 0);
+                } else {
+                    var turnCb = (function(p) {
+                        return function(val) { p.value().set(val / 127.0); };
+                    })(param);
+                    var pressCb = (function(p, h) {
+                        return function(pressed) {
+                            if (pressed && h) h.showPopupNotification(p.name().get());
+                        };
+                    })(param, this.host);
+                    this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
+                    this.setEncoderLED(encoderNum, Math.round(value * 127));
+                }
+            }
+        }
     }
 
     updateProjectRemoteControlLED(paramIndex, value) {
@@ -470,6 +544,43 @@ class TwisterHW {
                 })(param, this.host);
                 this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
                 this.setEncoderLED(encoderNum, Math.round(value * 127));
+            }
+        }
+
+        // Page 2: link to encoders 9-16
+        var remoteControls2 = this.bitwig.getRemoteControls2();
+        if (remoteControls2 && this.bitwig.getRC2PageCount('device') >= 2) {
+            for (var i = 0; i < 8; i++) {
+                var param = remoteControls2.getParameter(i);
+                var encoderNum = ((i + 4) % 8) + 9;
+                var value = param.value().get();
+                var stepCount = param.discreteValueCount().get();
+                this._rcParamToEncoder[i + 8] = encoderNum;
+
+                if (stepCount === 2) {
+                    this._rcToggleParams[i + 8] = true;
+                    var turnCb = null;
+                    var pressCb = (function(p) {
+                        return function(pressed) {
+                            if (!pressed) return;
+                            var cur = p.value().get();
+                            p.value().set(cur >= 0.5 ? 0 : 1);
+                        };
+                    })(param);
+                    this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
+                    this.setEncoderLED(encoderNum, value >= 0.5 ? 127 : 0);
+                } else {
+                    var turnCb = (function(p) {
+                        return function(val) { p.value().set(val / 127.0); };
+                    })(param);
+                    var pressCb = (function(p, h) {
+                        return function(pressed) {
+                            if (pressed && h) h.showPopupNotification(p.name().get());
+                        };
+                    })(param, this.host);
+                    this.linkEncoderToBehavior(encoderNum, turnCb, pressCb, color);
+                    this.setEncoderLED(encoderNum, Math.round(value * 127));
+                }
             }
         }
     }

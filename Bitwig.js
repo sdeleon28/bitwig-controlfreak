@@ -20,12 +20,16 @@ class BitwigHW {
         this._cursorTrack = null;
         this._cursorDevice = null;
         this._remoteControls = null;
+        this._remoteControls2 = null;
         this._directParamIds = [];
         this._directParamNames = {};
         this._masterTrack = null;
         this._trackRemoteControls = null;
+        this._trackRemoteControls2 = null;
         this._projectRemoteControls = null;
+        this._projectRemoteControls2 = null;
         this._deviceBank = null;
+        this._rc2PageCounts = { device: 0, track: 0, project: 0 };
     }
 
     /**
@@ -447,10 +451,11 @@ class BitwigHW {
      * @param {Object} cursorDevice - Cursor device object
      * @param {Object} remoteControls - Remote controls page object
      */
-    initCursor(cursorTrack, cursorDevice, remoteControls) {
+    initCursor(cursorTrack, cursorDevice, remoteControls, remoteControls2) {
         this._cursorTrack = cursorTrack;
         this._cursorDevice = cursorDevice;
         this._remoteControls = remoteControls;
+        this._remoteControls2 = remoteControls2 || null;
         if (this.debug) this.println("Cursor track/device initialized");
     }
 
@@ -476,6 +481,10 @@ class BitwigHW {
      */
     getRemoteControls() {
         return this._remoteControls;
+    }
+
+    getRemoteControls2() {
+        return this._remoteControls2;
     }
 
     /**
@@ -513,21 +522,34 @@ class BitwigHW {
      */
     getDirectParamNames() { return this._directParamNames; }
 
-    initTrackRemoteControls(trackRCs) {
+    initTrackRemoteControls(trackRCs, trackRCs2) {
         this._trackRemoteControls = trackRCs;
+        this._trackRemoteControls2 = trackRCs2 || null;
     }
 
     getTrackRemoteControls() {
         return this._trackRemoteControls;
     }
 
-    initProjectRemoteControls(projectRCs) {
+    getTrackRemoteControls2() {
+        return this._trackRemoteControls2;
+    }
+
+    initProjectRemoteControls(projectRCs, projectRCs2) {
         this._projectRemoteControls = projectRCs;
+        this._projectRemoteControls2 = projectRCs2 || null;
     }
 
     getProjectRemoteControls() {
         return this._projectRemoteControls;
     }
+
+    getProjectRemoteControls2() {
+        return this._projectRemoteControls2;
+    }
+
+    setRC2PageCount(type, count) { this._rc2PageCounts[type] = count; }
+    getRC2PageCount(type) { return this._rc2PageCounts[type] || 0; }
 
     initDeviceBank(deviceBank) {
         this._deviceBank = deviceBank;

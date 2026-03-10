@@ -57,33 +57,51 @@ function fakeTrack(opts) {
     };
 }
 
+function makeRCPage(names, values, discreteValueCounts) {
+    var params = {};
+    for (var i = 0; i < 8; i++) {
+        (function(idx) {
+            var val = values && values[idx] !== undefined ? values[idx] : 0;
+            var stepCount = discreteValueCounts && discreteValueCounts[idx] !== undefined ? discreteValueCounts[idx] : -1;
+            params[idx] = {
+                name: function() { return { get: function() { return (names && names[idx]) || ""; } }; },
+                value: function() { return { get: function() { return val; }, set: function(v) { val = v; } }; },
+                discreteValueCount: function() { return { get: function() { return stepCount; } }; }
+            };
+        })(i);
+    }
+    return {
+        getParameter: function(i) { return params[i]; }
+    };
+}
+
 function fakeBitwig(tracks, opts) {
     tracks = tracks || {};
     opts = opts || {};
     var cachedRC = null;
+    var cachedRC2 = null;
     return {
         getTrack: function(id) { return tracks[id] || null; },
         getFxTracks: function() { return []; },
         getRemoteControls: function() {
             if (!opts.remoteControls) return null;
             if (cachedRC) return cachedRC;
-            var names = opts.remoteControls;
-            var values = opts.remoteControlValues || [];
-            var discreteValueCounts = opts.discreteValueCounts || [];
-            var params = {};
-            for (var i = 0; i < 8; i++) {
-                (function(idx) {
-                    var val = values[idx] !== undefined ? values[idx] : 0;
-                    var stepCount = discreteValueCounts[idx] !== undefined ? discreteValueCounts[idx] : -1;
-                    params[idx] = {
-                        name: function() { return { get: function() { return names[idx] || ""; } }; },
-                        value: function() { return { get: function() { return val; }, set: function(v) { val = v; } }; },
-                        discreteValueCount: function() { return { get: function() { return stepCount; } }; }
-                    };
-                })(i);
-            }
-            cachedRC = { getParameter: function(i) { return params[i]; } };
+            cachedRC = makeRCPage(opts.remoteControls, opts.remoteControlValues, opts.discreteValueCounts, opts.rcPageCount);
             return cachedRC;
+        },
+        getRemoteControls2: function() {
+            if (!opts.remoteControls2) return null;
+            if (cachedRC2) return cachedRC2;
+            cachedRC2 = makeRCPage(opts.remoteControls2.names, opts.remoteControls2.values, opts.remoteControls2.discreteValueCounts, opts.remoteControls2.pageCount);
+            return cachedRC2;
+        },
+        getTrackRemoteControls: function() { return null; },
+        getTrackRemoteControls2: function() { return null; },
+        getProjectRemoteControls: function() { return null; },
+        getProjectRemoteControls2: function() { return null; },
+        getRC2PageCount: function(type) {
+            if (type === 'device' && opts.remoteControls2) return opts.remoteControls2.pageCount || 0;
+            return 0;
         }
     };
 }
@@ -631,7 +649,9 @@ function makeTwister(opts) {
             };
             return cachedRC;
         },
-        getRemoteControls: function() { return null; }
+        getRemoteControls: function() { return null; },
+        getTrackRemoteControls2: function() { return null; },
+        getRC2PageCount: function() { return 0; }
     };
     var tw = makeTwister({ bitwig: bw, host: h });
     tw.linkEncodersToTrackRemoteControls();
@@ -886,6 +906,204 @@ function makeTwister(opts) {
     var param = bw.getProjectRemoteControls().getParameter(0);
     assert(Math.abs(param.value().get() - 100/127) < 0.01, 'non-tempo encoder should set param value normally');
     assert(actions.length === 0, 'non-tempo encoder should not invoke any actions');
+})();
+
+// linkEncodersToRemoteControls maps page 2 to encoders 9-16
+(function() {
+    var out = fakeMidiOutput();
+    var bw = fakeBitwig({}, {
+        remoteControls: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+        discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1],
+        remoteControls2: {
+            names: ['I', 'J', 'K', 'L', 'M', 'N', 'O', 'P'],
+            discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1],
+            pageCount: 2
+        }
+    });
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+
+    // Page 1: params 0-7 → encoders 1-8
+    for (var i = 0; i < 8; i++) {
+        var enc = ((i + 4) % 8) + 1;
+        assert(tw._rcParamToEncoder[i] === enc, 'page 1 param ' + i + ' -> encoder ' + enc);
+    }
+    // Page 2: params 8-15 → encoders 9-16
+    for (var i = 0; i < 8; i++) {
+        var enc = ((i + 4) % 8) + 9;
+        assert(tw._rcParamToEncoder[i + 8] === enc, 'page 2 param ' + (i + 8) + ' -> encoder ' + enc);
+    }
+    // Should have 16 red color messages total
+    var redIndex = tw.findClosestColorIndex(255, 0, 0);
+    var redMsgs = out.messages.filter(function(m) { return m.status === 0xB1 && m.data2 === redIndex; });
+    assert(redMsgs.length === 16, 'should send 16 red color messages with page 2, got ' + redMsgs.length);
+})();
+
+// linkEncodersToRemoteControls skips page 2 when pageCount < 2
+(function() {
+    var out = fakeMidiOutput();
+    var bw = fakeBitwig({}, {
+        remoteControls: ['A', '', '', '', '', '', '', ''],
+        discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1],
+        remoteControls2: {
+            names: ['I', '', '', '', '', '', '', ''],
+            pageCount: 1  // only 1 page
+        }
+    });
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    assert(tw._rcParamToEncoder[8] === undefined, 'page 2 params should not be mapped when pageCount < 2');
+    var redIndex = tw.findClosestColorIndex(255, 0, 0);
+    var redMsgs = out.messages.filter(function(m) { return m.status === 0xB1 && m.data2 === redIndex; });
+    assert(redMsgs.length === 8, 'should only send 8 red messages when pageCount < 2, got ' + redMsgs.length);
+})();
+
+// linkEncodersToRemoteControls skips page 2 when remoteControls2 is null
+(function() {
+    var out = fakeMidiOutput();
+    var bw = fakeBitwig({}, {
+        remoteControls: ['A', '', '', '', '', '', '', ''],
+        discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1]
+    });
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    assert(tw._rcParamToEncoder[8] === undefined, 'page 2 not mapped when remoteControls2 is null');
+})();
+
+// page 2 toggle param maps to press behavior on encoder 9-16
+(function() {
+    var bw = fakeBitwig({}, {
+        remoteControls: ['A', '', '', '', '', '', '', ''],
+        discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1],
+        remoteControls2: {
+            names: ['Toggle2', '', '', '', '', '', '', ''],
+            values: [0, 0, 0, 0, 0, 0, 0, 0],
+            discreteValueCounts: [2, -1, -1, -1, -1, -1, -1, -1],
+            pageCount: 2
+        }
+    });
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    // Page 2 param 0 → encoder ((0+4)%8)+9 = 13
+    var behavior = tw._encoderBehaviors[13];
+    assert(behavior !== undefined, 'page 2 toggle should create behavior on encoder 13');
+    assert(behavior.pressCallback !== null, 'page 2 toggle should have press callback');
+    assert(behavior.turnCallback === null, 'page 2 toggle should NOT have turn callback');
+    assert(tw._rcToggleParams[8] === true, 'page 2 param index 8 should be marked as toggle');
+})();
+
+// updateRemoteControlLED works for page 2 indices (8-15)
+(function() {
+    var out = fakeMidiOutput();
+    var bw = fakeBitwig({}, {
+        remoteControls: ['A', '', '', '', '', '', '', ''],
+        discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1],
+        remoteControls2: {
+            names: ['I', '', '', '', '', '', '', ''],
+            discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1],
+            pageCount: 2
+        }
+    });
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    out.messages.length = 0;
+    // Update page 2 param index 8 (maps to encoder 13)
+    tw.updateRemoteControlLED(8, 0.75);
+    var cc13 = tw.encoderToCC(13);
+    var ledMsgs = out.messages.filter(function(m) { return m.status === 0xB0 && m.data1 === cc13; });
+    assert(ledMsgs.length === 1, 'should send LED message for page 2 param');
+    assert(ledMsgs[0].data2 === Math.round(0.75 * 127), 'LED value should match, got ' + ledMsgs[0].data2);
+})();
+
+// linkEncodersToTrackRemoteControls maps page 2 to encoders 9-16
+(function() {
+    var out = fakeMidiOutput();
+    var cachedRC = null;
+    var cachedRC2 = null;
+    var bw = {
+        getTrack: function() { return null; },
+        getFxTracks: function() { return []; },
+        getRemoteControls: function() { return null; },
+        getRemoteControls2: function() { return null; },
+        getTrackRemoteControls: function() {
+            if (cachedRC) return cachedRC;
+            cachedRC = makeRCPage(['A','B','C','D','E','F','G','H']);
+            return cachedRC;
+        },
+        getTrackRemoteControls2: function() {
+            if (cachedRC2) return cachedRC2;
+            cachedRC2 = makeRCPage(['I','J','K','L','M','N','O','P']);
+            return cachedRC2;
+        },
+        getRC2PageCount: function(type) { return type === 'track' ? 2 : 0; }
+    };
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    tw.linkEncodersToTrackRemoteControls();
+
+    // Check page 2 mapped
+    for (var i = 0; i < 8; i++) {
+        var enc = ((i + 4) % 8) + 9;
+        assert(tw._rcParamToEncoder[i + 8] === enc, 'track RC page 2 param ' + (i+8) + ' -> encoder ' + enc);
+    }
+    var purpleIndex = tw.findClosestColorIndex(150, 0, 255);
+    var purpleMsgs = out.messages.filter(function(m) { return m.status === 0xB1 && m.data2 === purpleIndex; });
+    assert(purpleMsgs.length === 16, 'should send 16 purple color messages, got ' + purpleMsgs.length);
+})();
+
+// linkEncodersToProjectRemoteControls maps page 2 to encoders 9-16
+(function() {
+    var out = fakeMidiOutput();
+    var cachedRC = null;
+    var cachedRC2 = null;
+    var bw = {
+        getTrack: function() { return null; },
+        getFxTracks: function() { return []; },
+        getRemoteControls: function() { return null; },
+        getRemoteControls2: function() { return null; },
+        getProjectRemoteControls: function() {
+            if (cachedRC) return cachedRC;
+            cachedRC = makeRCPage(['A','B','C','D','E','F','G','H']);
+            return cachedRC;
+        },
+        getProjectRemoteControls2: function() {
+            if (cachedRC2) return cachedRC2;
+            cachedRC2 = makeRCPage(['I','J','K','L','M','N','O','P']);
+            return cachedRC2;
+        },
+        getRC2PageCount: function(type) { return type === 'project' ? 2 : 0; },
+        invokeAction: function() {}
+    };
+    var tw = makeTwister({ midiOutput: out, bitwig: bw });
+    tw.linkEncodersToProjectRemoteControls();
+
+    for (var i = 0; i < 8; i++) {
+        var enc = ((i + 4) % 8) + 9;
+        assert(tw._rcParamToEncoder[i + 8] === enc, 'project RC page 2 param ' + (i+8) + ' -> encoder ' + enc);
+    }
+    var cyanIndex = tw.findClosestColorIndex(0, 200, 255);
+    var cyanMsgs = out.messages.filter(function(m) { return m.status === 0xB1 && m.data2 === cyanIndex; });
+    assert(cyanMsgs.length === 16, 'should send 16 cyan color messages, got ' + cyanMsgs.length);
+})();
+
+// page 2 continuous param turn sets value via page 2 RC object
+(function() {
+    var bw = fakeBitwig({}, {
+        remoteControls: ['A', '', '', '', '', '', '', ''],
+        remoteControlValues: [0, 0, 0, 0, 0, 0, 0, 0],
+        discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1],
+        remoteControls2: {
+            names: ['Cutoff2', '', '', '', '', '', '', ''],
+            values: [0, 0, 0, 0, 0, 0, 0, 0],
+            discreteValueCounts: [-1, -1, -1, -1, -1, -1, -1, -1],
+            pageCount: 2
+        }
+    });
+    var tw = makeTwister({ bitwig: bw });
+    tw.linkEncodersToRemoteControls();
+    // Page 2 param 0 → encoder 13
+    tw.handleEncoderTurn(13, 100);
+    var param = bw.getRemoteControls2().getParameter(0);
+    assert(Math.abs(param.value().get() - 100/127) < 0.01, 'page 2 encoder turn should set param value');
 })();
 
 // ---- summary ----
