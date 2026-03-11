@@ -75,7 +75,7 @@ class ControllerHW {
      * Initialize controller
      */
     init() {
-        this.selectGroup(16);
+        this.selectGroup(16, { skipDevicePane: true });
         if (this.favBar) this.favBar.scanFavTracks();
         if (this.debug) this.println("Controller initialized");
     }
@@ -93,7 +93,8 @@ class ControllerHW {
      * Select a group and link encoders to its children
      * @param {number} groupNumber - Group number (1-16, where 16 = top-level)
      */
-    selectGroup(groupNumber) {
+    selectGroup(groupNumber, options) {
+        options = options || {};
         if (groupNumber < 1 || groupNumber > 16) {
             return;
         }
@@ -108,10 +109,26 @@ class ControllerHW {
             cursorDevice.isRemoteControlsSectionVisible().set(false);
         }
 
-        if ((this._mode === 'track' || this._mode === 'device') && this._devicePaneShown && this.bitwig._application) {
+        if (!options.skipDevicePane && !this._devicePaneShown && this.bitwig._application) {
             this.bitwig._application.toggleDevices();
-            this._devicePaneShown = false;
+            this._devicePaneShown = true;
         }
+
+        if (this.deviceQuadrant && this.deviceQuadrant.isActive()) {
+            this.deviceQuadrant.deactivate();
+        }
+        if (this.deviceSelector && this.deviceSelector.isActive()) {
+            this.deviceSelector.deactivate();
+        }
+
+        this.selectedGroup = groupNumber;
+        this._mode = 'grid';
+        this._activeMapper = null;
+        this._activePadMapper = null;
+        this._selectedDeviceIndex = null;
+        this._lastDeviceName = null;
+        this._masterTrackMode = false;
+        this._multiRec = false;
 
         if (groupNumber === 16) {
             if (this.host) this.host.showPopupNotification("Top Level");
@@ -141,8 +158,11 @@ class ControllerHW {
 
             if (groupTrackId !== null) {
                 var groupTrack = this.bitwig.getTrack(groupTrackId);
-                if (groupTrack && this.host) {
-                    this.host.showPopupNotification(groupTrack.name().get());
+                if (groupTrack) {
+                    groupTrack.selectInMixer();
+                    if (this.host) {
+                        this.host.showPopupNotification(groupTrack.name().get());
+                    }
                 }
 
                 var children = this.bitwig.getGroupChildren(groupTrackId);
@@ -167,21 +187,6 @@ class ControllerHW {
             }
         }
 
-        if (this.deviceQuadrant && this.deviceQuadrant.isActive()) {
-            this.deviceQuadrant.deactivate();
-        }
-        if (this.deviceSelector && this.deviceSelector.isActive()) {
-            this.deviceSelector.deactivate();
-        }
-
-        this.selectedGroup = groupNumber;
-        this._mode = 'grid';
-        this._activeMapper = null;
-        this._activePadMapper = null;
-        this._selectedDeviceIndex = null;
-        this._lastDeviceName = null;
-        this._masterTrackMode = false;
-        this._multiRec = false;
         this.refreshGroupDisplay();
         this.refreshTrackGrid();
     }
