@@ -56,13 +56,9 @@ function fakeBitwig(opts) {
     var groups = opts.groups || {};
     var groupChildren = opts.groupChildren || {};
     var topLevel = opts.topLevel || [];
-    var _toggleDevicesCalls = 0;
     var result = {
         _trackDepths: opts.trackDepths || {},
-        _application: {
-            toggleDevices: function() { _toggleDevicesCalls++; }
-        },
-        _getToggleDevicesCalls: function() { return _toggleDevicesCalls; },
+        _application: {},
         selectedTracks: [],
         getTrack: function(id) { return tracks[id] || null; },
         getTopLevelTracks: function() { return topLevel; },
@@ -2131,114 +2127,6 @@ function makeController(opts) {
     assert(track._getVisibleCalls() === 1, "select should call makeVisibleInArranger");
 })();
 
-// enterTrackMode toggles device pane on
-(function() {
-    var bw = fakeBitwig();
-    var ctrl = makeController({ bitwig: bw });
-    assert(ctrl._devicePaneShown === false, "device pane should start hidden");
-    ctrl.enterTrackMode();
-    assert(ctrl._devicePaneShown === true, "device pane should be shown after enterTrackMode");
-    assert(bw._getToggleDevicesCalls() === 1, "should call toggleDevices once");
-})();
-
-// enterTrackMode does not double-toggle if already shown
-(function() {
-    var bw = fakeBitwig();
-    var ctrl = makeController({ bitwig: bw });
-    ctrl.enterTrackMode();
-    ctrl.enterTrackMode();
-    assert(bw._getToggleDevicesCalls() === 1, "should only toggle once");
-    assert(ctrl._devicePaneShown === true, "should remain shown");
-})();
-
-// enterDeviceMode does not affect device pane
-(function() {
-    var bw = fakeBitwig();
-    var ctrl = makeController({ bitwig: bw });
-    ctrl.enterDeviceMode("SomePlugin");
-    assert(ctrl._devicePaneShown === false, "device pane should remain hidden after enterDeviceMode");
-    assert(bw._getToggleDevicesCalls() === 0, "should not call toggleDevices");
-})();
-
-// selectGroup(non-16) keeps device pane open when already shown
-(function() {
-    var bw = fakeBitwig({ groups: { 1: 0 }, groupChildren: { 0: [] }, tracks: { 0: fakeTrack("G (1)", { isGroup: true }) } });
-    var ctrl = makeController({ bitwig: bw });
-    ctrl.enterTrackMode();
-    ctrl.selectGroup(1);
-    assert(ctrl._devicePaneShown === true, "device pane should remain shown after selectGroup(non-16)");
-    assert(bw._getToggleDevicesCalls() === 1, "should only toggle once (track mode opened it)");
-})();
-
-// selectGroup(16) keeps device pane open when coming from track mode
-(function() {
-    var bw = fakeBitwig();
-    var ctrl = makeController({ bitwig: bw });
-    ctrl.enterTrackMode();
-    ctrl.selectGroup(16);
-    assert(ctrl._devicePaneShown === true, "device pane should remain shown after selectGroup(16) from track mode");
-    assert(bw._getToggleDevicesCalls() === 1, "should only toggle once (track mode opened it)");
-})();
-
-// selectGroup(16) keeps device pane open when coming from master track mode
-(function() {
-    var masterTrack = fakeTrack("Master");
-    var bw = fakeBitwig({ masterTrack: masterTrack });
-    var ctrl = makeController({ bitwig: bw });
-    ctrl.enterMasterTrackMode();
-    ctrl.selectGroup(16);
-    assert(ctrl._devicePaneShown === true, "device pane should remain shown after leaving master track mode");
-    assert(bw._getToggleDevicesCalls() === 1, "should only toggle once (master track mode opened it)");
-})();
-
-// selectGroup opens device pane when not already shown
-(function() {
-    var bw = fakeBitwig();
-    var ctrl = makeController({ bitwig: bw });
-    ctrl.selectGroup(16);
-    assert(ctrl._devicePaneShown === true, "device pane should be shown after selectGroup");
-    assert(bw._getToggleDevicesCalls() === 1, "should toggle once to open pane");
-})();
-
-// full cycle: track mode opens pane, selectGroup keeps it open
-(function() {
-    var bw = fakeBitwig({
-        groups: { 5: 10 },
-        groupChildren: { 10: [11] },
-        tracks: { 10: fakeTrack("Guitars (5)", { isGroup: true }), 11: fakeTrack("Clean (1)") }
-    });
-    var dq = fakeDeviceQuadrant();
-    var ds = fakeDeviceSelector();
-    var ctrl = makeController({ bitwig: bw, deviceQuadrant: dq, deviceSelector: ds });
-    ctrl.selectedGroup = 5;
-    ctrl.enterTrackMode();
-    assert(ctrl._devicePaneShown === true, "pane shown after entering track mode");
-    ctrl.enterDeviceMode("SomePlugin");
-    assert(ctrl._devicePaneShown === true, "pane remains shown in device mode");
-    assert(bw._getToggleDevicesCalls() === 1, "only one toggle (track mode on)");
-    ctrl.selectGroup(5);
-    assert(ctrl._devicePaneShown === true, "pane stays open after selectGroup");
-    assert(bw._getToggleDevicesCalls() === 1, "still one toggle total (no extra toggle needed)");
-})();
-
-// selectGroup with skipDevicePane does not toggle device pane
-(function() {
-    var bw = fakeBitwig();
-    var ctrl = makeController({ bitwig: bw });
-    ctrl.selectGroup(16, { skipDevicePane: true });
-    assert(ctrl._devicePaneShown === false, "device pane should remain hidden with skipDevicePane");
-    assert(bw._getToggleDevicesCalls() === 0, "should not call toggleDevices with skipDevicePane");
-})();
-
-// init() does not open device pane (uses skipDevicePane)
-(function() {
-    var bw = fakeBitwig();
-    var ctrl = makeController({ bitwig: bw });
-    ctrl.init();
-    assert(ctrl._devicePaneShown === false, "init should not set _devicePaneShown");
-    assert(bw._getToggleDevicesCalls() === 0, "init should not toggle device pane");
-})();
-
 // selectGroup(non-16) calls selectInMixer on group track
 (function() {
     var selected = false;
@@ -2427,16 +2315,6 @@ function makeController(opts) {
     var ctrl = makeController({ host: h, bitwig: bw });
     ctrl.enterMasterTrackMode();
     assert(h.notifications.indexOf("Master → Track Mode") !== -1, "should show Master → Track Mode growl");
-})();
-
-// enterMasterTrackMode shows device pane
-(function() {
-    var masterTrack = fakeTrack("Master");
-    var bw = fakeBitwig({ masterTrack: masterTrack });
-    var ctrl = makeController({ bitwig: bw });
-    ctrl.enterMasterTrackMode();
-    assert(ctrl._devicePaneShown === true, "device pane should be shown");
-    assert(bw._getToggleDevicesCalls() === 1, "should toggle device pane once");
 })();
 
 // enterMasterTrackMode activates device selector

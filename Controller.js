@@ -53,7 +53,7 @@ class ControllerHW {
         this._deviceChangeSeq = 0;
         this._pendingRCCheck = false;
         this._suppressNextDeviceChange = false;
-        this._devicePaneShown = false;
+
         this._selectedDeviceIndex = null;
         this._lastDeviceName = null;
         this._masterTrackMode = false;
@@ -75,7 +75,7 @@ class ControllerHW {
      * Initialize controller
      */
     init() {
-        this.selectGroup(16, { skipDevicePane: true });
+        this.selectGroup(16);
         if (this.favBar) this.favBar.scanFavTracks();
         if (this.debug) this.println("Controller initialized");
     }
@@ -93,8 +93,7 @@ class ControllerHW {
      * Select a group and link encoders to its children
      * @param {number} groupNumber - Group number (1-16, where 16 = top-level)
      */
-    selectGroup(groupNumber, options) {
-        options = options || {};
+    selectGroup(groupNumber) {
         if (groupNumber < 1 || groupNumber > 16) {
             return;
         }
@@ -107,11 +106,6 @@ class ControllerHW {
         }
         if (cursorDevice) {
             cursorDevice.isRemoteControlsSectionVisible().set(false);
-        }
-
-        if (!options.skipDevicePane && !this._devicePaneShown && this.bitwig._application) {
-            this.bitwig._application.toggleDevices();
-            this._devicePaneShown = true;
         }
 
         if (this.deviceQuadrant && this.deviceQuadrant.isActive()) {
@@ -668,10 +662,6 @@ class ControllerHW {
         this._activePadMapper = null;
         this._selectedDeviceIndex = null;
         this._lastDeviceName = null;
-        if (!this._devicePaneShown && this.bitwig._application) {
-            this.bitwig._application.toggleDevices();
-            this._devicePaneShown = true;
-        }
 
         if (this.host) {
             var cursorTrack = this.bitwig.getCursorTrack();
@@ -738,7 +728,7 @@ class ControllerHW {
     }
 
     /**
-     * Enter master track mode: select master track, show device pane,
+     * Enter master track mode: select master track,
      * link project remote controls to Twister.
      */
     enterMasterTrackMode() {
@@ -759,11 +749,6 @@ class ControllerHW {
         this._activePadMapper = null;
         this._selectedDeviceIndex = null;
         this._lastDeviceName = null;
-
-        if (!this._devicePaneShown && this.bitwig._application) {
-            this.bitwig._application.toggleDevices();
-            this._devicePaneShown = true;
-        }
 
         masterTrack.selectInMixer();
 
