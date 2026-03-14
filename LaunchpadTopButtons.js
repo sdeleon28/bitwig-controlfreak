@@ -40,6 +40,7 @@ class LaunchpadTopButtonsHW {
             barForward: buttons.top4,
             decreaseResolution: buttons.top5,
             increaseResolution: buttons.top6,
+            devicesToggle: buttons.top7,
             mixerToggle: buttons.top8
         };
 
@@ -60,7 +61,8 @@ class LaunchpadTopButtonsHW {
         this.launchpad.setTopButtonColor(this.buttons.decreaseResolution, this.launchpad.colors.cyan);
         this.launchpad.setTopButtonColor(this.buttons.increaseResolution, this.launchpad.colors.cyan);
 
-        // Set mixer toggle button color
+        // Set devices and mixer toggle button colors
+        this.launchpad.setTopButtonColor(this.buttons.devicesToggle, this.launchpad.colors.white);
         this.launchpad.setTopButtonColor(this.buttons.mixerToggle, this.launchpad.colors.white);
 
         if (this.debug) this.println("LaunchpadTopButtons initialized");
@@ -110,9 +112,13 @@ class LaunchpadTopButtonsHW {
             return true;
         }
 
-        // Mixer toggle (only on main control page)
+        // Devices and mixer toggles (only on main control page)
         if (this.mainControl && this.pager &&
             this.pager.getActivePage() === this.mainControl.pageNumber) {
+            if (cc === this.buttons.devicesToggle) {
+                this.bitwig.invokeAction(this.bitwigActions.TOGGLE_DEVICE);
+                return true;
+            }
             if (cc === this.buttons.mixerToggle) {
                 this.bitwig.invokeAction(this.bitwigActions.TOGGLE_MIXER);
                 return true;

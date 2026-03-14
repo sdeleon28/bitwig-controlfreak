@@ -37,6 +37,12 @@ class FavBarHW {
     }
 
     toggleFavMode() {
+        // If in set-fav gesture, cancel it instead of toggling
+        if (this._setFavMode) {
+            this.exitSetFavMode(this._pageNumber);
+            return;
+        }
+
         this._favMode = !this._favMode;
 
         if (this._favMode) {

@@ -554,6 +554,79 @@ function makeFavBar(opts) {
     assert(registerCall !== undefined, 'quick actions restored when not in fav mode');
 })();
 
+// toggleFavMode during setFavMode cancels the gesture instead of toggling
+(function() {
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var tracks = {};
+    tracks[5] = fakeTrack('Vocals {1}', { color: { r: 0, g: 1, b: 0 } });
+    var bw = fakeBitwig(tracks);
+    var fb = makeFavBar({ launchpad: lp, pager: pager, bitwig: bw });
+    fb._favMode = true;
+    fb._favTracks = { 1: 5 };
+
+    fb.enterSetFavMode(7, 1);
+    assert(fb.isSetFavMode() === true, 'in set fav mode');
+    assert(pager.flashings.length === 8, 'pads are flashing');
+
+    // Press Send B (calls toggleFavMode) — should cancel, not toggle
+    fb.toggleFavMode();
+
+    assert(fb.isSetFavMode() === false, 'set fav mode canceled');
+    assert(fb.isFavMode() === true, 'fav mode unchanged (still ON)');
+    assert(fb._pendingTrackId === null, 'pending track cleared');
+    // Should have re-registered normal fav behaviors (non-flashing)
+    assert(lp.registeredBehaviors[51] !== undefined, 'fav behaviors restored');
+})();
+
+// toggleFavMode during setFavMode when favMode was OFF restores quick actions
+(function() {
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var qa = fakeQuickActions();
+    var tracks = {};
+    tracks[7] = fakeTrack('Vocals');
+    var bw = fakeBitwig(tracks);
+    var fb = makeFavBar({ launchpad: lp, pager: pager, quickActions: qa, bitwig: bw });
+    fb._favMode = false;
+
+    fb.enterSetFavMode(7, 1);
+    qa.calls.length = 0;
+    fb.toggleFavMode();
+
+    assert(fb.isSetFavMode() === false, 'set fav mode canceled');
+    assert(fb.isFavMode() === false, 'fav mode still OFF');
+    var registerCall = qa.calls.find(function(c) { return c.method === 'registerBehaviors'; });
+    assert(registerCall !== undefined, 'quick actions restored after cancel');
+})();
+
+// after canceling setFavMode via Send B, re-entering fav mode shows normal pads (no flashing)
+(function() {
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var tracks = {};
+    tracks[5] = fakeTrack('Vocals {1}', { color: { r: 0, g: 1, b: 0 } });
+    tracks[7] = fakeTrack('Keys');
+    var bw = fakeBitwig(tracks);
+    var fb = makeFavBar({ launchpad: lp, pager: pager, bitwig: bw });
+    fb._favTracks = { 1: 5 };
+
+    // Enter set fav mode
+    fb.enterSetFavMode(7, 1);
+    // Cancel with Send B
+    fb.toggleFavMode();
+    // Clear tracking arrays
+    pager.flashings.length = 0;
+    pager.paints.length = 0;
+
+    // Now toggle fav mode ON normally
+    fb.toggleFavMode();
+
+    assert(fb.isFavMode() === true, 'fav mode ON');
+    assert(pager.flashings.length === 0, 'no flashing pads');
+    assert(pager.paints.length > 0, 'normal static paints applied');
+})();
+
 // ---- summary ----
 
 process.exit(t.summary('FavBar'));

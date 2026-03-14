@@ -44,7 +44,7 @@ function fakeMainControl() {
 }
 
 function fakeBitwigActions() {
-    return { TOGGLE_MIXER: 'toggle_mixer' };
+    return { TOGGLE_MIXER: 'toggle_mixer', TOGGLE_DEVICE: 'toggle_device_panel' };
 }
 
 function fakeClipGestures() {
@@ -259,12 +259,45 @@ function makeTopButtons(opts) {
     assert(tb.buttons.increaseResolution === 109, 'increaseResolution = top6 = 109');
 })();
 
+// init sets devices toggle button (top7=110) color to white
+(function() {
+    var lp = fakeLaunchpad();
+    var tb = makeTopButtons({ launchpad: lp });
+    tb.init();
+    assert(lp.topButtonColors[110] === 3, 'devices toggle (top7=110) set to white (3)');
+})();
+
 // init sets mixer toggle button (top8=111) color to white
 (function() {
     var lp = fakeLaunchpad();
     var tb = makeTopButtons({ launchpad: lp });
     tb.init();
     assert(lp.topButtonColors[111] === 3, 'mixer toggle (top8=111) set to white (3)');
+})();
+
+// devices toggle (CC 110) on main control page calls invokeAction with toggle_device_panel
+(function() {
+    var bw = fakeBitwig();
+    var pager = fakePager(1); // main control page
+    var tb = makeTopButtons({ bitwig: bw, pager: pager });
+    var result = tb.handleTopButtonCC(110, 127);
+    assert(result === true, 'devices toggle returns true on main control page');
+    assert(bw.calls[0].method === 'invokeAction', 'invokeAction called');
+    assert(bw.calls[0].action === 'toggle_device_panel', 'toggle_device_panel action passed');
+})();
+
+// devices toggle (CC 110) on non-main-control, non-project-explorer page is not handled
+(function() {
+    var bw = fakeBitwig();
+    var pager = fakePager(4); // some other page
+    var tb = makeTopButtons({
+        bitwig: bw,
+        pager: pager,
+        projectExplorer: fakeProjectExplorer() // page 2, won't match
+    });
+    var result = tb.handleTopButtonCC(110, 127);
+    assert(result === false, 'devices toggle not handled on page 4');
+    assert(bw.calls.length === 0, 'invokeAction not called');
 })();
 
 // mixer toggle (CC 111) on main control page calls invokeAction
