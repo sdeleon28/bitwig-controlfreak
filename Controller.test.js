@@ -3079,4 +3079,88 @@ function makeController(opts) {
     assert(tw.links[1] && tw.links[1].trackId === 11, "encoder 1 should be linked to child track");
 })();
 
+// enterTrackMode: double-clicking device pad enters device mode even when _lastDeviceName is null (async observer not yet fired)
+(function() {
+    var ds = fakeDeviceSelector();
+    var dq = fakeDeviceQuadrant();
+    var bw = fakeBitwig({ _cursorDeviceName: 'Reverb' });
+    var ctrl = makeController({ deviceSelector: ds, deviceQuadrant: dq, bitwig: bw });
+
+    // Enter track mode (activates device selector, captures callback)
+    ctrl.enterTrackMode();
+    assert(ds._onDeviceSelected, "device selector callback should be captured");
+
+    // Simulate: _lastDeviceName is null (suppressed observer hasn't fired)
+    ctrl._lastDeviceName = null;
+
+    // First click on device pad 2 — selects it
+    ds._onDeviceSelected(2);
+    assert(ctrl._selectedDeviceIndex === 2, "first click should set _selectedDeviceIndex");
+    assert(ctrl._mode !== 'device', "first click should not enter device mode");
+
+    // Second click on same device pad — should enter device mode by reading cursor device name
+    ds._onDeviceSelected(2);
+    assert(ctrl._mode === 'device', "second click should enter device mode even with _lastDeviceName null");
+})();
+
+// device pad click: cursor-already-here maps device even when suppress was active
+(function() {
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 2;
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ _cursorDeviceName: 'Delay' });
+    var ctrl = makeController({ deviceSelector: ds, twister: tw, bitwig: bw });
+    ctrl.enterTrackMode();
+    ctrl._suppressNextDeviceChange = true;
+
+    // Click device pad at cursor position — should map despite suppress
+    ds._onDeviceSelected(2);
+    assert(ctrl._suppressNextDeviceChange === false, "suppress flag should be cleared by pad click");
+    assert(ctrl._lastDeviceName === 'Delay', "device should be mapped on first click despite suppress");
+})();
+
+// device pad click: navigate cursor clears suppress before selectDevice
+(function() {
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 0;
+    var bw = fakeBitwig({ _cursorDeviceName: 'SomeDevice' });
+    var ctrl = makeController({ deviceSelector: ds, bitwig: bw });
+    ctrl.enterTrackMode();
+    ctrl._suppressNextDeviceChange = true;
+
+    // Click device pad at different position — suppress should be cleared
+    ds._onDeviceSelected(3);
+    assert(ctrl._suppressNextDeviceChange === false, "suppress flag should be cleared before cursor navigation");
+})();
+
+// device pad click: custom mapper used on first click despite suppress
+(function() {
+    var mapper;
+    var mappers = { 'Frequalizer Alt': function() { mapper = fakeMapper(); return mapper; } };
+    var ds = fakeDeviceSelector();
+    ds._cursorDevicePosition = 1;
+    var bw = fakeBitwig({ _cursorDeviceName: 'Frequalizer Alt' });
+    var ctrl = makeController({ mappers: mappers, deviceSelector: ds, bitwig: bw });
+    ctrl.enterTrackMode();
+    ctrl._suppressNextDeviceChange = true;
+
+    // Click device pad at cursor position — should use custom mapper
+    ds._onDeviceSelected(1);
+    assert(mapper, "custom mapper should be created on first click despite suppress");
+    assert(ctrl._activeMapper === mapper, "custom mapper should be active");
+})();
+
+// master track: device pad click clears suppress flag
+(function() {
+    var ds = fakeDeviceSelector();
+    var tw = fakeTwister();
+    var bw = fakeBitwig({ _cursorDeviceName: 'Compressor', masterTrack: fakeTrack("Master") });
+    var ctrl = makeController({ deviceSelector: ds, twister: tw, bitwig: bw });
+    ctrl.enterMasterTrackMode();
+    ctrl._suppressNextDeviceChange = true;
+
+    ds._onDeviceSelected(1);
+    assert(ctrl._suppressNextDeviceChange === false, "suppress flag should be cleared in master track callback");
+})();
+
 process.exit(t.summary('Controller'));

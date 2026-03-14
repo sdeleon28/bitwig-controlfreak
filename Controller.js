@@ -693,6 +693,7 @@ class ControllerHW {
             if (!this.deviceSelector.isActive()) {
                 this.deviceSelector.activate(
                     function(deviceIndex) {
+                        self._suppressNextDeviceChange = false;
                         self.println("[TRACE] DeviceSelector pad pressed: deviceIndex=" + deviceIndex +
                             " _selectedDeviceIndex=" + self._selectedDeviceIndex +
                             " _lastDeviceName=" + self._lastDeviceName +
@@ -700,9 +701,12 @@ class ControllerHW {
                             " _activeMapper=" + (self._activeMapper ? "SET" : "null") +
                             " _mode=" + self._mode);
                         // Double-click same device → enter device mode
-                        if (deviceIndex === self._selectedDeviceIndex && self._lastDeviceName) {
-                            self.println("[TRACE] → double-click detected, calling enterDeviceMode(" + self._lastDeviceName + ")");
-                            self.enterDeviceMode(self._lastDeviceName);
+                        if (deviceIndex === self._selectedDeviceIndex) {
+                            var name = self._lastDeviceName || self.bitwig.getCursorDevice().name().get();
+                            if (name) {
+                                self.println("[TRACE] → double-click detected, calling enterDeviceMode(" + name + ")");
+                                self.enterDeviceMode(name);
+                            }
                             return;
                         }
                         self._selectedDeviceIndex = deviceIndex;
@@ -776,8 +780,10 @@ class ControllerHW {
             if (!this.deviceSelector.isActive()) {
                 this.deviceSelector.activate(
                     function(deviceIndex) {
-                        if (deviceIndex === self._selectedDeviceIndex && self._lastDeviceName) {
-                            self.enterDeviceMode(self._lastDeviceName);
+                        self._suppressNextDeviceChange = false;
+                        if (deviceIndex === self._selectedDeviceIndex) {
+                            var name = self._lastDeviceName || self.bitwig.getCursorDevice().name().get();
+                            if (name) self.enterDeviceMode(name);
                             return;
                         }
                         self._selectedDeviceIndex = deviceIndex;
