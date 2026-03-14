@@ -72,9 +72,29 @@ class FavBarHW {
             (function(slot, padNote) {
                 self.launchpad.registerPadBehavior(padNote, function() {
                     self._armFavTrack(slot);
-                }, null, pageNumber);
+                }, function() {
+                    self._unassignFavSlot(slot, pageNumber);
+                }, pageNumber);
             })(i + 1, this.pads[i]);
         }
+    }
+
+    _unassignFavSlot(slot, pageNumber) {
+        if (typeof pageNumber === 'undefined') pageNumber = this._pageNumber;
+        var trackId = this._favTracks[slot];
+        if (trackId === undefined || trackId === null) return;
+
+        var track = this.bitwig.getTrack(trackId);
+        if (!track) return;
+
+        var name = track.name().get();
+        var cleanName = name.replace(/\s*\{\d+\}/, '');
+        track.name().set(cleanName);
+
+        delete this._favTracks[slot];
+        this.pager.requestClear(pageNumber, this.pads[slot - 1]);
+
+        if (this.host) this.host.showPopupNotification(cleanName + " removed from fav slot " + slot);
     }
 
     _armFavTrack(slot) {

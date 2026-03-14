@@ -627,6 +627,89 @@ function makeFavBar(opts) {
     assert(pager.paints.length > 0, 'normal static paints applied');
 })();
 
+// hold on fav pad strips {N} from track name
+(function() {
+    var tracks = {};
+    tracks[5] = fakeTrack('Vocals {1}');
+    var bw = fakeBitwig(tracks);
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var fb = makeFavBar({ bitwig: bw, launchpad: lp, pager: pager });
+    fb._favTracks = { 1: 5 };
+    fb._favMode = true;
+    fb.registerFavBehaviors(1);
+
+    lp.registeredBehaviors[51].hold();
+
+    assert(tracks[5].name().get() === 'Vocals', 'track name stripped of {1}');
+})();
+
+// hold on fav pad clears the pad
+(function() {
+    var tracks = {};
+    tracks[5] = fakeTrack('Vocals {1}');
+    var bw = fakeBitwig(tracks);
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var fb = makeFavBar({ bitwig: bw, launchpad: lp, pager: pager });
+    fb._favTracks = { 1: 5 };
+    fb._favMode = true;
+    fb.registerFavBehaviors(1);
+
+    lp.registeredBehaviors[51].hold();
+
+    var pad51Clear = pager.clears.find(function(c) { return c.pad === 51; });
+    assert(pad51Clear !== undefined, 'pad 51 cleared after unassign');
+})();
+
+// hold on fav pad removes slot from _favTracks
+(function() {
+    var tracks = {};
+    tracks[5] = fakeTrack('Vocals {1}');
+    var bw = fakeBitwig(tracks);
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var fb = makeFavBar({ bitwig: bw, launchpad: lp, pager: pager });
+    fb._favTracks = { 1: 5 };
+    fb._favMode = true;
+    fb.registerFavBehaviors(1);
+
+    lp.registeredBehaviors[51].hold();
+
+    assert(fb._favTracks[1] === undefined, 'slot 1 removed from _favTracks');
+})();
+
+// hold on empty fav pad is a no-op
+(function() {
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var fb = makeFavBar({ launchpad: lp, pager: pager });
+    fb._favMode = true;
+    fb.registerFavBehaviors(1);
+
+    lp.registeredBehaviors[51].hold();
+
+    assert(pager.clears.length === 0, 'no clears for empty slot hold');
+})();
+
+// hold on fav pad shows popup notification
+(function() {
+    var tracks = {};
+    tracks[5] = fakeTrack('Vocals {1}');
+    var bw = fakeBitwig(tracks);
+    var lp = fakeLaunchpad();
+    var pager = fakePager();
+    var host = fakeHost();
+    var fb = makeFavBar({ bitwig: bw, launchpad: lp, pager: pager, host: host });
+    fb._favTracks = { 1: 5 };
+    fb._favMode = true;
+    fb.registerFavBehaviors(1);
+
+    lp.registeredBehaviors[51].hold();
+
+    assert(host.notifications[0] === 'Vocals removed from fav slot 1', 'unassign popup shown');
+})();
+
 // ---- summary ----
 
 process.exit(t.summary('FavBar'));
