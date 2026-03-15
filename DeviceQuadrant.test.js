@@ -6,6 +6,7 @@ var assert = t.assert;
 
 function fakeLaunchpad() {
     var behaviors = {};
+    var notePads = {};
     var padColors = {};
     var padLinks = {};
     var calls = [];
@@ -14,11 +15,14 @@ function fakeLaunchpad() {
         brightness: { dim: 'dim', bright: 'bright' },
         calls: calls,
         behaviors: behaviors,
+        notePads: notePads,
         padColors: padColors,
         padLinks: padLinks,
         unlinkPad: function(pad) { delete padLinks[pad]; calls.push({ method: 'unlinkPad', pad: pad }); },
         registerPadBehavior: function(pad, click, hold, page) { behaviors[pad] = { click: click, hold: hold, page: page }; },
         clearPadBehavior: function(pad) { delete behaviors[pad]; calls.push({ method: 'clearPadBehavior', pad: pad }); },
+        registerNotePad: function(pad, onPress, onRelease, page) { notePads[pad] = { onPress: onPress, onRelease: onRelease, page: page }; },
+        clearNotePad: function(pad) { delete notePads[pad]; calls.push({ method: 'clearNotePad', pad: pad }); },
         getBrightnessVariant: function(baseColor, level) { return baseColor + '_' + level; },
         setPadColor: function(pad, color) { padColors[pad] = color; },
         clearPad: function(pad) { padColors[pad] = 0; }
@@ -548,6 +552,114 @@ function makeSubject(opts) {
     lp.behaviors[44].click();
     assert(pm.calls.indexOf('deactivate') !== -1, 'exit should deactivate pad mapper');
     assert(exitCalled === true, 'should call exit callback');
+})();
+
+// ---- full quadrant mode tests ----
+
+// activate with usesFullQuadrant skips bypass/solo/exit buttons
+(function() {
+    var lp = fakeLaunchpad();
+    var pm = fakePadMapper();
+    pm.usesFullQuadrant = true;
+    var dq = makeSubject({ launchpad: lp });
+    dq.activate(null, pm);
+    // bypass/solo/exit pads should NOT have behaviors
+    assert(!lp.behaviors[42], 'bypass pad should not have behavior in full quadrant mode');
+    assert(!lp.behaviors[43], 'solo pad should not have behavior in full quadrant mode');
+    assert(!lp.behaviors[44], 'exit pad should not have behavior in full quadrant mode');
+})();
+
+// activate with usesFullQuadrant paints all 16 pads dark
+(function() {
+    var pager = fakePager(1);
+    var pm = fakePadMapper();
+    pm.usesFullQuadrant = true;
+    var dq = makeSubject({ pager: pager });
+    dq.activate(null, pm);
+    var pads = fakeQuadrant().bottomLeft.pads;
+    for (var i = 0; i < 16; i++) {
+        var found = pager.paints.some(function(p) { return p.pad === pads[i] && p.color === 0; });
+        assert(found, 'pad ' + (i + 1) + ' should be painted dark in full quadrant mode');
+    }
+})();
+
+// activate without usesFullQuadrant still registers bypass/solo/exit
+(function() {
+    var lp = fakeLaunchpad();
+    var pm = fakePadMapper();
+    // usesFullQuadrant is not set (falsy)
+    var dq = makeSubject({ launchpad: lp });
+    dq.activate(null, pm);
+    assert(lp.behaviors[42], 'bypass pad should have behavior in normal mode');
+    assert(lp.behaviors[43], 'solo pad should have behavior in normal mode');
+    assert(lp.behaviors[44], 'exit pad should have behavior in normal mode');
+})();
+
+// QuadrantAPI includes registerNotePad
+(function() {
+    var pm = fakePadMapper();
+    var dq = makeSubject();
+    dq.activate(null, pm);
+    assert(typeof pm._activateApi.registerNotePad === 'function', 'QuadrantAPI should have registerNotePad');
+})();
+
+// QuadrantAPI.registerNotePad delegates to launchpad.registerNotePad with correct pad note
+(function() {
+    var lp = fakeLaunchpad();
+    var pm = fakePadMapper();
+    var dq = makeSubject({ launchpad: lp, pageNumber: 1 });
+    dq.activate(null, pm);
+    var pressCalled = false;
+    var releaseCalled = false;
+    pm._activateApi.registerNotePad(3, function() { pressCalled = true; }, function() { releaseCalled = true; });
+    // padIndex 3 → pads[2] = 13
+    assert(lp.notePads[13] !== undefined, 'should register on correct MIDI note');
+    assert(lp.notePads[13].page === 1, 'should use correct page number');
+    lp.notePads[13].onPress();
+    assert(pressCalled, 'press callback should work');
+    lp.notePads[13].onRelease();
+    assert(releaseCalled, 'release callback should work');
+})();
+
+// deactivate clears note pads
+(function() {
+    var lp = fakeLaunchpad();
+    var dq = makeSubject({ launchpad: lp });
+    dq.activate();
+    // Simulate some note pads being registered
+    lp.registerNotePad(11, function() {}, null, 1);
+    lp.registerNotePad(12, function() {}, null, 1);
+    dq.deactivate();
+    var clearNotePadCalls = lp.calls.filter(function(c) { return c.method === 'clearNotePad'; });
+    assert(clearNotePadCalls.length === 16, 'deactivate should clear note pads for all 16 pads');
+})();
+
+// applyPadMapper clears note pads
+(function() {
+    var lp = fakeLaunchpad();
+    var pm1 = fakePadMapper();
+    var pm2 = fakePadMapper();
+    var dq = makeSubject({ launchpad: lp });
+    dq.activate(null, pm1);
+    var before = lp.calls.filter(function(c) { return c.method === 'clearNotePad'; }).length;
+    dq.applyPadMapper(pm2);
+    var after = lp.calls.filter(function(c) { return c.method === 'clearNotePad'; }).length;
+    assert(after - before >= 13, 'applyPadMapper should clear note pads');
+})();
+
+// applyPadMapper with usesFullQuadrant clears all 16 pads
+(function() {
+    var lp = fakeLaunchpad();
+    var pm1 = fakePadMapper();
+    var pm2 = fakePadMapper();
+    pm2.usesFullQuadrant = true;
+    var dq = makeSubject({ launchpad: lp });
+    dq.activate(null, pm1);
+    var before = lp.calls.filter(function(c) { return c.method === 'clearPadBehavior'; }).length;
+    dq.applyPadMapper(pm2);
+    var after = lp.calls.filter(function(c) { return c.method === 'clearPadBehavior'; }).length;
+    // Should clear 16 pads (13 device + 3 bypass/solo/exit)
+    assert(after - before === 16, 'should clear all 16 pad behaviors for full quadrant');
 })();
 
 process.exit(t.summary('DeviceQuadrant'));

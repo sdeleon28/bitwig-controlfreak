@@ -31,5 +31,6 @@ test:
     node TwisterPainter.test.js
     node FrequalizerTwisterMapper.test.js
     node FrequalizerPadMapper.test.js
+    node DrumPadMapper.test.js
     node QuickActions.test.js
     node FavBar.test.js

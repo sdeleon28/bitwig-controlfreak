@@ -325,6 +325,103 @@ function makeLaunchpad(opts) {
     assert(lp._padTimers[45], 'other pad should still have behavior');
 })();
 
+// ---- note pad tests ----
+
+// registerNotePad + handleNotePadPress fires onPress immediately
+(function() {
+    var pager = fakePager();
+    pager.activePage = 1;
+    var lp = makeLaunchpad({ pager: pager });
+    var pressed = false;
+    lp.registerNotePad(44, function() { pressed = true; }, null, 1);
+    var result = lp.handleNotePadPress(44);
+    assert(result === true, 'handleNotePadPress should return true');
+    assert(pressed, 'onPress should fire immediately on press');
+})();
+
+// handleNotePadRelease fires onRelease
+(function() {
+    var pager = fakePager();
+    pager.activePage = 1;
+    var lp = makeLaunchpad({ pager: pager });
+    var released = false;
+    lp.registerNotePad(44, function() {}, function() { released = true; }, 1);
+    lp.handleNotePadRelease(44);
+    assert(released, 'onRelease should fire on release');
+})();
+
+// handleNotePadPress returns false for unregistered pad
+(function() {
+    var lp = makeLaunchpad();
+    var result = lp.handleNotePadPress(99);
+    assert(result === false, 'should return false for unregistered pad');
+})();
+
+// handleNotePadRelease returns false for unregistered pad
+(function() {
+    var lp = makeLaunchpad();
+    var result = lp.handleNotePadRelease(99);
+    assert(result === false, 'should return false for unregistered pad');
+})();
+
+// note pad on wrong page returns false
+(function() {
+    var pager = fakePager();
+    pager.activePage = 2;
+    var lp = makeLaunchpad({ pager: pager });
+    var pressed = false;
+    lp.registerNotePad(44, function() { pressed = true; }, null, 1);
+    var result = lp.handleNotePadPress(44);
+    assert(result === false, 'should return false on wrong page');
+    assert(!pressed, 'onPress should not fire on wrong page');
+})();
+
+// clearNotePad removes note pad handler
+(function() {
+    var pager = fakePager();
+    pager.activePage = 1;
+    var lp = makeLaunchpad({ pager: pager });
+    lp.registerNotePad(44, function() {}, null, 1);
+    lp.clearNotePad(44);
+    var result = lp.handleNotePadPress(44);
+    assert(result === false, 'cleared note pad should return false');
+})();
+
+// clearPadBehavior also clears note pads
+(function() {
+    var pager = fakePager();
+    pager.activePage = 1;
+    var lp = makeLaunchpad({ pager: pager });
+    lp.registerNotePad(44, function() {}, null, 1);
+    lp.clearPadBehavior(44);
+    var result = lp.handleNotePadPress(44);
+    assert(result === false, 'clearPadBehavior should also clear note pads');
+})();
+
+// clearAllPadBehaviors also clears all note pads
+(function() {
+    var pager = fakePager();
+    pager.activePage = 1;
+    var lp = makeLaunchpad({ pager: pager });
+    lp.registerNotePad(44, function() {}, null, 1);
+    lp.registerNotePad(45, function() {}, null, 1);
+    lp.clearAllPadBehaviors();
+    assert(lp.handleNotePadPress(44) === false, 'should clear note pad 44');
+    assert(lp.handleNotePadPress(45) === false, 'should clear note pad 45');
+})();
+
+// note pad with null pageNumber works on any page
+(function() {
+    var pager = fakePager();
+    pager.activePage = 5;
+    var lp = makeLaunchpad({ pager: pager });
+    var pressed = false;
+    lp.registerNotePad(44, function() { pressed = true; }, null, null);
+    var result = lp.handleNotePadPress(44);
+    assert(result === true, 'null pageNumber should work on any page');
+    assert(pressed, 'onPress should fire');
+})();
+
 // ---- summary ----
 
 process.exit(t.summary('Launchpad'));

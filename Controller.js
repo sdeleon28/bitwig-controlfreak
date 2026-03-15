@@ -21,6 +21,7 @@ class ControllerHW {
      * @param {Object} deps.padMappers - Dict of device name → pad mapper factory function
      * @param {Object} deps.painter - TwisterPainter instance
      * @param {Object} deps.favBar - FavBar instance
+     * @param {Object} deps.noteInput - Bitwig NoteInput for drum pad MIDI
      * @param {boolean} deps.debug - Debug flag
      * @param {Function} deps.println - Print function
      */
@@ -43,6 +44,7 @@ class ControllerHW {
         this.padMappers = deps.padMappers || {};
         this.painter = deps.painter || null;
         this.favBar = deps.favBar || null;
+        this.noteInput = deps.noteInput || null;
         this.debug = deps.debug || false;
         this.println = deps.println || function() {};
 
@@ -59,6 +61,8 @@ class ControllerHW {
         this._masterTrackMode = false;
         this._cache = deps.mapperStateCache || new MapperCacheHW();
         this._activePadMapper = null;
+        this._hasDrumPads = false;
+        this._drumPadMapper = null;
     }
 
     get _multiRec() {
@@ -862,8 +866,13 @@ class ControllerHW {
             this.deviceSelector.deactivate();
         }
 
-        // Independent pad mapper lookup (instance cached)
-        var padMapper = this._cache.getPadMapper(deviceName, this.padMappers[deviceName]);
+        // Independent pad mapper lookup: drum pads override name-based mapper
+        var padMapper;
+        if (this._hasDrumPads) {
+            padMapper = this._getOrCreateDrumPadMapper();
+        } else {
+            padMapper = this._cache.getPadMapper(deviceName, this.padMappers[deviceName]);
+        }
         this._activePadMapper = padMapper;
 
         if (this.deviceQuadrant) {
@@ -965,6 +974,39 @@ class ControllerHW {
         if (!this.deviceQuadrant || !this.deviceQuadrant.isActive()) {
             this._cache.bufferPadParam(normalizedId, value);
         }
+    }
+
+    /**
+     * Handle drum pad detection on cursor device.
+     * @param {boolean} hasDrumPads - Whether the cursor device has drum pads
+     */
+    onDrumPadsChanged(hasDrumPads) {
+        this._hasDrumPads = hasDrumPads;
+        if (this._mode !== 'device') return;
+
+        if (hasDrumPads) {
+            var mapper = this._getOrCreateDrumPadMapper();
+            if (mapper && this.deviceQuadrant && this.deviceQuadrant.isActive()) {
+                this.deviceQuadrant.applyPadMapper(mapper);
+            }
+        } else {
+            // Drum pads removed — revert to name-based pad mapper
+            var padMapper = this._cache.getPadMapper(this._lastDeviceName, this.padMappers[this._lastDeviceName]);
+            if (this.deviceQuadrant && this.deviceQuadrant.isActive()) {
+                this.deviceQuadrant.applyPadMapper(padMapper);
+            }
+        }
+    }
+
+    /**
+     * Lazily create the DrumPadMapper singleton.
+     * @returns {Object|null} DrumPadMapper instance or null if no noteInput
+     */
+    _getOrCreateDrumPadMapper() {
+        if (this._drumPadMapper) return this._drumPadMapper;
+        if (!this.noteInput) return null;
+        this._drumPadMapper = new DrumPadMapper({ noteInput: this.noteInput });
+        return this._drumPadMapper;
     }
 
     /**

@@ -34,6 +34,7 @@ class LaunchpadHW {
         this._padLinks = {};
         this._padToTrack = {};
         this._padTimers = {};
+        this._notePads = {};
 
         if (this.debug) this.println("Launchpad initialized: " + (this._output ? "Connected" : "NULL"));
     }
@@ -104,10 +105,46 @@ class LaunchpadHW {
 
     clearAllPadBehaviors() {
         this._padTimers = {};
+        this._notePads = {};
     }
 
     clearPadBehavior(padNote) {
         delete this._padTimers[padNote];
+        delete this._notePads[padNote];
+    }
+
+    // ---- Note pad behavior (immediate press/release for drum pads) ----
+
+    registerNotePad(padNote, onPress, onRelease, pageNumber) {
+        this._notePads[padNote] = {
+            onPress: onPress,
+            onRelease: onRelease || null,
+            pageNumber: pageNumber || null
+        };
+    }
+
+    clearNotePad(padNote) {
+        delete this._notePads[padNote];
+    }
+
+    handleNotePadPress(padNote) {
+        var notePad = this._notePads[padNote];
+        if (!notePad) return false;
+        if (notePad.pageNumber !== null && notePad.pageNumber !== this.pager.getActivePage()) {
+            return false;
+        }
+        if (notePad.onPress) notePad.onPress();
+        return true;
+    }
+
+    handleNotePadRelease(padNote) {
+        var notePad = this._notePads[padNote];
+        if (!notePad) return false;
+        if (notePad.pageNumber !== null && notePad.pageNumber !== this.pager.getActivePage()) {
+            return false;
+        }
+        if (notePad.onRelease) notePad.onRelease();
+        return true;
     }
 
     // ---- SysEx mode control ----

@@ -50,6 +50,14 @@ function fakeLaunchpad(opts) {
     var calls = [];
     return {
         calls: calls,
+        handleNotePadPress: function(padNote) {
+            calls.push({ method: 'notePadPress', pad: padNote });
+            return opts.notePads ? opts.notePads.indexOf(padNote) !== -1 : false;
+        },
+        handleNotePadRelease: function(padNote) {
+            calls.push({ method: 'notePadRelease', pad: padNote });
+            return opts.notePads ? opts.notePads.indexOf(padNote) !== -1 : false;
+        },
         handlePadPress: function(padNote) {
             calls.push({ method: 'padPress', pad: padNote });
             // Return true if pad is in the "handled" set
@@ -160,14 +168,15 @@ function makePage(opts) {
     assert(result === false, "should return false when no handler matches");
 })();
 
-// handlePadRelease delegates to launchpad
+// handlePadRelease delegates to launchpad (note pad check first, then regular)
 (function() {
     var lp = fakeLaunchpad();
     var page = makePage({ launchpad: lp });
     var result = page.handlePadRelease(34);
     assert(result === true, "should return true from launchpad delegation");
-    assert(lp.calls[0].method === 'padRelease', "should call handlePadRelease");
-    assert(lp.calls[0].pad === 34, "should pass correct pad note");
+    var padReleaseCalls = lp.calls.filter(function(c) { return c.method === 'padRelease'; });
+    assert(padReleaseCalls.length === 1, "should call handlePadRelease");
+    assert(padReleaseCalls[0].pad === 34, "should pass correct pad note");
 })();
 
 // circular deps: controller and modeSwitcher can be set after construction
@@ -243,6 +252,58 @@ function makePage(opts) {
     page.init();
     page.hide();
     assert(true, "init and hide should not throw");
+})();
+
+// ---- note pad priority tests ----
+
+// handlePadPress: note pads take priority over regular pad behaviors
+(function() {
+    var lp = fakeLaunchpad({ notePads: [34], handledPads: [34] });
+    var ctrl = fakeController();
+    var page = makePage({ launchpad: lp, controller: ctrl });
+    var result = page.handlePadPress(34);
+    assert(result === true, "should return true when note pad handles");
+    // Should only have notePadPress call, NOT padPress
+    var notePadCalls = lp.calls.filter(function(c) { return c.method === 'notePadPress'; });
+    var padPressCalls = lp.calls.filter(function(c) { return c.method === 'padPress'; });
+    assert(notePadCalls.length === 1, "should check note pad");
+    assert(padPressCalls.length === 0, "should NOT check regular pad behavior when note pad handles");
+})();
+
+// handlePadPress: falls through to regular behavior when note pad doesn't handle
+(function() {
+    var lp = fakeLaunchpad({ notePads: [], handledPads: [34] });
+    var page = makePage({ launchpad: lp });
+    var result = page.handlePadPress(34);
+    assert(result === true, "should return true from regular pad behavior");
+    var notePadCalls = lp.calls.filter(function(c) { return c.method === 'notePadPress'; });
+    var padPressCalls = lp.calls.filter(function(c) { return c.method === 'padPress'; });
+    assert(notePadCalls.length === 1, "should check note pad first");
+    assert(padPressCalls.length === 1, "should fall through to regular pad behavior");
+})();
+
+// handlePadRelease: note pads take priority
+(function() {
+    var lp = fakeLaunchpad({ notePads: [34] });
+    var page = makePage({ launchpad: lp });
+    var result = page.handlePadRelease(34);
+    assert(result === true, "should return true when note pad handles release");
+    var notePadReleaseCalls = lp.calls.filter(function(c) { return c.method === 'notePadRelease'; });
+    var padReleaseCalls = lp.calls.filter(function(c) { return c.method === 'padRelease'; });
+    assert(notePadReleaseCalls.length === 1, "should check note pad release");
+    assert(padReleaseCalls.length === 0, "should NOT check regular pad release when note pad handles");
+})();
+
+// handlePadRelease: falls through to regular behavior when note pad doesn't handle
+(function() {
+    var lp = fakeLaunchpad({ notePads: [] });
+    var page = makePage({ launchpad: lp });
+    var result = page.handlePadRelease(34);
+    assert(result === true, "should return true from regular pad release");
+    var notePadReleaseCalls = lp.calls.filter(function(c) { return c.method === 'notePadRelease'; });
+    var padReleaseCalls = lp.calls.filter(function(c) { return c.method === 'padRelease'; });
+    assert(notePadReleaseCalls.length === 1, "should check note pad release first");
+    assert(padReleaseCalls.length === 1, "should fall through to regular pad release");
 })();
 
 process.exit(t.summary('Page_MainControl'));

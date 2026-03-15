@@ -29,6 +29,7 @@ load('TwisterPainter.js');
 load('FrequalizerDevice.js');
 load('FrequalizerTwisterMapper.js');
 load('FrequalizerPadMapper.js');
+load('DrumPadMapper.js');
 
 // Layer 3.5: Device mapping behavior
 load('DeviceMapper.js');
@@ -217,7 +218,7 @@ function init() {
         println: println
     });
 
-    noteIn = host.getMidiInPort(0).createNoteInput("Launchpad", "??????");
+    noteIn = host.getMidiInPort(0).createNoteInput("Launchpad", "");
     noteIn.setShouldConsumeEvents(false);
 
     host.getMidiInPort(0).setMidiCallback(function(status, data1, data2) {
@@ -401,6 +402,12 @@ function init() {
     cursorDevice.name().markInterested();
     cursorDevice.name().addValueObserver(function(name) {
         Controller.onDeviceChanged(name);
+    });
+
+    // Observe cursor device drum pads (for drum pad mode)
+    cursorDevice.hasDrumPads().markInterested();
+    cursorDevice.hasDrumPads().addValueObserver(function(v) {
+        Controller.onDrumPadsChanged(v);
     });
 
     var masterTrack = host.createMasterTrack(0);
@@ -997,6 +1004,7 @@ function init() {
         padMappers: padMappers,
         painter: twisterPainter,
         favBar: FavBar,
+        noteInput: noteIn,
         host: host,
         debug: debug,
         println: println

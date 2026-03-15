@@ -42,6 +42,7 @@ class DeviceQuadrantHW {
         this._onExitCallback = onExitCallback || null;
         this._activePadMapper = padMapper || null;
 
+        var isFullQuadrant = padMapper && padMapper.usesFullQuadrant;
         var pads = this.launchpadQuadrant.bottomLeft.pads;
         var page = this.pager.getActivePage();
 
@@ -51,38 +52,45 @@ class DeviceQuadrantHW {
             this.launchpad.clearPadBehavior(pads[i]);
         }
 
-        // Paint pads 1-13 dark (available for device-specific use)
-        for (var i = 0; i < 13; i++) {
-            this.pager.requestPaint(page, pads[i], this.launchpad.colors.off);
+        if (isFullQuadrant) {
+            // Full quadrant mode: all 16 pads given to the mapper (no bypass/solo/exit)
+            for (var i = 0; i < 16; i++) {
+                this.pager.requestPaint(page, pads[i], this.launchpad.colors.off);
+            }
+        } else {
+            // Paint pads 1-13 dark (available for device-specific use)
+            for (var i = 0; i < 13; i++) {
+                this.pager.requestPaint(page, pads[i], this.launchpad.colors.off);
+            }
+
+            // Pad 14 (index 13) = bypass toggle
+            this._paintBypassPad();
+            var self = this;
+            this.launchpad.registerPadBehavior(pads[13], function() {
+                self.bitwig.getCursorDevice().isEnabled().toggle();
+            }, null, this.pageNumber);
+
+            // Pad 15 (index 14) = solo toggle
+            this._paintSoloPad();
+            this.launchpad.registerPadBehavior(pads[14], function() {
+                self.bitwig.getCursorTrack().solo().toggle();
+            }, null, this.pageNumber);
+
+            // Pad 16 (index 15) = exit device mode
+            this.pager.requestPaint(page, pads[15], this.launchpad.getBrightnessVariant(this.launchpad.colors.white, this.launchpad.brightness.bright));
+            this.launchpad.registerPadBehavior(pads[15], function() {
+                var cb = self._onExitCallback;
+                if (cb) cb();
+                if (self._active) self.deactivate();
+            }, null, this.pageNumber);
         }
-
-        // Pad 14 (index 13) = bypass toggle
-        this._paintBypassPad();
-        var self = this;
-        this.launchpad.registerPadBehavior(pads[13], function() {
-            self.bitwig.getCursorDevice().isEnabled().toggle();
-        }, null, this.pageNumber);
-
-        // Pad 15 (index 14) = solo toggle
-        this._paintSoloPad();
-        this.launchpad.registerPadBehavior(pads[14], function() {
-            self.bitwig.getCursorTrack().solo().toggle();
-        }, null, this.pageNumber);
-
-        // Pad 16 (index 15) = exit device mode
-        this.pager.requestPaint(page, pads[15], this.launchpad.getBrightnessVariant(this.launchpad.colors.white, this.launchpad.brightness.bright));
-        this.launchpad.registerPadBehavior(pads[15], function() {
-            var cb = self._onExitCallback;
-            if (cb) cb();
-            if (self._active) self.deactivate();
-        }, null, this.pageNumber);
 
         // Activate pad mapper if provided
         if (this._activePadMapper) {
-            this._activePadMapper.activate(this._buildQuadrantApi());
+            this._activePadMapper.activate(this._buildQuadrantApi(isFullQuadrant));
         }
 
-        if (this.debug) this.println("DeviceQuadrant activated");
+        if (this.debug) this.println("DeviceQuadrant activated" + (isFullQuadrant ? " (full quadrant)" : ""));
     }
 
     /**
@@ -105,6 +113,7 @@ class DeviceQuadrantHW {
         for (var i = 0; i < pads.length; i++) {
             this.pager.requestClear(page, pads[i]);
             this.launchpad.clearPadBehavior(pads[i]);
+            this.launchpad.clearNotePad(pads[i]);
         }
 
         if (this.debug) this.println("DeviceQuadrant deactivated");
@@ -131,19 +140,22 @@ class DeviceQuadrantHW {
             this._activePadMapper.deactivate();
         }
 
+        var isFullQuadrant = padMapper && padMapper.usesFullQuadrant;
         var pads = this.launchpadQuadrant.bottomLeft.pads;
         var page = this.pager.getActivePage();
+        var maxPad = isFullQuadrant ? 16 : 13;
 
-        // Clear device pads (1-13)
-        for (var i = 0; i < 13; i++) {
+        // Clear device pads (and bypass/solo/exit when switching to full quadrant)
+        for (var i = 0; i < maxPad; i++) {
             this.launchpad.clearPadBehavior(pads[i]);
+            this.launchpad.clearNotePad(pads[i]);
             this.pager.requestPaint(page, pads[i], this.launchpad.colors.off);
         }
 
         this._activePadMapper = padMapper || null;
 
         if (this._activePadMapper) {
-            this._activePadMapper.activate(this._buildQuadrantApi());
+            this._activePadMapper.activate(this._buildQuadrantApi(isFullQuadrant));
         }
     }
 
@@ -208,10 +220,10 @@ class DeviceQuadrantHW {
 
     /**
      * Build a constrained API object for pad mappers.
-     * Only exposes pads 1-13 via 1-based indices.
+     * @param {boolean} [isFullQuadrant=false] - If true, expose all 16 pads; otherwise 1-13
      * @returns {Object} QuadrantAPI
      */
-    _buildQuadrantApi() {
+    _buildQuadrantApi(isFullQuadrant) {
         var self = this;
         var pads = this.launchpadQuadrant.bottomLeft.pads;
 
@@ -221,6 +233,9 @@ class DeviceQuadrantHW {
             },
             registerPadBehavior: function(padIndex, callback) {
                 self.launchpad.registerPadBehavior(pads[padIndex - 1], callback, null, self.pageNumber);
+            },
+            registerNotePad: function(padIndex, onPress, onRelease) {
+                self.launchpad.registerNotePad(pads[padIndex - 1], onPress, onRelease, self.pageNumber);
             },
             resolveParamName: function(name) {
                 return self._resolveParamName(name);

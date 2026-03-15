@@ -68,6 +68,11 @@ class PageMainControlHW {
     }
 
     handlePadPress(padNote) {
+        // Try note pads first (drum pads need immediate press response)
+        if (this.launchpad && this.launchpad.handleNotePadPress(padNote)) {
+            return true;
+        }
+
         // Try pad behavior system (mode buttons, track grid, markers)
         if (this.launchpad && this.launchpad.handlePadPress(padNote)) {
             return true;
@@ -93,6 +98,9 @@ class PageMainControlHW {
 
     handlePadRelease(padNote) {
         if (this.launchpad) {
+            if (this.launchpad.handleNotePadRelease(padNote)) {
+                return true;
+            }
             return this.launchpad.handlePadRelease(padNote);
         }
         return false;
