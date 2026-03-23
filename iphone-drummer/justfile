@@ -1,0 +1,74 @@
+APP_NAME := "iPhoneDrummer"
+BUILD_DIR := "build/Products"
+
+help:
+    @echo "just rebuild   Clean, configure, build, and deploy to device"
+    @echo "just log       Launch app on device with console output (Ctrl-C to stop)"
+    @echo "just clean     Remove build artifacts"
+    @echo "just configure Generate Xcode project from project.yml"
+    @echo "just build     Build for iOS device"
+    @echo "just deploy    Install app on connected device"
+    @echo ""
+    @echo "Mac MIDI setup: Open Audio MIDI Setup > Cmd+2 > double-click Network >"
+    @echo "enable a session > select iPhone from Directory > click Connect."
+
+clean:
+    rm -rf build {{APP_NAME}}.xcodeproj
+
+configure:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    xcodegen generate
+    # Fix SDKROOT for Xcode 26 compatibility
+    sed -i '' 's/SDKROOT = auto/SDKROOT = iphoneos/g' {{APP_NAME}}.xcodeproj/project.pbxproj
+
+build:
+    xcodebuild build \
+        -project {{APP_NAME}}.xcodeproj \
+        -target {{APP_NAME}} \
+        -sdk iphoneos \
+        SYMROOT={{BUILD_DIR}} \
+        -allowProvisioningUpdates
+
+deploy:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    APP_PATH="{{BUILD_DIR}}/Debug-iphoneos/{{APP_NAME}}.app"
+    if [ ! -d "$APP_PATH" ]; then
+        echo "Error: App not found at $APP_PATH. Run 'just build' first."
+        exit 1
+    fi
+    # Find first physical (non-simulator, non-Mac) device from xctrace
+    DEVICE_ID=$(xcrun xctrace list devices 2>&1 \
+        | sed -n '/== Devices ==/,/== Simulators ==/p' \
+        | grep -v "==" \
+        | grep -v "Mac" \
+        | grep -oE '\(([A-F0-9a-f-]+)\)$' \
+        | tr -d '()' \
+        | head -1)
+    if [ -z "${DEVICE_ID:-}" ]; then
+        echo "Error: No connected iOS device found. Connect your iPhone via USB."
+        exit 1
+    fi
+    echo "Installing on device: $DEVICE_ID"
+    xcrun devicectl device install app --device "$DEVICE_ID" "$APP_PATH"
+
+rebuild: clean configure build deploy
+
+log:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    DEVICE_ID=$(xcrun xctrace list devices 2>&1 \
+        | sed -n '/== Devices ==/,/== Simulators ==/p' \
+        | grep -v "==" \
+        | grep -v "Mac" \
+        | grep -oE '\(([A-F0-9a-f-]+)\)$' \
+        | tr -d '()' \
+        | head -1)
+    if [ -z "${DEVICE_ID:-}" ]; then
+        echo "Error: No connected iOS device found."
+        exit 1
+    fi
+    echo "Launching app on device $DEVICE_ID with console attached..."
+    echo "Press Ctrl-C to stop."
+    xcrun devicectl device process launch --device "$DEVICE_ID" --console com.sdeleon28.iphonedrummer

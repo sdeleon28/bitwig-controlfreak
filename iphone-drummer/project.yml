@@ -1,0 +1,35 @@
+name: iPhoneDrummer
+options:
+  bundleIdPrefix: com.sdeleon28
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  iPhoneDrummer:
+    type: application
+    supportedDestinations: [iOS]
+    sources:
+      - Sources
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Drummer
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIRequiredDeviceCapabilities:
+          - arm64
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSLocalNetworkUsageDescription: "iPhone Drummer uses the local network to send MIDI to other devices."
+        NSBonjourServices:
+          - _apple-midi._udp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sdeleon28.iphonedrummer
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 83M987DC28
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.9"
+    dependencies:
+      - sdk: CoreMIDI.framework
+      - sdk: Network.framework
