@@ -18,8 +18,7 @@ targets:
         UIRequiredDeviceCapabilities:
           - arm64
         UISupportedInterfaceOrientations:
-          - UIInterfaceOrientationLandscapeLeft
-          - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationPortrait
         NSLocalNetworkUsageDescription: "iPhone Drummer uses the local network to send MIDI to other devices."
         NSBonjourServices:
           - _apple-midi._udp
