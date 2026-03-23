@@ -110,6 +110,89 @@ function fakeHost() {
     assert(decoded.growl === longStr, 'large message roundtrips');
 })();
 
+// ---- receive tests ----
+
+// receive accumulates channel 16 events and returns message when complete
+(function() {
+    var link = new MidiLinkHW({});
+    var msg = { growl: "Hi" };
+    var json = JSON.stringify(msg);
+    var length = json.length;
+
+    // Send length header
+    var result = link.receive(0x9F, 0, length & 0x7F);
+    assert(result === null, 'receive: first header event returns null');
+    result = link.receive(0x9F, 1, (length >> 7) & 0x7F);
+    assert(result === null, 'receive: second header event returns null');
+
+    // Send payload chars (all but last)
+    for (var i = 0; i < length - 1; i++) {
+        result = link.receive(0x9F, i + 2, json.charCodeAt(i));
+        assert(result === null, 'receive: payload event ' + i + ' returns null');
+    }
+
+    // Last payload char completes the frame
+    result = link.receive(0x9F, length + 1, json.charCodeAt(length - 1));
+    assert(result !== null, 'receive: last event returns decoded message');
+    assert(result.growl === "Hi", 'receive: growl field roundtrips');
+})();
+
+// receive ignores channel 15 events
+(function() {
+    var link = new MidiLinkHW({});
+    var result = link.receive(0x9E, 0, 5);
+    assert(result === null, 'receive: channel 15 event returns null');
+    // Internal state should not have accumulated anything
+    assert(link._rxEvents.length === 0, 'receive: channel 15 does not accumulate');
+})();
+
+// receive ignores non-note-on events
+(function() {
+    var link = new MidiLinkHW({});
+    var result = link.receive(0x80, 0, 5);
+    assert(result === null, 'receive: non-note-on returns null');
+    assert(link._rxEvents.length === 0, 'receive: non-note-on does not accumulate');
+})();
+
+// receive calls onMessage callback when frame is complete
+(function() {
+    var received = [];
+    var link = new MidiLinkHW({ onMessage: function(m) { received.push(m); } });
+    var msg = { growl: "cb" };
+    var json = JSON.stringify(msg);
+    var length = json.length;
+
+    link.receive(0x9F, 0, length & 0x7F);
+    link.receive(0x9F, 1, (length >> 7) & 0x7F);
+    for (var i = 0; i < length; i++) {
+        link.receive(0x9F, i + 2, json.charCodeAt(i));
+    }
+    assert(received.length === 1, 'onMessage called once');
+    assert(received[0].growl === "cb", 'onMessage receives decoded message');
+})();
+
+// receive resets state after complete frame, can receive another
+(function() {
+    var link = new MidiLinkHW({});
+
+    function feedMessage(obj) {
+        var json = JSON.stringify(obj);
+        var length = json.length;
+        link.receive(0x9F, 0, length & 0x7F);
+        link.receive(0x9F, 1, (length >> 7) & 0x7F);
+        var result = null;
+        for (var i = 0; i < length; i++) {
+            result = link.receive(0x9F, i + 2, json.charCodeAt(i));
+        }
+        return result;
+    }
+
+    var r1 = feedMessage({ growl: "first" });
+    assert(r1.growl === "first", 'receive: first message decoded');
+    var r2 = feedMessage({ growl: "second" });
+    assert(r2.growl === "second", 'receive: second message decoded after reset');
+})();
+
 // ---- summary ----
 
 process.exit(t.summary('MidiLink'));

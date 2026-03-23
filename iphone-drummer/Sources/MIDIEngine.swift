@@ -105,6 +105,13 @@ final class MIDIEngine: ObservableObject {
         }
     }
 
+    func sendMidiLink(_ message: AppToBitwigMessage) {
+        let events = MidiLinkEncoder.encode(message)
+        for event in events {
+            send(status: event.status, data1: event.note, data2: event.velocity)
+        }
+    }
+
     func noteOn(note: UInt8, velocity: UInt8 = 127) {
         send(status: 0x90, data1: note, data2: velocity)
     }

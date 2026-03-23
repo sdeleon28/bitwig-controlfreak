@@ -17,8 +17,14 @@ struct ContentView: View {
                             }
                         }
                     }
+
+                    Button("Send to Bitwig") {
+                        midi.sendMidiLink(AppToBitwigMessage(growl: "Hello from iPhone"))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.blue)
                 }
-                .frame(width: side, height: side)
+                .frame(width: side)
                 .position(x: geo.size.width / 2, y: geo.size.height / 2)
 
                 if let growl = midi.latestGrowl {

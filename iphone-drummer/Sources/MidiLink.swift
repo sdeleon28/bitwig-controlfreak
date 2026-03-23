@@ -5,8 +5,10 @@ struct BitwigToAppMessage: Decodable {
     var growl: String?
 }
 
-/// Message sent from the iPhone app to Bitwig (future use).
-struct AppToBitwigMessage: Codable {}
+/// Message sent from the iPhone app to Bitwig.
+struct AppToBitwigMessage: Codable {
+    var growl: String?
+}
 
 /// Stateful decoder for MidiLink frames arriving as individual MIDI note-on events.
 ///
@@ -56,5 +58,27 @@ final class MidiLinkDecoder {
     func reset() {
         events.removeAll()
         expectedLength = nil
+    }
+}
+
+/// Encodes an AppToBitwigMessage into MidiLink MIDI events (channel 16, status 0x9F).
+enum MidiLinkEncoder {
+    static func encode(_ message: AppToBitwigMessage) -> [(status: UInt8, note: UInt8, velocity: UInt8)] {
+        guard let data = try? JSONEncoder().encode(message) else { return [] }
+        let length = data.count
+        guard length <= 16383 else { return [] } // 14-bit max
+
+        var events: [(status: UInt8, note: UInt8, velocity: UInt8)] = []
+        let status: UInt8 = 0x9F // Channel 16 note-on
+
+        // Length header: low 7 bits in note 0, high 7 bits in note 1
+        events.append((status: status, note: 0, velocity: UInt8(length & 0x7F)))
+        events.append((status: status, note: 1, velocity: UInt8((length >> 7) & 0x7F)))
+
+        // Payload: each byte as velocity on notes 2..N+1
+        for (i, byte) in data.enumerated() {
+            events.append((status: status, note: UInt8(i + 2), velocity: byte))
+        }
+        return events
     }
 }

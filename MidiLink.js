@@ -23,6 +23,7 @@ class MidiLinkHW {
      * @param {Object} deps
      * @param {Object} deps.midiOutput - MIDI output port with sendMidi(status, data1, data2)
      * @param {Object} [deps.host] - Bitwig host for popup notifications
+     * @param {Function} [deps.onMessage] - callback when a complete App→Bitwig message is decoded
      * @param {boolean} [deps.debug]
      * @param {Function} [deps.println]
      */
@@ -30,8 +31,12 @@ class MidiLinkHW {
         deps = deps || {};
         this.midiOutput = deps.midiOutput || null;
         this.host = deps.host || null;
+        this.onMessage = deps.onMessage || null;
         this.debug = deps.debug || false;
         this.println = deps.println || function() {};
+        // Stateful receive accumulator
+        this._rxEvents = [];
+        this._rxExpectedLength = null;
     }
 
     /**
@@ -97,6 +102,53 @@ class MidiLinkHW {
             this.host.showPopupNotification("MidiLink: growl sent");
         }
         if (this.debug) this.println("MidiLink: sent " + events.length + " events");
+    }
+
+    /**
+     * Feed a single incoming MIDI event. Accumulates channel 16 (0x9F) events
+     * and returns a decoded message when a complete frame is received.
+     * @param {number} status
+     * @param {number} data1
+     * @param {number} data2
+     * @returns {Object|null} decoded message, or null if frame is incomplete
+     */
+    receive(status, data1, data2) {
+        if (status !== MidiLinkHW.STATUS_TO_BITWIG) return null;
+
+        this._rxEvents.push({ data1: data1, data2: data2 });
+
+        // After 2 events, compute expected payload length
+        if (this._rxEvents.length === 2) {
+            var low = this._rxEvents[0].data2;
+            var high = this._rxEvents[1].data2;
+            this._rxExpectedLength = low | (high << 7);
+        }
+
+        // Check if frame is complete
+        if (this._rxExpectedLength === null || this._rxEvents.length < this._rxExpectedLength + 2) {
+            return null;
+        }
+
+        // Extract payload
+        var chars = [];
+        for (var i = 0; i < this._rxExpectedLength; i++) {
+            chars.push(String.fromCharCode(this._rxEvents[i + 2].data2));
+        }
+
+        // Reset state
+        this._rxEvents = [];
+        this._rxExpectedLength = null;
+
+        // Decode JSON
+        var message = null;
+        try {
+            message = JSON.parse(chars.join(''));
+        } catch (e) {
+            return null;
+        }
+
+        if (message && this.onMessage) this.onMessage(message);
+        return message;
     }
 }
 
