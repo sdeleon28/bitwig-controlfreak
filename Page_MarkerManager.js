@@ -33,11 +33,13 @@ class PageMarkerManagerHW {
             insertSilence: 79,  // Pan button
             copy: 69,           // Send A button
             paste: 59,          // Send B button
+            stop: 49,           // Stop/Solo/Mute button
             colors: {
                 toggleMode: 53,    // Pink
                 insertSilence: 49, // Purple
                 copy: 37,          // Cyan
-                paste: 21          // Green
+                paste: 21,         // Green
+                stop: 5            // Red
             }
         };
     }
@@ -96,6 +98,12 @@ class PageMarkerManagerHW {
             self.host.showPopupNotification("Paste + Marker");
         }, null, this.pageNumber);
 
+        // Note 49 (Stop/Solo/Mute): Stop transport
+        this.launchpad.registerPadBehavior(btns.stop, function() {
+            self.bitwig.invokeAction(self.bitwigActions.STOP);
+            self.host.showPopupNotification("Stop");
+        }, null, this.pageNumber);
+
         if (this.debug) this.println("Action behaviors registered for right side buttons on page 2");
     }
 
@@ -108,6 +116,7 @@ class PageMarkerManagerHW {
         this.pager.requestPaint(this.pageNumber, btns.insertSilence, colors.insertSilence);
         this.pager.requestPaint(this.pageNumber, btns.copy, colors.copy);
         this.pager.requestPaint(this.pageNumber, btns.paste, colors.paste);
+        this.pager.requestPaint(this.pageNumber, btns.stop, colors.stop);
     }
 
     hide() {

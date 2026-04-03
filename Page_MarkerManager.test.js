@@ -73,7 +73,8 @@ function fakeBitwigActions() {
         INSERT_SILENCE: 'insert_silence',
         REMOVE_TIME: 'remove_time',
         CUT_TIME: 'cut_time',
-        INSERT_CUE_MARKER: 'insert_cue_marker'
+        INSERT_CUE_MARKER: 'insert_cue_marker',
+        STOP: 'stop_transport'
     };
 }
 
@@ -124,12 +125,13 @@ function makePage(opts) {
     var page = makePage({ launchpad: lp });
     page.show();
     var registered = lp.calls.filter(function(c) { return c.method === 'registerPadBehavior'; });
-    assert(registered.length === 4, "should register 4 action button behaviors");
+    assert(registered.length === 5, "should register 5 action button behaviors");
     var notes = registered.map(function(c) { return c.note; });
     assert(notes.indexOf(89) !== -1, "should register toggleMode (89)");
     assert(notes.indexOf(79) !== -1, "should register insertSilence (79)");
     assert(notes.indexOf(69) !== -1, "should register copy (69)");
     assert(notes.indexOf(59) !== -1, "should register paste (59)");
+    assert(notes.indexOf(49) !== -1, "should register stop (49)");
 })();
 
 // show() paints action buttons with correct colors
@@ -137,13 +139,14 @@ function makePage(opts) {
     var pager = fakePager();
     var page = makePage({ pager: pager });
     page.show();
-    assert(pager.paints.length === 4, "should paint 4 action buttons");
+    assert(pager.paints.length === 5, "should paint 5 action buttons");
     var paintMap = {};
     pager.paints.forEach(function(p) { paintMap[p.pad] = p.color; });
     assert(paintMap[89] === 53, "toggleMode should be pink (53)");
     assert(paintMap[79] === 49, "insertSilence should be purple (49)");
     assert(paintMap[69] === 37, "copy should be cyan (37)");
     assert(paintMap[59] === 21, "paste should be green (21)");
+    assert(paintMap[49] === 5, "stop should be red (5)");
 })();
 
 // action button: toggleMode click invokes correct action
@@ -200,6 +203,21 @@ function makePage(opts) {
     assert(bw.calls[0].method === 'paste', "should paste");
     assert(bw.calls[1].action === 'insert_cue_marker', "should insert cue marker");
     assert(reg.hold === null, "paste should have no hold behavior");
+})();
+
+// action button: stop click invokes stop transport
+(function() {
+    var lp = fakeLaunchpad();
+    var bw = fakeBitwig();
+    var h = fakeHost();
+    var page = makePage({ launchpad: lp, bitwig: bw, host: h });
+    page.registerActionBehaviors();
+    var reg = lp.calls.filter(function(c) { return c.note === 49; })[0];
+    reg.click();
+    assert(bw.calls[0].method === 'invokeAction', "should call invokeAction");
+    assert(bw.calls[0].action === 'stop_transport', "should invoke stop transport");
+    assert(h.popups[0] === 'Stop', "should show Stop popup");
+    assert(reg.hold === null, "stop should have no hold behavior");
 })();
 
 // handlePadPress: time select modifier
