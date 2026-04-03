@@ -34,12 +34,16 @@ class PageMarkerManagerHW {
             copy: 69,           // Send A button
             paste: 59,          // Send B button
             stop: 49,           // Stop/Solo/Mute button
+            toggleLoop: 39,     // Mute button
+            toggleMetronome: 29, // Solo button
             colors: {
                 toggleMode: 53,    // Pink
                 insertSilence: 49, // Purple
                 copy: 37,          // Cyan
                 paste: 21,         // Green
-                stop: 5            // Red
+                stop: 5,           // Red
+                toggleLoop: 37,    // Cyan
+                toggleMetronome: 13 // Yellow
             }
         };
     }
@@ -59,6 +63,13 @@ class PageMarkerManagerHW {
         // Register and paint action buttons
         this.registerActionBehaviors();
         this.refreshActionButtons();
+
+        // Sync loop/metronome lights with Bitwig state
+        var self = this;
+        if (this.bitwig) {
+            this.bitwig._onLoopChanged = function() { self.refreshActionButtons(); };
+            this.bitwig._onMetronomeChanged = function() { self.refreshActionButtons(); };
+        }
     }
 
     registerActionBehaviors() {
@@ -104,6 +115,18 @@ class PageMarkerManagerHW {
             self.host.showPopupNotification("Stop");
         }, null, this.pageNumber);
 
+        // Note 39 (Mute): Toggle loop
+        this.launchpad.registerPadBehavior(btns.toggleLoop, function() {
+            self.bitwig.invokeAction(self.bitwigActions.TOGGLE_ARRANGER_LOOP);
+            self.host.showPopupNotification("Toggle Loop");
+        }, null, this.pageNumber);
+
+        // Note 29 (Solo): Toggle metronome
+        this.launchpad.registerPadBehavior(btns.toggleMetronome, function() {
+            self.bitwig.invokeAction(self.bitwigActions.TOGGLE_METRONOME);
+            self.host.showPopupNotification("Toggle Metronome");
+        }, null, this.pageNumber);
+
         if (this.debug) this.println("Action behaviors registered for right side buttons on page 2");
     }
 
@@ -117,6 +140,10 @@ class PageMarkerManagerHW {
         this.pager.requestPaint(this.pageNumber, btns.copy, colors.copy);
         this.pager.requestPaint(this.pageNumber, btns.paste, colors.paste);
         this.pager.requestPaint(this.pageNumber, btns.stop, colors.stop);
+        var loopColor = this.bitwig && this.bitwig.isLoopEnabled ? colors.toggleLoop : 0;
+        var metronomeColor = this.bitwig && this.bitwig.isMetronomeEnabled ? colors.toggleMetronome : 0;
+        this.pager.requestPaint(this.pageNumber, btns.toggleLoop, loopColor);
+        this.pager.requestPaint(this.pageNumber, btns.toggleMetronome, metronomeColor);
     }
 
     hide() {
@@ -124,6 +151,11 @@ class PageMarkerManagerHW {
         if (this.launchpad && this.projectExplorer) {
             this.launchpad.setTopButtonColor(this.projectExplorer.buttons.prevPage, 0);
             this.launchpad.setTopButtonColor(this.projectExplorer.buttons.nextPage, 0);
+        }
+        // Unregister state change callbacks
+        if (this.bitwig) {
+            this.bitwig._onLoopChanged = null;
+            this.bitwig._onMetronomeChanged = null;
         }
         if (this.debug) this.println("Hiding marker manager page");
     }
@@ -139,21 +171,9 @@ class PageMarkerManagerHW {
             return true;
         }
 
-        // Check for copy select modifier (Solo button)
-        if (padNote === this.projectExplorer.modifiers.copySelect) {
-            this.projectExplorer.handleCopySelectModifierPress();
-            return true;
-        }
-
         // If time select gesture is active, handle as gesture input
         if (this.projectExplorer._timeSelectActive) {
             this.projectExplorer.handleTimeSelectPadPress(padNote);
-            return true;
-        }
-
-        // If copy select gesture is active, handle as gesture input
-        if (this.projectExplorer._copySelectActive) {
-            this.projectExplorer.handleCopySelectPadPress(padNote);
             return true;
         }
 
@@ -171,20 +191,8 @@ class PageMarkerManagerHW {
             return true;
         }
 
-        // Check for copy select modifier release
-        if (padNote === this.projectExplorer.modifiers.copySelect) {
-            this.projectExplorer.handleCopySelectModifierRelease();
-            return true;
-        }
-
         // Block grid pad releases during time selection
         if (this.projectExplorer._timeSelectActive) {
-            var padIndex = this.projectExplorer.pads.indexOf(padNote);
-            if (padIndex !== -1) return true;
-        }
-
-        // Block grid pad releases during copy selection
-        if (this.projectExplorer._copySelectActive) {
             var padIndex = this.projectExplorer.pads.indexOf(padNote);
             if (padIndex !== -1) return true;
         }

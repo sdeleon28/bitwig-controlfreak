@@ -643,6 +643,16 @@ function init() {
         ProjectExplorer.refreshLoopHighlight();
     });
 
+    transport.isArrangerLoopEnabled().markInterested();
+    transport.isArrangerLoopEnabled().addValueObserver(function(enabled) {
+        Bitwig.setLoopEnabled(enabled);
+    });
+
+    transport.isMetronomeEnabled().markInterested();
+    transport.isMetronomeEnabled().addValueObserver(function(enabled) {
+        Bitwig.setMetronomeEnabled(enabled);
+    });
+
     // Enter Programmer Mode on Launchpad MK2
     Launchpad.enterProgrammerMode();
 

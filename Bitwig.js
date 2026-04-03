@@ -30,6 +30,10 @@ class BitwigHW {
         this._projectRemoteControls2 = null;
         this._deviceBank = null;
         this._rc2PageCounts = { device: 0, track: 0, project: 0 };
+        this._isLoopEnabled = false;
+        this._isMetronomeEnabled = false;
+        this._onLoopChanged = null;
+        this._onMetronomeChanged = null;
     }
 
     /**
@@ -102,6 +106,20 @@ class BitwigHW {
     getTransport() {
         return this._transport;
     }
+
+    setLoopEnabled(value) {
+        this._isLoopEnabled = value;
+        if (this._onLoopChanged) this._onLoopChanged(value);
+    }
+
+    get isLoopEnabled() { return this._isLoopEnabled; }
+
+    setMetronomeEnabled(value) {
+        this._isMetronomeEnabled = value;
+        if (this._onMetronomeChanged) this._onMetronomeChanged(value);
+    }
+
+    get isMetronomeEnabled() { return this._isMetronomeEnabled; }
 
     /**
      * Set time selection (loop range) in arrangement

@@ -531,8 +531,7 @@ ProjectExplorerHW.BUTTONS = {
     nextPage: 111
 };
 ProjectExplorerHW.MODIFIERS = {
-    timeSelect: 19,
-    copySelect: 29
+    timeSelect: 19
 };
 
 var ProjectExplorer = {
