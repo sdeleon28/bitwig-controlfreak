@@ -1,8 +1,8 @@
 from abc import ABC
 from enum import IntEnum
 from typing import Protocol
+import time
 import mido
-from palette import palette
 from dataclasses import dataclass
 import re
 
@@ -107,21 +107,49 @@ class SideButton(IntEnum):
 
 
 @dataclass
-class PadPress:
+class PadClick:
     note: int
-    velocity: int
 
 @dataclass
-class TopButtonPress:
+class PadDoubleClick:
+    note: int
+
+@dataclass
+class PadHold:
+    note: int
+
+@dataclass
+class TopButtonClick:
     button: TopButton
-    value: int
 
 @dataclass
-class SideButtonPress:
-    button: SideButton
-    velocity: int
+class TopButtonDoubleClick:
+    button: TopButton
 
-LaunchpadEvent = PadPress | TopButtonPress | SideButtonPress
+@dataclass
+class TopButtonHold:
+    button: TopButton
+
+@dataclass
+class SideButtonClick:
+    button: SideButton
+
+@dataclass
+class SideButtonDoubleClick:
+    button: SideButton
+
+@dataclass
+class SideButtonHold:
+    button: SideButton
+
+LaunchpadEvent = (
+    PadClick | PadDoubleClick | PadHold
+    | TopButtonClick | TopButtonDoubleClick | TopButtonHold
+    | SideButtonClick | SideButtonDoubleClick | SideButtonHold
+)
+
+HOLD_THRESHOLD = 0.4
+DOUBLE_CLICK_WINDOW = 0.15
 
 class LaunchpadSubscriber(Protocol):
     def on_launchpad_event(self, event: LaunchpadEvent) -> None: ...
@@ -131,31 +159,97 @@ class LaunchpadLayout:
     pass
 
 
+class _GestureState:
+    def __init__(self):
+        self.down_at: float | None = None
+        self.pending_click_at: float | None = None
+        self.hold_emitted: bool = False
+
 class Launchpad:
     def __init__(self):
         self.port = mido.open_output('Launchpad MK2 12')
         self.input = mido.open_input('Launchpad MK2 12')
         self._subscribers: list[LaunchpadSubscriber] = []
+        self._gestures: dict[tuple[str, int], _GestureState] = {}
 
     def subscribe(self, subscriber: LaunchpadSubscriber):
         self._subscribers.append(subscriber)
 
+    def _emit(self, event: LaunchpadEvent):
+        for sub in self._subscribers:
+            sub.on_launchpad_event(event)
+
+    def _gs(self, key: tuple[str, int]) -> _GestureState:
+        if key not in self._gestures:
+            self._gestures[key] = _GestureState()
+        return self._gestures[key]
+
+    def _make_event(self, kind: str, key: tuple[str, int], gesture: str) -> LaunchpadEvent:
+        tag, ident = key
+        if tag == 'top':
+            btn = TopButton(ident)
+            if gesture == 'click': return TopButtonClick(btn)
+            if gesture == 'double_click': return TopButtonDoubleClick(btn)
+            return TopButtonHold(btn)
+        elif tag == 'side':
+            btn = SideButton(ident)
+            if gesture == 'click': return SideButtonClick(btn)
+            if gesture == 'double_click': return SideButtonDoubleClick(btn)
+            return SideButtonHold(btn)
+        else:
+            if gesture == 'click': return PadClick(ident)
+            if gesture == 'double_click': return PadDoubleClick(ident)
+            return PadHold(ident)
+
+    def _on_press(self, key: tuple[str, int]):
+        gs = self._gs(key)
+        gs.down_at = time.monotonic()
+        gs.hold_emitted = False
+
+    def _on_release(self, key: tuple[str, int]):
+        gs = self._gs(key)
+        now = time.monotonic()
+        if gs.hold_emitted:
+            gs.down_at = None
+            return
+        gs.down_at = None
+        if gs.pending_click_at is not None:
+            gs.pending_click_at = None
+            self._emit(self._make_event('', key, 'double_click'))
+        else:
+            gs.pending_click_at = now
+
     def poll(self):
+        now = time.monotonic()
         for msg in self.input.iter_pending():
-            event: LaunchpadEvent | None = None
             if msg.type == 'control_change':
                 try:
-                    event = TopButtonPress(TopButton(msg.control), msg.value)
+                    TopButton(msg.control)
+                    key = ('top', msg.control)
+                    if msg.value > 0:
+                        self._on_press(key)
+                    else:
+                        self._on_release(key)
                 except ValueError:
                     pass
             elif msg.type == 'note_on':
                 try:
-                    event = SideButtonPress(SideButton(msg.note), msg.velocity)
+                    SideButton(msg.note)
+                    key = ('side', msg.note)
                 except ValueError:
-                    event = PadPress(msg.note, msg.velocity)
-            if event:
-                for sub in self._subscribers:
-                    sub.on_launchpad_event(event)
+                    key = ('pad', msg.note)
+                if msg.velocity > 0:
+                    self._on_press(key)
+                else:
+                    self._on_release(key)
+
+        for key, gs in self._gestures.items():
+            if gs.down_at is not None and not gs.hold_emitted and now - gs.down_at >= HOLD_THRESHOLD:
+                gs.hold_emitted = True
+                self._emit(self._make_event('', key, 'hold'))
+            if gs.pending_click_at is not None and now - gs.pending_click_at >= DOUBLE_CLICK_WINDOW:
+                gs.pending_click_at = None
+                self._emit(self._make_event('', key, 'click'))
 
     def clear(self):
         for i in range(128):
@@ -194,12 +288,24 @@ class ControlPage:
 
     def on_launchpad_event(self, event: LaunchpadEvent):
         match event:
-            case TopButtonPress(button=tb):
-                print("TopButton pressed:", tb)
-            case SideButtonPress(button=sb):
-                print("SideButton pressed:", sb)
-            case PadPress(note=note):
-                print("Pad pressed:", note)
+            case TopButtonClick(button=tb):
+                print("TopButton click:", tb)
+            case TopButtonDoubleClick(button=tb):
+                print("TopButton double-click:", tb)
+            case TopButtonHold(button=tb):
+                print("TopButton hold:", tb)
+            case SideButtonClick(button=sb):
+                print("SideButton click:", sb)
+            case SideButtonDoubleClick(button=sb):
+                print("SideButton double-click:", sb)
+            case SideButtonHold(button=sb):
+                print("SideButton hold:", sb)
+            case PadClick(note=note):
+                print("Pad click:", note)
+            case PadDoubleClick(note=note):
+                print("Pad double-click:", note)
+            case PadHold(note=note):
+                print("Pad hold:", note)
 
 
 def main():
