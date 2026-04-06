@@ -1,6 +1,6 @@
 from abc import ABC
 from enum import IntEnum
-from typing import Protocol
+from typing import Protocol, List
 import time
 import mido
 from dataclasses import dataclass
@@ -257,6 +257,10 @@ class Launchpad:
         for j in range(TopButton.up, TopButton.mixer + 1):
             self.port.send(mido.Message('control_change', control=j, value=0))
 
+    def clear_keep_top(self):
+        for i in range(128):
+            self.port.send(mido.Message('note_on', note=i, velocity=0))
+
     def paint_pad(self, n, color):
         rest = (n % 8)
         row = (n // 8) + 1
@@ -273,14 +277,64 @@ class Launchpad:
         self.port.send(mido.Message('note_on', note=note, velocity=color))
 
 
+class LaunchpadPage(Protocol):
+    def paint(self):
+        ...
+
+class LaunchpadPager:
+    def __init__(self, l: "Launchpad", pages: List[LaunchpadPage]):
+        self.launchpad = l
+        self.pages = pages
+        self.current_page_i = 0
+        self.current_page = self.pages[self.current_page_i]
+
+    def previous_page(self):
+        new_i = self.current_page_i - 1
+        if new_i < 0:
+            return
+        self.current_page_i = new_i
+        self.current_page = self.pages[new_i]
+        self.paint()
+
+    def next_page(self):
+        new_i = self.current_page_i + 1
+        if new_i >= len(self.pages):
+            return
+        self.current_page_i = new_i
+        self.current_page = self.pages[new_i]
+        self.paint()
+
+    def paint(self):
+        prev_page_enabled = self.current_page_i - 1 >= 0
+        if prev_page_enabled:
+            self.launchpad.paint_top_button(TopButton.up, color=34)
+        else:
+            self.launchpad.paint_top_button(TopButton.up, color=0)
+        next_page_enabled = self.current_page_i + 1 < len(self.pages)
+        if next_page_enabled:
+            self.launchpad.paint_top_button(TopButton.down, color=34)
+        else:
+            self.launchpad.paint_top_button(TopButton.down, color=0)
+        self.current_page.paint()
+
+    def on_launchpad_event(self, event: LaunchpadEvent):
+        match event:
+            case TopButtonClick(button=TopButton.up):
+                self.previous_page()
+            case TopButtonClick(button=TopButton.down):
+                self.next_page()
+
+
 class ControlPage:
     def __init__(self, bw: "Bitwig", l: "Launchpad"):
+        self.launchpad = l
         self.rec_q = RecQuadrant(bw, l)
         self.solo_q = SoloQuadrant(bw, l)
         self.mute_q = MuteQuadrant(bw, l)
         self.sel_q = SelectQuadrant(bw, l)
 
     def paint(self):
+        self.launchpad.clear_keep_top()
         self.rec_q.paint()
         self.solo_q.paint()
         self.mute_q.paint()
@@ -313,8 +367,13 @@ def main():
     l = Launchpad()
     l.clear()
     cp = ControlPage(bw, l)
-    cp.paint()
     l.subscribe(cp)
+    pager = LaunchpadPager(l, [
+        cp,
+        cp,
+    ])
+    l.subscribe(pager)
+    pager.paint()
     print("Listening for pad presses... (Ctrl+C to quit)")
     try:
         while True:
