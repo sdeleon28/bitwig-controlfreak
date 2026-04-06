@@ -56,12 +56,7 @@ class PageColorPaletteHW {
         var row = Math.floor(padIndex / 8) + 1;
         var col = (padIndex % 8) + 1;
 
-        this.println("=== Color Info ===");
-        this.println("  Color value: " + colorValue);
-        this.println("  Hex: 0x" + colorValue.toString(16).toUpperCase().padStart(2, '0'));
-        this.println("  Pad note: " + padNote);
-        this.println("  Grid position: row " + row + ", col " + col);
-        this.println("==================");
+        this.println("Launchpad color: " + colorValue);
 
         if (this.host) {
             this.host.showPopupNotification("Color: " + colorValue + " (0x" + colorValue.toString(16).toUpperCase() + ")");

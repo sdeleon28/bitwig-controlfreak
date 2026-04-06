@@ -138,17 +138,18 @@ function makeLaunchpad(opts) {
     assert(out.messages[0].data2 === 0, 'clearPad sends color 0');
 })();
 
-// bitwigColorToLaunchpad color mapping
+// bitwigColorToLaunchpad exact palette mapping
 (function() {
     var lp = makeLaunchpad();
-    assert(lp.bitwigColorToLaunchpad(1, 0, 0) === lp.colors.red, 'pure red');
-    assert(lp.bitwigColorToLaunchpad(0, 1, 0) === lp.colors.green, 'pure green');
-    assert(lp.bitwigColorToLaunchpad(0, 0, 1) === lp.colors.blue, 'pure blue');
-    assert(lp.bitwigColorToLaunchpad(1, 1, 0) === lp.colors.yellow, 'yellow');
-    assert(lp.bitwigColorToLaunchpad(1, 1, 1) === lp.colors.white, 'white');
-    assert(lp.bitwigColorToLaunchpad(0, 1, 1) === lp.colors.cyan, 'cyan');
-    assert(lp.bitwigColorToLaunchpad(1, 0, 1) === lp.colors.purple, 'purple');
-    assert(lp.bitwigColorToLaunchpad(0, 0, 0) === lp.colors.amber, 'black -> amber fallback');
+    // Exact matches from Bitwig palette (float RGB)
+    assert(lp.bitwigColorToLaunchpad(0.8510, 0.1804, 0.1333) === 72, 'red exact');
+    assert(lp.bitwigColorToLaunchpad(0.0000, 0.6157, 0.2706) === 87, 'green exact');
+    assert(lp.bitwigColorToLaunchpad(0.0000, 0.6000, 0.8431) === 79, 'blue exact');
+    assert(lp.bitwigColorToLaunchpad(0.8510, 0.6157, 0.0549) === 99, 'gold exact');
+    assert(lp.bitwigColorToLaunchpad(0.5843, 0.2863, 0.7961) === 81, 'purple exact');
+    assert(lp.bitwigColorToLaunchpad(0.0000, 0.6510, 0.5725) === 34, 'teal exact');
+    // Nearest-color fallback for unknown colors
+    assert(typeof lp.bitwigColorToLaunchpad(0.5, 0.5, 0.5) === 'number', 'fallback returns a number');
 })();
 
 // getBrightnessVariant returns correct variant / falls back to base

@@ -182,18 +182,30 @@ class LaunchpadHW {
     // ---- Color mapping ----
 
     bitwigColorToLaunchpad(red, green, blue) {
-        var r = red > 0.5;
-        var g = green > 0.5;
-        var b = blue > 0.5;
+        var r = Math.round(red * 255);
+        var g = Math.round(green * 255);
+        var b = Math.round(blue * 255);
 
-        if (r && g && !b) return this.colors.yellow;
-        if (r && !g && !b) return this.colors.red;
-        if (!r && g && !b) return this.colors.green;
-        if (!r && !g && b) return this.colors.blue;
-        if (r && g && b) return this.colors.white;
-        if (!r && g && b) return this.colors.cyan;
-        if (r && !g && b) return this.colors.purple;
-        return this.colors.amber;
+        // Exact lookup first (quantize to even numbers to absorb float rounding)
+        var key = (r >> 1 << 1) + ',' + (g >> 1 << 1) + ',' + (b >> 1 << 1);
+        if (LaunchpadHW.BITWIG_TO_LAUNCHPAD[key] !== undefined) {
+            return LaunchpadHW.BITWIG_TO_LAUNCHPAD[key];
+        }
+
+        // Nearest color fallback
+        var bestDist = Infinity;
+        var bestColor = this.colors.amber;
+        var entries = LaunchpadHW.BITWIG_TO_LAUNCHPAD_ENTRIES;
+        for (var i = 0; i < entries.length; i++) {
+            var e = entries[i];
+            var dr = r - e[0], dg = g - e[1], db = b - e[2];
+            var dist = dr * dr + dg * dg + db * db;
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestColor = e[3];
+            }
+        }
+        return bestColor;
     }
 
     getBrightnessVariant(baseColorValue, brightnessLevel) {
@@ -388,6 +400,53 @@ LaunchpadHW.HOLD_TIMING = {
     hold: 400,
     clickThreshold: 400
 };
+
+// Bitwig palette RGB (0-255, quantized to even) → Launchpad color code
+LaunchpadHW.BITWIG_TO_LAUNCHPAD = {
+    // Row 1: grays, muted tones
+    '84,84,82':     0,    // dark gray
+    '122,122,122':  103,  // medium gray
+    '200,200,200':  70,   // light gray
+    '134,136,170':  112,  // muted blue-gray
+    '162,120,64':   83,   // brown
+    '198,158,110':  108,  // tan
+    '86,96,198':    69,   // muted blue
+    '132,138,224':  49,   // light blue
+    '148,72,202':   81,   // purple
+    // Row 2: saturated
+    '216,56,110':   95,   // hot pink
+    '216,46,34':    72,   // red
+    '254,86,4':     84,   // orange
+    '216,156,14':   99,   // gold
+    '114,152,18':   101,  // olive green
+    '0,156,68':     87,   // green
+    '0,166,146':    34,   // teal
+    '0,152,214':    79,   // blue
+    '188,118,240':  52,   // violet
+    // Row 3: lighter/pastel
+    '224,102,142':  53,   // pink
+    '236,96,84':    83,   // salmon
+    '254,130,60':   108,  // light orange
+    '228,182,76':   109,  // yellow
+    '160,192,74':   85,   // lime
+    '62,184,96':    31,   // mint green
+    '66,210,182':   33,   // aqua
+    '68,200,254':   41,   // sky blue
+    '208,184,218':  56    // lavender
+};
+
+// Pre-computed array for nearest-color fallback: [r, g, b, launchpadColor]
+LaunchpadHW.BITWIG_TO_LAUNCHPAD_ENTRIES = (function() {
+    var map = LaunchpadHW.BITWIG_TO_LAUNCHPAD;
+    var entries = [];
+    for (var key in map) {
+        if (map.hasOwnProperty(key)) {
+            var parts = key.split(',');
+            entries.push([parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]), map[key]]);
+        }
+    }
+    return entries;
+})();
 
 // Backward compat stub — exposes constants at parse time for
 // LaunchpadModeSwitcher.js and LaunchpadTopButtons.js
