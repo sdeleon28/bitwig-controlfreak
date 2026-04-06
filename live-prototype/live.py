@@ -5,6 +5,7 @@ import time
 import mido
 from dataclasses import dataclass
 import re
+from copy import deepcopy
 
 @dataclass
 class Track:
@@ -16,7 +17,26 @@ class Track:
     color: int = 0
 
 
+@dataclass
+class Marker:
+    name: str
+    position: int  # TODO
+    color: int = 0
+
+
+@dataclass
+class MarkerSet:
+    name: str
+    markers: List[Marker]
+
+
 class Bitwig:
+    """
+    Bitwig fake that we use to simulate real controller script interaction.
+    This will be replaced with a similar abstraction that shields us from
+    raw Bitwig APIs and gives us what we need from it.
+    """
+
     def __init__(self):
         # NOTE: these should be bitwig colors and we'll need a translation layer
         self.tracks = [
@@ -26,6 +46,23 @@ class Bitwig:
             Track(name="bass (11)", color=79),
             Track(name="gtrs (12)", color=72),
         ]
+        self.markers = [
+            Marker(name="{ amy", position=0, color=0),
+            Marker(name="intro", position=0, color=0),
+            Marker(name="verso1", position=0, color=0),
+            Marker(name="estrib1", position=0, color=0),
+            Marker(name="verso2", position=0, color=0),
+            Marker(name="estrib2", position=0, color=0),
+            Marker(name="}", position=0, color=0),
+            Marker(name="{ pentium", position=0, color=0),
+            Marker(name="verso1", position=0, color=0),
+            Marker(name="estrib1", position=0, color=0),
+            Marker(name="verso2", position=0, color=0),
+            Marker(name="estrib2", position=0, color=0),
+            Marker(name="solo", position=0, color=0),
+            Marker(name="estrib3", position=0, color=0),
+            Marker(name="}", position=0, color=0),
+        ]
 
     def get_tracks(self):
         out = {}
@@ -34,6 +71,35 @@ class Bitwig:
             if match:
                 out[int(match.group(1))] = track
         return [out.get(i, None) for i in range(1, 17)]
+
+    def get_marker_sets(self) -> List[MarkerSet]:
+        """
+        Goes through the list of cue markers reported by Bitwig and turns them
+        into a more useful data structure using conventions to start and end
+        songs for a live session.
+        """
+        marker_sets: List[MarkerSet] = []
+        current_markers = []
+        for m in self.markers:
+            if m.name.startswith("{"):
+                current_markers = []
+                current_markers.append(m)
+            elif m.name.startswith("}"):
+                current_markers.append(m)
+                marker_sets.append(
+                    MarkerSet(
+                        name=current_markers[0].name.split("{ ")[1],
+                        markers=(current_markers),
+                    )
+                )
+            else:
+                current_markers.append(m)
+        return marker_sets
+    
+    def growl(self, msg):
+        print("=============")
+        print("GRRRROWL: ", msg)
+        print("=============")
 
 
 class Quadrant(ABC):
@@ -111,19 +177,11 @@ class PadClick:
     note: int
 
 @dataclass
-class PadDoubleClick:
-    note: int
-
-@dataclass
 class PadHold:
     note: int
 
 @dataclass
 class TopButtonClick:
-    button: TopButton
-
-@dataclass
-class TopButtonDoubleClick:
     button: TopButton
 
 @dataclass
@@ -135,21 +193,16 @@ class SideButtonClick:
     button: SideButton
 
 @dataclass
-class SideButtonDoubleClick:
-    button: SideButton
-
-@dataclass
 class SideButtonHold:
     button: SideButton
 
 LaunchpadEvent = (
-    PadClick | PadDoubleClick | PadHold
-    | TopButtonClick | TopButtonDoubleClick | TopButtonHold
-    | SideButtonClick | SideButtonDoubleClick | SideButtonHold
+    PadClick | PadHold
+    | TopButtonClick | TopButtonHold
+    | SideButtonClick | SideButtonHold
 )
 
 HOLD_THRESHOLD = 0.4
-DOUBLE_CLICK_WINDOW = 0.15
 
 class LaunchpadSubscriber(Protocol):
     def on_launchpad_event(self, event: LaunchpadEvent) -> None: ...
@@ -162,7 +215,6 @@ class LaunchpadLayout:
 class _GestureState:
     def __init__(self):
         self.down_at: float | None = None
-        self.pending_click_at: float | None = None
         self.hold_emitted: bool = False
 
 class Launchpad:
@@ -184,22 +236,16 @@ class Launchpad:
             self._gestures[key] = _GestureState()
         return self._gestures[key]
 
-    def _make_event(self, kind: str, key: tuple[str, int], gesture: str) -> LaunchpadEvent:
+    def _make_event(self, key: tuple[str, int], gesture: str) -> LaunchpadEvent:
         tag, ident = key
         if tag == 'top':
             btn = TopButton(ident)
-            if gesture == 'click': return TopButtonClick(btn)
-            if gesture == 'double_click': return TopButtonDoubleClick(btn)
-            return TopButtonHold(btn)
+            return TopButtonClick(btn) if gesture == 'click' else TopButtonHold(btn)
         elif tag == 'side':
             btn = SideButton(ident)
-            if gesture == 'click': return SideButtonClick(btn)
-            if gesture == 'double_click': return SideButtonDoubleClick(btn)
-            return SideButtonHold(btn)
+            return SideButtonClick(btn) if gesture == 'click' else SideButtonHold(btn)
         else:
-            if gesture == 'click': return PadClick(ident)
-            if gesture == 'double_click': return PadDoubleClick(ident)
-            return PadHold(ident)
+            return PadClick(ident) if gesture == 'click' else PadHold(ident)
 
     def _on_press(self, key: tuple[str, int]):
         gs = self._gs(key)
@@ -208,16 +254,11 @@ class Launchpad:
 
     def _on_release(self, key: tuple[str, int]):
         gs = self._gs(key)
-        now = time.monotonic()
         if gs.hold_emitted:
             gs.down_at = None
             return
         gs.down_at = None
-        if gs.pending_click_at is not None:
-            gs.pending_click_at = None
-            self._emit(self._make_event('', key, 'double_click'))
-        else:
-            gs.pending_click_at = now
+        self._emit(self._make_event(key, 'click'))
 
     def poll(self):
         now = time.monotonic()
@@ -246,10 +287,7 @@ class Launchpad:
         for key, gs in self._gestures.items():
             if gs.down_at is not None and not gs.hold_emitted and now - gs.down_at >= HOLD_THRESHOLD:
                 gs.hold_emitted = True
-                self._emit(self._make_event('', key, 'hold'))
-            if gs.pending_click_at is not None and now - gs.pending_click_at >= DOUBLE_CLICK_WINDOW:
-                gs.pending_click_at = None
-                self._emit(self._make_event('', key, 'click'))
+                self._emit(self._make_event(key, 'hold'))
 
     def clear(self):
         for i in range(128):
@@ -344,20 +382,14 @@ class ControlPage:
         match event:
             case TopButtonClick(button=tb):
                 print("TopButton click:", tb)
-            case TopButtonDoubleClick(button=tb):
-                print("TopButton double-click:", tb)
             case TopButtonHold(button=tb):
                 print("TopButton hold:", tb)
             case SideButtonClick(button=sb):
                 print("SideButton click:", sb)
-            case SideButtonDoubleClick(button=sb):
-                print("SideButton double-click:", sb)
             case SideButtonHold(button=sb):
                 print("SideButton hold:", sb)
             case PadClick(note=note):
                 print("Pad click:", note)
-            case PadDoubleClick(note=note):
-                print("Pad double-click:", note)
             case PadHold(note=note):
                 print("Pad hold:", note)
 
