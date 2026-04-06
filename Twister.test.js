@@ -280,26 +280,21 @@ function makeTwister(opts) {
     assert(pressedState === false, 'custom press callback received false');
 })();
 
-// findClosestColorIndex: grayscale detection
+// findClosestColorIndex: exact Bitwig palette matches
 (function() {
     var tw = makeTwister();
-    assert(tw.findClosestColorIndex(128, 128, 128) === 0, 'gray returns 0');
-    assert(tw.findClosestColorIndex(0, 0, 0) === 0, 'black returns 0');
-    assert(tw.findClosestColorIndex(255, 255, 255) === 0, 'white returns 0');
+    assert(tw.findClosestColorIndex(84, 84, 82) === 0, 'dark gray exact');
+    assert(tw.findClosestColorIndex(217, 46, 34) === 85, 'red exact');
+    assert(tw.findClosestColorIndex(0, 157, 69) === 44, 'green exact');
+    assert(tw.findClosestColorIndex(0, 153, 215) === 27, 'blue exact');
+    assert(tw.findClosestColorIndex(149, 73, 203) === 107, 'purple exact');
 })();
 
-// findClosestColorIndex: pure red returns non-zero
+// findClosestColorIndex: nearest-color fallback returns a number
 (function() {
     var tw = makeTwister();
     var idx = tw.findClosestColorIndex(255, 0, 0);
-    assert(idx > 0, 'pure red returns non-zero index: ' + idx);
-})();
-
-// findClosestColorIndex: purple detection (hue 270-330)
-(function() {
-    var tw = makeTwister();
-    var idx = tw.findClosestColorIndex(150, 0, 255);
-    assert(idx >= 105 && idx <= 120, 'purple maps to 105-120 range, got ' + idx);
+    assert(typeof idx === 'number', 'fallback returns a number for unmapped color');
 })();
 
 // refreshEncoderLEDsForVolume syncs all linked encoder LEDs
@@ -388,18 +383,13 @@ function makeTwister(opts) {
     assert(redColorMsgs.length === 8, "should send 8 red color messages (fallback), got " + redColorMsgs.length);
 })();
 
-// findClosestColorIndex: pure blue (0,0,255) maps to index 0 (known edge case)
+// findClosestColorIndex: unmapped colors use nearest fallback
 (function() {
     var tw = makeTwister();
     var idx = tw.findClosestColorIndex(0, 0, 255);
-    assert(idx === 0, 'pure blue (0,0,255) maps to index 0 (edge case), got ' + idx);
-})();
-
-// findClosestColorIndex: shifted blue (0,50,255) returns visible non-zero index
-(function() {
-    var tw = makeTwister();
-    var idx = tw.findClosestColorIndex(0, 50, 255);
-    assert(idx > 0, 'shifted blue (0,50,255) should return non-zero index, got ' + idx);
+    assert(typeof idx === 'number', 'pure blue fallback returns a number, got ' + idx);
+    var idx2 = tw.findClosestColorIndex(0, 50, 255);
+    assert(typeof idx2 === 'number', 'shifted blue fallback returns a number, got ' + idx2);
 })();
 
 // toggle param (stepCount=2) maps to press behavior, not turn

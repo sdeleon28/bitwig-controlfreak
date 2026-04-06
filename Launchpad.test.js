@@ -255,17 +255,17 @@ function makeLaunchpad(opts) {
     // Mute mode
     var lp1 = makeLaunchpad({ bitwig: fakeBitwig({ 0: mutedTrack }), launchpadModeSwitcher: fakeModeSwitcher('mute') });
     var muteColor = lp1.getTrackGridPadColor(0);
-    assert(muteColor === lp1.getBrightnessVariant(lp1.colors.amber, 'dim'), 'muted track returns dim amber');
+    assert(muteColor === 9, 'muted track returns mute color 9');
 
     // Solo mode
     var lp2 = makeLaunchpad({ bitwig: fakeBitwig({ 0: soloedTrack }), launchpadModeSwitcher: fakeModeSwitcher('solo') });
     var soloColor = lp2.getTrackGridPadColor(0);
-    assert(soloColor === lp2.getBrightnessVariant(lp2.colors.yellow, 'dim'), 'soloed track returns dim yellow');
+    assert(soloColor === 124, 'soloed track returns solo color 124');
 
     // Arm mode
     var lp3 = makeLaunchpad({ bitwig: fakeBitwig({ 0: armedTrack }), launchpadModeSwitcher: fakeModeSwitcher('recordArm') });
     var armColor = lp3.getTrackGridPadColor(0);
-    assert(armColor === lp3.getBrightnessVariant(lp3.colors.red, 'dim'), 'armed track returns dim red');
+    assert(armColor === 121, 'armed track returns rec arm color 121');
 
     // Default mode (not muted/soloed/armed)
     var lp4 = makeLaunchpad({ bitwig: fakeBitwig({ 0: normalTrack }), launchpadModeSwitcher: fakeModeSwitcher('mute') });

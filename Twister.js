@@ -684,59 +684,28 @@ class TwisterHW {
     // ---- Color mapping ----
 
     findClosestColorIndex(r, g, b) {
-        var hue = this._rgbToHue(r, g, b);
-        var max = Math.max(r, g, b);
-        var min = Math.min(r, g, b);
-        var saturation = (max === 0) ? 0 : (max - min) / max;
-
-        if (this.debug) {
-            this.println("Color: RGB(" + r + ", " + g + ", " + b +
-                    ") Hue: " + hue.toFixed(1) +
-                    "° Sat: " + saturation.toFixed(2) +
-                    " Bright: " + max);
+        // Exact lookup (quantized to even to absorb rounding)
+        var key = (r >> 1 << 1) + ',' + (g >> 1 << 1) + ',' + (b >> 1 << 1);
+        if (TwisterHW.BITWIG_TO_TWISTER[key] !== undefined) {
+            return TwisterHW.BITWIG_TO_TWISTER[key];
         }
 
-        if (saturation < 0.15) {
-            if (this.debug) this.println("  -> Grayscale detected");
-            return 0;
+        // Nearest color fallback
+        var bestDist = Infinity;
+        var bestColor = 0;
+        var entries = TwisterHW.BITWIG_TO_TWISTER_ENTRIES;
+        for (var i = 0; i < entries.length; i++) {
+            var e = entries[i];
+            var dr = r - e[0], dg = g - e[1], db = b - e[2];
+            var dist = dr * dr + dg * dg + db * db;
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestColor = e[3];
+            }
         }
-
-        if (hue >= 270 && hue <= 330) {
-            if (this.debug) this.println("  -> Purple detected, hue: " + hue.toFixed(1));
-            var purpleRange = hue - 270;
-            var colorIndex = Math.round(105 + (purpleRange * 15 / 60));
-            if (this.debug) this.println("  -> Purple mapped to index: " + colorIndex);
-            return colorIndex;
-        }
-
-        var invertedHue = 360 - hue;
-        var adjustedHue = (invertedHue + 240) % 360;
-        var colorIndex = Math.round(adjustedHue * 127 / 360);
-        if (this.debug) this.println("  -> Index: " + colorIndex);
-        return colorIndex;
+        return bestColor;
     }
 
-    _rgbToHue(r, g, b) {
-        r = r / 255;
-        g = g / 255;
-        b = b / 255;
-        var max = Math.max(r, g, b);
-        var min = Math.min(r, g, b);
-        var delta = max - min;
-
-        if (delta === 0) return 0;
-
-        var hue;
-        if (max === r) {
-            hue = 60 * (((g - b) / delta) % 6);
-        } else if (max === g) {
-            hue = 60 * (((b - r) / delta) + 2);
-        } else {
-            hue = 60 * (((r - g) / delta) + 4);
-        }
-        if (hue < 0) hue += 360;
-        return hue;
-    }
 }
 
 TwisterHW.COLORS = [
@@ -760,6 +729,53 @@ TwisterHW.COLORS = [
     {idx: 35,  r: 150, g: 0,   b: 255},
     {idx: 37,  r: 100, g: 0,   b: 200}
 ];
+
+// Bitwig palette RGB (0-255, quantized to even) → Twister color index
+TwisterHW.BITWIG_TO_TWISTER = {
+    // Row 1: grays, muted tones
+    '84,84,82':     0,    // dark gray
+    '122,122,122':  0,    // medium gray
+    '200,200,200':  31,   // light gray
+    '134,136,170':  0,    // muted blue-gray
+    '162,120,64':   76,   // brown
+    '198,158,110':  72,   // tan
+    '86,96,198':    123,  // muted blue
+    '132,138,224':  126,  // light blue
+    '148,72,202':   107,  // purple
+    // Row 2: saturated
+    '216,56,110':   87,   // hot pink
+    '216,46,34':    85,   // red
+    '254,86,4':     79,   // orange
+    '216,156,14':   71,   // gold
+    '114,152,18':   42,   // olive green
+    '0,156,68':     44,   // green
+    '0,166,146':    37,   // teal
+    '0,152,214':    27,   // blue
+    '188,118,240':  103,  // violet
+    // Row 3: lighter/pastel
+    '224,102,142':  88,   // pink
+    '236,96,84':    80,   // salmon
+    '254,130,60':   71,   // light orange
+    '228,182,76':   66,   // yellow
+    '160,192,74':   41,   // lime
+    '62,184,96':    42,   // mint green
+    '66,210,182':   36,   // aqua
+    '68,200,254':   19,   // sky blue
+    '208,184,218':  93    // lavender
+};
+
+// Pre-computed array for nearest-color fallback: [r, g, b, twisterColor]
+TwisterHW.BITWIG_TO_TWISTER_ENTRIES = (function() {
+    var map = TwisterHW.BITWIG_TO_TWISTER;
+    var entries = [];
+    for (var key in map) {
+        if (map.hasOwnProperty(key)) {
+            var parts = key.split(',');
+            entries.push([parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]), map[key]]);
+        }
+    }
+    return entries;
+})();
 
 var Twister = {};
 if (typeof module !== 'undefined') module.exports = TwisterHW;

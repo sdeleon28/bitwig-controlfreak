@@ -237,15 +237,15 @@ class LaunchpadHW {
 
         if (padMode === 'mute') {
             if (track.mute().get()) {
-                return this.getBrightnessVariant(this.colors.amber, this.brightness.dim);
+                return 9;
             }
         } else if (padMode === 'solo') {
             if (track.solo().get()) {
-                return this.getBrightnessVariant(this.colors.yellow, this.brightness.dim);
+                return 124;
             }
         } else if (padMode === 'recordArm') {
             if (track.arm().get()) {
-                return this.getBrightnessVariant(this.colors.red, this.brightness.dim);
+                return 121;
             }
         }
 
@@ -428,7 +428,7 @@ LaunchpadHW.BITWIG_TO_LAUNCHPAD = {
     '236,96,84':    83,   // salmon
     '254,130,60':   108,  // light orange
     '228,182,76':   109,  // yellow
-    '160,192,74':   85,   // lime
+    '160,192,74':   98,   // lime
     '62,184,96':    31,   // mint green
     '66,210,182':   33,   // aqua
     '68,200,254':   41,   // sky blue
