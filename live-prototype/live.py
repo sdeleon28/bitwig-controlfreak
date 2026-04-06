@@ -47,21 +47,21 @@ class Bitwig:
             Track(name="gtrs (12)", color=72),
         ]
         self.markers = [
-            Marker(name="{ amy", position=0, color=0),
-            Marker(name="intro", position=0, color=0),
-            Marker(name="verso1", position=0, color=0),
-            Marker(name="estrib1", position=0, color=0),
-            Marker(name="verso2", position=0, color=0),
-            Marker(name="estrib2", position=0, color=0),
-            Marker(name="}", position=0, color=0),
-            Marker(name="{ pentium", position=0, color=0),
-            Marker(name="verso1", position=0, color=0),
-            Marker(name="estrib1", position=0, color=0),
-            Marker(name="verso2", position=0, color=0),
-            Marker(name="estrib2", position=0, color=0),
-            Marker(name="solo", position=0, color=0),
-            Marker(name="estrib3", position=0, color=0),
-            Marker(name="}", position=0, color=0),
+            Marker(name="{ amy", position=0, color=70),
+            Marker(name="intro", position=0, color=49),
+            Marker(name="verso1", position=0, color=87),
+            Marker(name="estrib1", position=0, color=72),
+            Marker(name="verso2", position=0, color=87),
+            Marker(name="estrib2", position=0, color=72),
+            Marker(name="}", position=0, color=70),
+            Marker(name="{ pentium", position=0, color=70),
+            Marker(name="verso1", position=0, color=87),
+            Marker(name="estrib1", position=0, color=72),
+            Marker(name="verso2", position=0, color=87),
+            Marker(name="estrib2", position=0, color=72),
+            Marker(name="solo", position=0, color=109),
+            Marker(name="estrib3", position=0, color=72),
+            Marker(name="}", position=0, color=70),
         ]
 
     def get_tracks(self):
@@ -315,7 +315,7 @@ class Launchpad:
         self.port.send(mido.Message('note_on', note=note, velocity=color))
 
 
-class LaunchpadPage(Protocol):
+class LaunchpadPage(LaunchpadSubscriber):
     def paint(self):
         ...
 
@@ -343,6 +343,7 @@ class LaunchpadPager:
         self.paint()
 
     def paint(self):
+        self.launchpad.clear_keep_top()
         prev_page_enabled = self.current_page_i - 1 >= 0
         if prev_page_enabled:
             self.launchpad.paint_top_button(TopButton.up, color=34)
@@ -363,7 +364,7 @@ class LaunchpadPager:
                 self.next_page()
 
 
-class ControlPage:
+class ControlPage(LaunchpadPage):
     def __init__(self, bw: "Bitwig", l: "Launchpad"):
         self.launchpad = l
         self.rec_q = RecQuadrant(bw, l)
@@ -394,15 +395,41 @@ class ControlPage:
                 print("Pad hold:", note)
 
 
+class ProjectExplorerPage(LaunchpadPage):
+    def __init__(self, bw: "Bitwig", l: "Launchpad"):
+        self.biwtig = bw
+        self.launchpad = l
+        self.marker_sets = self.biwtig.get_marker_sets()
+        self.current_marker_set_i = 0
+        self.current_marker_set = self.marker_sets[self.current_marker_set_i]
+
+    def _bitwig_to_launchpad_color(self, c):
+        # here's where we would perform the translation
+        return c
+
+    def paint(self):
+        for i, m in enumerate(self.current_marker_set.markers, start=1):
+            print(i, m.name, m.color)
+            self.launchpad.paint_pad(
+                i,
+                self._bitwig_to_launchpad_color(m.color)
+            )
+
+    def on_launchpad_event(self, event: LaunchpadEvent):
+        pass
+
+
 def main():
     bw = Bitwig()
     l = Launchpad()
     l.clear()
     cp = ControlPage(bw, l)
     l.subscribe(cp)
+    pep = ProjectExplorerPage(bw, l)
+    l.subscribe(pep)
     pager = LaunchpadPager(l, [
         cp,
-        cp,
+        pep,
     ])
     l.subscribe(pager)
     pager.paint()
