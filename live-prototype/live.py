@@ -59,7 +59,7 @@ class Bitwig:
             Marker(name="estrib1", length=8, position=0, color=72),
             Marker(name="verso2", length=8, position=0, color=87),
             Marker(name="estrib2", length=8, position=0, color=72),
-            Marker(name="}", length=8, position=0, color=70),
+            Marker(name="}", length=1, position=0, color=70),
             Marker(name="{ pentium", length=8, position=0, color=70),
             Marker(name="verso1", length=8, position=0, color=87),
             Marker(name="estrib1", length=8, position=0, color=72),
@@ -67,9 +67,7 @@ class Bitwig:
             Marker(name="estrib2", length=8, position=0, color=72),
             Marker(name="solo", length=8, position=0, color=109),
             Marker(name="estrib3", length=8, position=0, color=72),
-            Marker(name="puente", length=8, position=0, color=87),
-            Marker(name="estrib4", length=8, position=0, color=72),
-            Marker(name="}", length=8, position=0, color=70),
+            Marker(name="}", length=1, position=0, color=70),
         ]
 
     def get_tracks(self):
@@ -449,11 +447,14 @@ class ProjectExplorerPage(LaunchpadPage):
         self.bitwig.growl(self.marker_set_pager.current.name)
         self.launchpad.clear_keep_top()
         self.marker_set_pager.paint_buttons()
-        for i, m in enumerate(self.marker_set_pager.current.markers, start=1):
-            self.launchpad.paint_pad(
-                REVERSED_MATRIX_INDICES[i - 1],
-                self._bitwig_to_launchpad_color(m.color)
-            )
+        i = 0
+        for m in self.marker_set_pager.current.markers:
+            for _ in range(m.length):
+                self.launchpad.paint_pad(
+                    REVERSED_MATRIX_INDICES[i],
+                    self._bitwig_to_launchpad_color(m.color)
+                )
+                i += 1
 
     def on_launchpad_event(self, event: LaunchpadEvent):
         self.marker_set_pager.on_launchpad_event(event)
