@@ -1,6 +1,6 @@
 from abc import ABC
 from enum import IntEnum
-from typing import Protocol, List
+from typing import Generic, Protocol, List, TypeVar
 import time
 import mido
 from dataclasses import dataclass
@@ -22,6 +22,12 @@ class Marker:
     name: str
     position: int  # TODO
     color: int = 0
+    length: int = 1
+    """
+    The length in bars. In the real app this needs to be calculated using a 
+    similar calculation to what's currently being used for the ProjectExplorer
+    of the "Launchpad + Twister" controller script.
+    """
 
 
 @dataclass
@@ -39,34 +45,36 @@ class Bitwig:
 
     def __init__(self):
         # NOTE: these should be bitwig colors and we'll need a translation layer
-        self.tracks = [
+        self._tracks = [
             Track(name="gtr live (1)", color=72),
             Track(name="vox (9)", color=34),
             Track(name="drms (10)", color=87),
             Track(name="bass (11)", color=79),
             Track(name="gtrs (12)", color=72),
         ]
-        self.markers = [
-            Marker(name="{ amy", position=0, color=70),
-            Marker(name="intro", position=0, color=49),
-            Marker(name="verso1", position=0, color=87),
-            Marker(name="estrib1", position=0, color=72),
-            Marker(name="verso2", position=0, color=87),
-            Marker(name="estrib2", position=0, color=72),
-            Marker(name="}", position=0, color=70),
-            Marker(name="{ pentium", position=0, color=70),
-            Marker(name="verso1", position=0, color=87),
-            Marker(name="estrib1", position=0, color=72),
-            Marker(name="verso2", position=0, color=87),
-            Marker(name="estrib2", position=0, color=72),
-            Marker(name="solo", position=0, color=109),
-            Marker(name="estrib3", position=0, color=72),
-            Marker(name="}", position=0, color=70),
+        self._markers = [
+            Marker(name="{ amy", length=8, position=0, color=70),
+            Marker(name="intro", length=8, position=0, color=49),
+            Marker(name="verso1", length=8, position=0, color=87),
+            Marker(name="estrib1", length=8, position=0, color=72),
+            Marker(name="verso2", length=8, position=0, color=87),
+            Marker(name="estrib2", length=8, position=0, color=72),
+            Marker(name="}", length=8, position=0, color=70),
+            Marker(name="{ pentium", length=8, position=0, color=70),
+            Marker(name="verso1", length=8, position=0, color=87),
+            Marker(name="estrib1", length=8, position=0, color=72),
+            Marker(name="verso2", length=8, position=0, color=87),
+            Marker(name="estrib2", length=8, position=0, color=72),
+            Marker(name="solo", length=8, position=0, color=109),
+            Marker(name="estrib3", length=8, position=0, color=72),
+            Marker(name="puente", length=8, position=0, color=87),
+            Marker(name="estrib4", length=8, position=0, color=72),
+            Marker(name="}", length=8, position=0, color=70),
         ]
 
     def get_tracks(self):
         out = {}
-        for track in self.tracks:
+        for track in self._tracks:
             match = re.match(".*\\((.*)\\)", track.name)
             if match:
                 out[int(match.group(1))] = track
@@ -80,7 +88,7 @@ class Bitwig:
         """
         marker_sets: List[MarkerSet] = []
         current_markers = []
-        for m in self.markers:
+        for m in self._markers:
             if m.name.startswith("{"):
                 current_markers = []
                 current_markers.append(m)
@@ -319,49 +327,70 @@ class LaunchpadPage(LaunchpadSubscriber):
     def paint(self):
         ...
 
-class LaunchpadPager:
-    def __init__(self, l: "Launchpad", pages: List[LaunchpadPage]):
-        self.launchpad = l
-        self.pages = pages
-        self.current_page_i = 0
-        self.current_page = self.pages[self.current_page_i]
+T = TypeVar('T')
 
-    def previous_page(self):
-        new_i = self.current_page_i - 1
-        if new_i < 0:
+class Pager(Generic[T]):
+    prev_button: TopButton
+    next_button: TopButton
+
+    def __init__(self, launchpad: "Launchpad", items: List[T]):
+        self.launchpad = launchpad
+        self.items = items
+        self._index = 0
+
+    @property
+    def current(self) -> T:
+        return self.items[self._index]
+
+    def on_page_change(self) -> None:
+        pass
+
+    def previous(self):
+        if self._index <= 0:
             return
-        self.current_page_i = new_i
-        self.current_page = self.pages[new_i]
-        self.paint()
+        self._index -= 1
+        self.paint_buttons()
+        self.on_page_change()
 
-    def next_page(self):
-        new_i = self.current_page_i + 1
-        if new_i >= len(self.pages):
+    def next(self):
+        if self._index >= len(self.items) - 1:
             return
-        self.current_page_i = new_i
-        self.current_page = self.pages[new_i]
-        self.paint()
+        self._index += 1
+        self.paint_buttons()
+        self.on_page_change()
 
-    def paint(self):
-        self.launchpad.clear_keep_top()
-        prev_page_enabled = self.current_page_i - 1 >= 0
-        if prev_page_enabled:
-            self.launchpad.paint_top_button(TopButton.up, color=34)
-        else:
-            self.launchpad.paint_top_button(TopButton.up, color=0)
-        next_page_enabled = self.current_page_i + 1 < len(self.pages)
-        if next_page_enabled:
-            self.launchpad.paint_top_button(TopButton.down, color=34)
-        else:
-            self.launchpad.paint_top_button(TopButton.down, color=0)
-        self.current_page.paint()
+    def paint_buttons(self):
+        self.launchpad.paint_top_button(
+            self.prev_button, 34 if self._index > 0 else 0
+        )
+        self.launchpad.paint_top_button(
+            self.next_button, 34 if self._index < len(self.items) - 1 else 0
+        )
 
     def on_launchpad_event(self, event: LaunchpadEvent):
         match event:
-            case TopButtonClick(button=TopButton.up):
-                self.previous_page()
-            case TopButtonClick(button=TopButton.down):
-                self.next_page()
+            case TopButtonClick(button=b) if b == self.prev_button:
+                self.previous()
+            case TopButtonClick(button=b) if b == self.next_button:
+                self.next()
+
+
+class MainPager(Pager[LaunchpadPage]):
+    prev_button = TopButton.up
+    next_button = TopButton.down
+
+    def on_page_change(self):
+        self.current.paint()
+
+    def paint(self):
+        self.launchpad.clear_keep_top()
+        self.paint_buttons()
+        self.current.paint()
+
+
+class MarkerSetPager(Pager[MarkerSet]):
+    prev_button = TopButton.left
+    next_button = TopButton.right
 
 
 class ControlPage(LaunchpadPage):
@@ -380,43 +409,53 @@ class ControlPage(LaunchpadPage):
         self.sel_q.paint()
 
     def on_launchpad_event(self, event: LaunchpadEvent):
-        match event:
-            case TopButtonClick(button=tb):
-                print("TopButton click:", tb)
-            case TopButtonHold(button=tb):
-                print("TopButton hold:", tb)
-            case SideButtonClick(button=sb):
-                print("SideButton click:", sb)
-            case SideButtonHold(button=sb):
-                print("SideButton hold:", sb)
-            case PadClick(note=note):
-                print("Pad click:", note)
-            case PadHold(note=note):
-                print("Pad hold:", note)
+        # match event:
+        #     case TopButtonClick(button=tb):
+        #         print("TopButton click:", tb)
+        #     case TopButtonHold(button=tb):
+        #         print("TopButton hold:", tb)
+        #     case SideButtonClick(button=sb):
+        #         print("SideButton click:", sb)
+        #     case SideButtonHold(button=sb):
+        #         print("SideButton hold:", sb)
+        #     case PadClick(note=note):
+        #         print("Pad click:", note)
+        #     case PadHold(note=note):
+        #         print("Pad hold:", note)
+        pass
+
+REVERSED_MATRIX_INDICES = list(range(57, 65)) \
+    + list(range(49, 57)) \
+    + list(range(41, 49)) \
+    + list(range(33, 41)) \
+    + list(range(25, 33)) \
+    + list(range(17, 25)) \
+    + list(range(9, 17)) \
+    + list(range(1, 9))
 
 
 class ProjectExplorerPage(LaunchpadPage):
     def __init__(self, bw: "Bitwig", l: "Launchpad"):
-        self.biwtig = bw
+        self.bitwig = bw
         self.launchpad = l
-        self.marker_sets = self.biwtig.get_marker_sets()
-        self.current_marker_set_i = 0
-        self.current_marker_set = self.marker_sets[self.current_marker_set_i]
+        self.marker_set_pager = MarkerSetPager(l, self.bitwig.get_marker_sets())
+        self.marker_set_pager.on_page_change = lambda: self.paint()
 
     def _bitwig_to_launchpad_color(self, c):
         # here's where we would perform the translation
         return c
 
     def paint(self):
-        for i, m in enumerate(self.current_marker_set.markers, start=1):
-            print(i, m.name, m.color)
+        self.launchpad.clear_keep_top()
+        self.marker_set_pager.paint_buttons()
+        for i, m in enumerate(self.marker_set_pager.current.markers, start=1):
             self.launchpad.paint_pad(
-                i,
+                REVERSED_MATRIX_INDICES[i - 1],
                 self._bitwig_to_launchpad_color(m.color)
             )
 
     def on_launchpad_event(self, event: LaunchpadEvent):
-        pass
+        self.marker_set_pager.on_launchpad_event(event)
 
 
 def main():
@@ -427,13 +466,9 @@ def main():
     l.subscribe(cp)
     pep = ProjectExplorerPage(bw, l)
     l.subscribe(pep)
-    pager = LaunchpadPager(l, [
-        cp,
-        pep,
-    ])
-    l.subscribe(pager)
-    pager.paint()
-    print("Listening for pad presses... (Ctrl+C to quit)")
+    main_pager = MainPager(l, [cp, pep])
+    l.subscribe(main_pager)
+    main_pager.paint()
     try:
         while True:
             l.poll()
