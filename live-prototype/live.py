@@ -446,6 +446,7 @@ class ProjectExplorerPage(LaunchpadPage):
         return c
 
     def paint(self):
+        self.bitwig.growl(self.marker_set_pager.current.name)
         self.launchpad.clear_keep_top()
         self.marker_set_pager.paint_buttons()
         for i, m in enumerate(self.marker_set_pager.current.markers, start=1):
