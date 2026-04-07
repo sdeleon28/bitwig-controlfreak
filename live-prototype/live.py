@@ -390,6 +390,13 @@ class MarkerSetPager(Pager[MarkerSet]):
     prev_button = TopButton.left
     next_button = TopButton.right
 
+    def __init__(self, page: "ProjectExplorerPage"):
+        super().__init__(page.launchpad, page.bitwig.get_marker_sets())
+        self.page = page
+
+    def on_page_change(self):
+        self.page.paint()
+
 
 class ControlPage(LaunchpadPage):
     def __init__(self, bw: "Bitwig", l: "Launchpad"):
@@ -436,8 +443,7 @@ class ProjectExplorerPage(LaunchpadPage):
     def __init__(self, bw: "Bitwig", l: "Launchpad"):
         self.bitwig = bw
         self.launchpad = l
-        self.marker_set_pager = MarkerSetPager(l, self.bitwig.get_marker_sets())
-        self.marker_set_pager.on_page_change = lambda: self.paint()
+        self.marker_set_pager = MarkerSetPager(self)
 
     def _bitwig_to_launchpad_color(self, c):
         # here's where we would perform the translation
