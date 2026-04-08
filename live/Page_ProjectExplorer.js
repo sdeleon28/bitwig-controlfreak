@@ -40,6 +40,11 @@ class PageProjectExplorerHW {
         this.markerSets = deps.markerSets;
         this.pageNumber = deps.pageNumber;
         this.beatsPerBar = deps.beatsPerBar || 4;
+        // Page-arrival helpers — set later by Controller wiring (avoid
+        // construction-order coupling).
+        this.songPager = deps.songPager || null;
+        this.barPager = deps.barPager || null;
+        this.sideButtons = deps.sideButtons || null;
 
         this.pads = PageProjectExplorerHW.PADS;
 
@@ -83,6 +88,29 @@ class PageProjectExplorerHW {
         // Initial population (markers may not be loaded yet — caller should
         // schedule a delayed rebuild after Bitwig has populated the bank).
         this.rebuildFromBitwig();
+    }
+
+    /**
+     * Called by MainPager when this page becomes the active page.
+     * Refreshes UI elements that live outside the grid (top buttons,
+     * side buttons) so they reflect this page's state.
+     */
+    show() {
+        // Resolution control buttons stay lit cyan whenever this page is showing
+        var cyan = this.launchpad.colors.cyan;
+        var b = this.launchpad.buttons;
+        this.launchpad.setTopButtonColor(b.decreaseResolution, cyan);
+        this.launchpad.setTopButtonColor(b.increaseResolution, cyan);
+
+        // Song nav + bar paging buttons reflect availability
+        if (this.songPager) this.songPager.refreshButtons();
+        if (this.barPager) this.barPager.refreshButtons();
+
+        // Transport side buttons
+        if (this.sideButtons) this.sideButtons.refreshColors();
+
+        // Repaint the grid from current state
+        this.paint();
     }
 
     /**

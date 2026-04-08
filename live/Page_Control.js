@@ -168,6 +168,9 @@ class PageControlHW {
         this.launchpad = deps.launchpad;
         this.pager = deps.pager;
         this.pageNumber = deps.pageNumber;
+        // Side button helper used to clear transport-related side buttons
+        // when leaving a page that displayed them.
+        this.sideButtons = deps.sideButtons || null;
 
         var qDeps = {
             bitwig: this.bitwig,
@@ -188,6 +191,26 @@ class PageControlHW {
             this.quadrants[i].registerBehaviors();
         }
         this.bitwig.onTracksUpdated(function() { self.paint(); });
+    }
+
+    /**
+     * Called by MainPager when this page becomes the active page.
+     * Refreshes UI elements that live outside the grid (top buttons,
+     * side buttons) so they reflect this page's state.
+     */
+    show() {
+        // Clear top buttons that the project explorer owns
+        var off = this.launchpad.colors.off;
+        var b = this.launchpad.buttons;
+        this.launchpad.setTopButtonColor(b.left, off);
+        this.launchpad.setTopButtonColor(b.right, off);
+        this.launchpad.setTopButtonColor(b.decreaseResolution, off);
+        this.launchpad.setTopButtonColor(b.increaseResolution, off);
+        this.launchpad.setTopButtonColor(b.barPagePrev, off);
+        this.launchpad.setTopButtonColor(b.barPageNext, off);
+        // Clear transport side buttons (volume/pan stay on, owned by ModeSwitcher)
+        if (this.sideButtons) this.sideButtons.clearColors();
+        this.paint();
     }
 
     paint() {

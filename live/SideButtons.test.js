@@ -4,18 +4,32 @@ var assert = t.assert;
 
 function fakeLaunchpad() {
     return {
-        colors: { off:0, red:5, cyan:41, amber:17, purple:49 },
+        colors: { off:0, red:5, cyan:41, amber:17, yellow:13, purple:49 },
         sideButtons: { stop:49, mute:39, solo:29, sendA:69, sendB:59, volume:89, pan:79, recordArm:19 },
-        _sideHandlers: {}, _sideColors: {},
+        pager: { isPageActive: function(){ return true; } },
+        _sideHandlers: {}, _sideColors: {}, _sideFlashing: {},
         registerSideButton: function(n, fn, page) { this._sideHandlers[n] = { fn: fn, page: page }; },
-        setSideButtonColor: function(n, c) { this._sideColors[n] = c; }
+        setSideButtonColor: function(n, c) { this._sideColors[n] = c; this._sideFlashing[n] = false; },
+        setSideButtonColorFlashing: function(n, c) { this._sideColors[n] = c; this._sideFlashing[n] = true; }
     };
 }
 
 function fakeBitwig() {
     return {
         _actions: [],
-        invokeAction: function(id) { this._actions.push(id); }
+        _loop: false,
+        _metro: false,
+        _playing: false,
+        _loopCb: null,
+        _metroCb: null,
+        _playCb: null,
+        invokeAction: function(id) { this._actions.push(id); },
+        isLoopEnabled: function() { return this._loop; },
+        isMetronomeEnabled: function() { return this._metro; },
+        isPlaying: function() { return this._playing; },
+        onLoopEnabledChanged: function(cb) { this._loopCb = cb; },
+        onMetronomeEnabledChanged: function(cb) { this._metroCb = cb; },
+        onIsPlayingChanged: function(cb) { this._playCb = cb; }
     };
 }
 
@@ -44,10 +58,10 @@ var ACT = { STOP: 'stop_act', TOGGLE_ARRANGER_LOOP: 'loop_act', TOGGLE_METRONOME
 
     lp._sideHandlers[49].fn();
     assert(bw._actions[0] === 'stop_act', 'stop wired');
-    lp._sideHandlers[29].fn();
-    assert(bw._actions[1] === 'loop_act', 'loop wired');
     lp._sideHandlers[39].fn();
-    assert(bw._actions[2] === 'metro_act', 'metronome wired');
+    assert(bw._actions[1] === 'loop_act', 'mute -> loop wired');
+    lp._sideHandlers[29].fn();
+    assert(bw._actions[2] === 'metro_act', 'solo -> metronome wired');
 
     lp._sideHandlers[69].fn();
     assert(hh._popups.length === 1, 'setlist popup shown');

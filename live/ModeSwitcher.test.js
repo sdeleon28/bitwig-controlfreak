@@ -4,7 +4,7 @@ var assert = t.assert;
 
 function fakeLaunchpad() {
     return {
-        colors: { off: 0, green: 21 },
+        colors: { off: 0, green: 21, red: 5 },
         sideButtons: { volume: 89, pan: 79 },
         _sideHandlers: {}, _sideColors: {},
         registerSideButton: function(n, fn) { this._sideHandlers[n] = fn; },
@@ -29,8 +29,8 @@ function fakeTwister() {
 
     lp._sideHandlers[79]();  // press pan
     assert(tw.getMode() === 'pan', 'twister flipped to pan');
-    assert(lp._sideColors[79] === lp.colors.green, 'pan bright after press');
-    assert(lp._sideColors[89] === lp.colors.off, 'volume dim after press');
+    assert(lp._sideColors[79] === lp.colors.red, 'pan red after press');
+    assert(lp._sideColors[89] === lp.colors.off, 'volume off after press');
 
     lp._sideHandlers[89]();
     assert(tw.getMode() === 'volume', 'back to volume');

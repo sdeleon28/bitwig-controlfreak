@@ -59,6 +59,12 @@ class LaunchpadHW {
         this._output.sendMidi(0x90, noteNumber, color);
     }
 
+    setSideButtonColorFlashing(noteNumber, color) {
+        if (!this._output) return;
+        this._output.sendMidi(0x90, noteNumber, 0);
+        this._output.sendMidi(0x91, noteNumber, color);
+    }
+
     clearPad(padNumber) {
         this.setPadColor(padNumber, this.colors.off);
     }

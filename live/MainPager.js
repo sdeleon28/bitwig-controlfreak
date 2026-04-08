@@ -36,8 +36,8 @@ class MainPagerHW {
             self.next();
         }, null);
 
-        // Paint the initial page
-        this.repaintCurrent();
+        // Show the initial page (paints the grid AND any nav/side button state)
+        this._showCurrent();
         this._refreshNavButtons();
     }
 
@@ -63,15 +63,28 @@ class MainPagerHW {
 
     _switch() {
         this.pager.switchToPage(this.currentPageNumber());
-        this.repaintCurrent();
+        this._showCurrent();
         this._refreshNavButtons();
     }
 
-    repaintCurrent() {
+    /**
+     * Tell the current page to show itself. Pages can implement show() to
+     * refresh both the grid AND off-grid UI (top buttons, side buttons).
+     * Falls back to paint() for pages that only own the grid.
+     */
+    _showCurrent() {
         var page = this.currentPage();
-        if (page && typeof page.paint === 'function') {
+        if (!page) return;
+        if (typeof page.show === 'function') {
+            page.show();
+        } else if (typeof page.paint === 'function') {
             page.paint();
         }
+    }
+
+    // Backwards compat — kept for tests that previously called repaintCurrent
+    repaintCurrent() {
+        this._showCurrent();
     }
 
     _refreshNavButtons() {

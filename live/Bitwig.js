@@ -33,9 +33,13 @@ class BitwigHW {
         this._tracksSubscribers = [];
         this._markersSubscribers = [];
         this._playPositionSubscribers = [];
+        this._loopEnabledSubscribers = [];
+        this._metronomeEnabledSubscribers = [];
+        this._isPlayingSubscribers = [];
 
         this._isLoopEnabled = false;
         this._isMetronomeEnabled = false;
+        this._isPlaying = false;
 
         // Cached snapshot of (N) -> trackId mapping
         this._slotToTrackId = {};
@@ -77,6 +81,7 @@ class BitwigHW {
         t.arrangerLoopDuration().markInterested();
         t.isArrangerLoopEnabled().markInterested();
         t.isMetronomeEnabled().markInterested();
+        if (t.isPlaying) t.isPlaying().markInterested();
 
         var self = this;
         t.playPosition().addValueObserver(function(beats) {
@@ -86,10 +91,24 @@ class BitwigHW {
         });
         t.isArrangerLoopEnabled().addValueObserver(function(enabled) {
             self._isLoopEnabled = enabled;
+            for (var i = 0; i < self._loopEnabledSubscribers.length; i++) {
+                self._loopEnabledSubscribers[i](enabled);
+            }
         });
         t.isMetronomeEnabled().addValueObserver(function(enabled) {
             self._isMetronomeEnabled = enabled;
+            for (var i = 0; i < self._metronomeEnabledSubscribers.length; i++) {
+                self._metronomeEnabledSubscribers[i](enabled);
+            }
         });
+        if (t.isPlaying) {
+            t.isPlaying().addValueObserver(function(playing) {
+                self._isPlaying = playing;
+                for (var i = 0; i < self._isPlayingSubscribers.length; i++) {
+                    self._isPlayingSubscribers[i](playing);
+                }
+            });
+        }
     }
 
     _setupTrackObservers(size) {
@@ -153,6 +172,18 @@ class BitwigHW {
 
     onPlayPosition(callback) {
         this._playPositionSubscribers.push(callback);
+    }
+
+    onLoopEnabledChanged(callback) {
+        this._loopEnabledSubscribers.push(callback);
+    }
+
+    onMetronomeEnabledChanged(callback) {
+        this._metronomeEnabledSubscribers.push(callback);
+    }
+
+    onIsPlayingChanged(callback) {
+        this._isPlayingSubscribers.push(callback);
     }
 
     _emitTracksUpdated() {
@@ -282,6 +313,7 @@ class BitwigHW {
 
     isLoopEnabled() { return this._isLoopEnabled; }
     isMetronomeEnabled() { return this._isMetronomeEnabled; }
+    isPlaying() { return this._isPlaying; }
 
     // ----- Actions -----
 

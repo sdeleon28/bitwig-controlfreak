@@ -4,11 +4,11 @@
  * while the project explorer page is showing (except for volume/pan,
  * which the ModeSwitcher binds globally).
  *
- * Mapping (matches the prototype's SideButton enum labels):
+ * Mapping:
  *   - stop  (note 49) -> Stop transport
- *   - solo  (note 29) -> Toggle arranger loop
- *   - mute  (note 39) -> Toggle metronome
- *   - sendA (note 69) -> Show setlist popup (one song name per line)
+ *   - mute  (note 39) -> Toggle arranger loop
+ *   - solo  (note 29) -> Toggle metronome
+ *   - sendA (note 69) -> Show setlist popup
  */
 class SideButtonsHW {
     /**
@@ -38,11 +38,11 @@ class SideButtonsHW {
             self.bitwig.invokeAction(self.bitwigActions.STOP);
         }, this.pageNumber);
 
-        this.launchpad.registerSideButton(sb.solo, function() {
+        this.launchpad.registerSideButton(sb.mute, function() {
             self.bitwig.invokeAction(self.bitwigActions.TOGGLE_ARRANGER_LOOP);
         }, this.pageNumber);
 
-        this.launchpad.registerSideButton(sb.mute, function() {
+        this.launchpad.registerSideButton(sb.solo, function() {
             self.bitwig.invokeAction(self.bitwigActions.TOGGLE_METRONOME);
         }, this.pageNumber);
 
@@ -50,7 +50,18 @@ class SideButtonsHW {
             self.showSetlist();
         }, this.pageNumber);
 
+        // React to transport state changes — only when our page is active.
+        this.bitwig.onLoopEnabledChanged(function() { self._refreshIfActive(); });
+        this.bitwig.onMetronomeEnabledChanged(function() { self._refreshIfActive(); });
+        this.bitwig.onIsPlayingChanged(function() { self._refreshIfActive(); });
+
         this.refreshColors();
+    }
+
+    _refreshIfActive() {
+        if (this.launchpad.pager && this.launchpad.pager.isPageActive(this.pageNumber)) {
+            this.refreshColors();
+        }
     }
 
     showSetlist() {
@@ -60,20 +71,45 @@ class SideButtonsHW {
             this.host.showPopupNotification("(no songs)");
             return;
         }
-        var lines = [];
+        // Bitwig's popup notifications collapse newlines, so use a clear
+        // visual separator between song names.
+        var parts = [];
         for (var i = 0; i < songs.length; i++) {
-            lines.push((i + 1) + ". " + songs[i].name);
+            parts.push((i + 1) + ". " + songs[i].name);
         }
-        this.host.showPopupNotification(lines.join("\n"));
+        this.host.showPopupNotification(parts.join("  ·  "));
     }
 
     refreshColors() {
         var sb = this.launchpad.sideButtons;
         var c = this.launchpad.colors;
-        this.launchpad.setSideButtonColor(sb.stop, c.red);
-        this.launchpad.setSideButtonColor(sb.solo, c.cyan);
-        this.launchpad.setSideButtonColor(sb.mute, c.amber);
+
+        // Stop: solid red when stopped, flashing red while transport is playing.
+        if (this.bitwig.isPlaying()) {
+            this.launchpad.setSideButtonColorFlashing(sb.stop, c.red);
+        } else {
+            this.launchpad.setSideButtonColor(sb.stop, c.red);
+        }
+
+        // Mute → loop: cyan when arranger loop is enabled, off when not.
+        this.launchpad.setSideButtonColor(sb.mute,
+            this.bitwig.isLoopEnabled() ? c.cyan : c.off);
+
+        // Solo → metronome: yellow when metronome is on, off when not.
+        this.launchpad.setSideButtonColor(sb.solo,
+            this.bitwig.isMetronomeEnabled() ? c.yellow : c.off);
+
+        // SendA → setlist popup: always lit purple.
         this.launchpad.setSideButtonColor(sb.sendA, c.purple);
+    }
+
+    clearColors() {
+        var sb = this.launchpad.sideButtons;
+        var off = this.launchpad.colors.off;
+        this.launchpad.setSideButtonColor(sb.stop, off);
+        this.launchpad.setSideButtonColor(sb.mute, off);
+        this.launchpad.setSideButtonColor(sb.solo, off);
+        this.launchpad.setSideButtonColor(sb.sendA, off);
     }
 }
 

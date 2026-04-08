@@ -92,6 +92,7 @@ function init() {
         launchpad: Live.launchpad,
         pager: Live.pager,
         pageNumber: CONTROL_PAGE
+        // sideButtons assigned after construction (circular dep)
     });
 
     Live.pageProjectExplorer = new PageProjectExplorerHW({
@@ -102,6 +103,7 @@ function init() {
         markerSets: MarkerSets,
         pageNumber: EXPLORER_PAGE,
         beatsPerBar: 4
+        // songPager / barPager / sideButtons assigned after construction
     });
 
     // ----- Pagers -----
@@ -140,6 +142,13 @@ function init() {
         host: host,
         pageNumber: EXPLORER_PAGE
     });
+
+    // Resolve circular deps so each page can refresh its off-grid UI
+    // (top buttons, side buttons, nav buttons) when shown.
+    Live.pageControl.sideButtons = Live.sideButtons;
+    Live.pageProjectExplorer.songPager = Live.songPager;
+    Live.pageProjectExplorer.barPager = Live.barPager;
+    Live.pageProjectExplorer.sideButtons = Live.sideButtons;
 
     // ----- Orchestrator -----
     Live.controller = new ControllerHW({

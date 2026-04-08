@@ -40,13 +40,13 @@ class ModeSwitcherHW {
     }
 
     refreshButtonColors() {
-        var bright = this.launchpad.colors.green;
-        var dim = this.launchpad.colors.off;
+        var off = this.launchpad.colors.off;
         var mode = this.twister.getMode();
+        // Volume active: green. Pan active: red. Inactive: off.
         this.launchpad.setSideButtonColor(this.launchpad.sideButtons.volume,
-            mode === 'volume' ? bright : dim);
+            mode === 'volume' ? this.launchpad.colors.green : off);
         this.launchpad.setSideButtonColor(this.launchpad.sideButtons.pan,
-            mode === 'pan' ? bright : dim);
+            mode === 'pan' ? this.launchpad.colors.red : off);
     }
 }
 

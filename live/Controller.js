@@ -119,9 +119,10 @@ class ControllerHW {
     // ---- MIDI routing ----
 
     onLaunchpadMidi(status, data1, data2) {
-        // Top buttons (CC)
+        // Top buttons (CC) — only fire on press, ignore the release event
         if (status === 0xB0) {
-            if (this.launchpad.handleTopButtonPress(data1)) return;
+            if (data2 === 0) return;
+            this.launchpad.handleTopButtonPress(data1);
             return;
         }
 
