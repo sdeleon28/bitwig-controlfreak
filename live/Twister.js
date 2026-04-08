@@ -167,12 +167,16 @@ class TwisterHW {
 
     handleEncoderPress(encoderNumber, pressed) {
         var link = this._encoderLinks[encoderNumber];
-        if (!link || !pressed) return;
-        if (this.host && link.track.name) {
+        if (!link) return;
+        if (pressed && this.host && link.track.name) {
             this.host.showPopupNotification("Encoder " + encoderNumber + ": " + link.track.name().get());
         }
-        if (link.track.makeVisibleInArranger) {
+        if (pressed && link.track.makeVisibleInArranger) {
             link.track.makeVisibleInArranger();
+        }
+        // Momentary solo: solo while held, un-solo on release.
+        if (link.track.solo) {
+            link.track.solo().set(pressed);
         }
     }
 
