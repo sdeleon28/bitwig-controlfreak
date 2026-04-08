@@ -98,4 +98,44 @@ var ACT = { STOP: 'stop_act', TOGGLE_ARRANGER_LOOP: 'loop_act', TOGGLE_METRONOME
     assert(lp._sideHandlers[69].page === 2, 'sendA bound to page 2');
 })();
 
+// recordArm side button toggles the project-explorer time-select gesture
+// and reflects state with a flashing red light
+(function() {
+    var lp = fakeLaunchpad(); var bw = fakeBitwig();
+    var hh = fakeHost();
+    var gestureActive = false;
+    var toggleCount = 0;
+    var pe = {
+        getSongs: function() { return []; },
+        toggleTimeSelect: function() {
+            gestureActive = !gestureActive;
+            toggleCount++;
+            sb.refreshColors();
+        },
+        isTimeSelectActive: function() { return gestureActive; }
+    };
+    var sb = new SideButtonsHW({
+        launchpad: lp, bitwig: bw, bitwigActions: ACT,
+        projectExplorer: pe, host: hh, pageNumber: 2
+    });
+    sb.init();
+
+    // Initially: recordArm off, not flashing
+    assert(lp._sideColors[19] === lp.colors.off, 'recordArm off initially');
+    assert(lp._sideFlashing[19] === false, 'recordArm not flashing initially');
+
+    // Press recordArm: gesture active, flashing red
+    lp._sideHandlers[19].fn();
+    assert(toggleCount === 1, 'toggleTimeSelect called');
+    assert(gestureActive === true, 'gesture active after first press');
+    assert(lp._sideColors[19] === lp.colors.red, 'recordArm red while active');
+    assert(lp._sideFlashing[19] === true, 'recordArm flashing while active');
+
+    // Press recordArm again: cancels, light goes off
+    lp._sideHandlers[19].fn();
+    assert(gestureActive === false, 'gesture cancelled by second press');
+    assert(lp._sideColors[19] === lp.colors.off, 'recordArm off after cancel');
+    assert(lp._sideFlashing[19] === false, 'recordArm not flashing after cancel');
+})();
+
 process.exit(t.summary('SideButtons'));

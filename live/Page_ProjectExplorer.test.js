@@ -166,11 +166,46 @@ function fakePager() {
         markerSets: MarkerSets, pageNumber: 2, beatsPerBar: 4
     });
     pe.init();
-    pe.handleTimeSelectModifierPress();
-    lp._behaviors[81].click();  // pad 0 (beat 0..4)
-    lp._behaviors[83].click();  // pad 2 (beat 8..12)
+    pe.toggleTimeSelect();
+    assert(pe.isTimeSelectActive() === true, 'gesture armed by toggle');
+    lp._behaviors[81].click();  // pad 0 (beat 0..4) — start
+    lp._behaviors[83].click();  // pad 2 (beat 8..12) — end
     assert(bw.lastSel !== undefined, 'setTimeSelection called');
     assert(bw.lastSel[0] === 0 && bw.lastSel[1] === 12, 'loop range is 0..12');
+    assert(pe.isTimeSelectActive() === false, 'gesture deactivates after end pad');
+})();
+
+// time selection cancellation: pressing recordArm again before the end pad cancels
+(function() {
+    var markers = [
+        fakeMarker('{ song', 0),
+        fakeMarker('a', 0),
+        fakeMarker('}', 32)
+    ];
+    var bw = fakeBitwig(markers, 0);
+    var lp = fakeLaunchpad();
+    var pg = fakePager();
+    var pe = new PageProjectExplorerHW({
+        bitwig: bw, launchpad: lp, pager: pg, host: null,
+        markerSets: MarkerSets, pageNumber: 2, beatsPerBar: 4
+    });
+    pe.init();
+
+    // Cancel before any pad is selected
+    pe.toggleTimeSelect();
+    assert(pe.isTimeSelectActive() === true, 'armed');
+    pe.toggleTimeSelect();
+    assert(pe.isTimeSelectActive() === false, 'cancelled before any pad');
+
+    // Cancel after start pad selected but before end pad
+    pe.toggleTimeSelect();
+    lp._behaviors[81].click();  // start pad
+    pe.toggleTimeSelect();
+    assert(pe.isTimeSelectActive() === false, 'cancelled after start pad');
+    // A subsequent pad click should NOT set a time selection
+    var prevSel = bw.lastSel;
+    lp._behaviors[83].click();
+    assert(bw.lastSel === prevSel, 'no time selection after cancellation');
 })();
 
 // resolution override via decreaseResolution

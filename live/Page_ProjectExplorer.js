@@ -340,15 +340,13 @@ class PageProjectExplorerHW {
         return entry.startBeat < loopEnd && entry.endBeat > this._loopStartBeat;
     }
 
-    // Time selection gesture: tap two pads to set a loop range.
-    handleTimeSelectModifierPress() {
-        this._timeSelectActive = true;
+    // Time selection gesture (one-handed): click recordArm to start; the
+    // next two pad clicks become the start and end of a loop range. Click
+    // recordArm again before completion to cancel.
+    toggleTimeSelect() {
+        this._timeSelectActive = !this._timeSelectActive;
         this._timeSelectStartPad = null;
-    }
-
-    handleTimeSelectModifierRelease() {
-        this._timeSelectActive = false;
-        this._timeSelectStartPad = null;
+        if (this.sideButtons) this.sideButtons.refreshColors();
     }
 
     isTimeSelectActive() { return this._timeSelectActive; }
@@ -371,6 +369,8 @@ class PageProjectExplorerHW {
             var endEntry = this._padLayout[endGlobal];
             this.bitwig.setTimeSelection(startEntry.startBeat, endEntry.endBeat);
             this._timeSelectStartPad = null;
+            this._timeSelectActive = false;
+            if (this.sideButtons) this.sideButtons.refreshColors();
             if (this.host) this.host.showPopupNotification("Time selection set");
             return;
         }

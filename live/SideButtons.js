@@ -9,6 +9,9 @@
  *   - mute  (note 39) -> Toggle arranger loop
  *   - solo  (note 29) -> Toggle metronome
  *   - sendA (note 69) -> Show setlist popup
+ *   - recordArm (note 19) -> Toggle time-selection gesture on the
+ *     project explorer (click to start, then tap two pads for the loop
+ *     range; click again before completion to cancel).
  */
 class SideButtonsHW {
     /**
@@ -48,6 +51,12 @@ class SideButtonsHW {
 
         this.launchpad.registerSideButton(sb.sendA, function() {
             self.showSetlist();
+        }, this.pageNumber);
+
+        this.launchpad.registerSideButton(sb.recordArm, function() {
+            if (self.projectExplorer && self.projectExplorer.toggleTimeSelect) {
+                self.projectExplorer.toggleTimeSelect();
+            }
         }, this.pageNumber);
 
         // React to transport state changes — only when our page is active.
@@ -101,6 +110,17 @@ class SideButtonsHW {
 
         // SendA → setlist popup: always lit purple.
         this.launchpad.setSideButtonColor(sb.sendA, c.purple);
+
+        // RecordArm → time-select gesture: flashing red while waiting for
+        // the user's two pad clicks; off otherwise.
+        var gestureActive = this.projectExplorer
+            && this.projectExplorer.isTimeSelectActive
+            && this.projectExplorer.isTimeSelectActive();
+        if (gestureActive) {
+            this.launchpad.setSideButtonColorFlashing(sb.recordArm, c.red);
+        } else {
+            this.launchpad.setSideButtonColor(sb.recordArm, c.off);
+        }
     }
 
     clearColors() {
@@ -110,6 +130,7 @@ class SideButtonsHW {
         this.launchpad.setSideButtonColor(sb.mute, off);
         this.launchpad.setSideButtonColor(sb.solo, off);
         this.launchpad.setSideButtonColor(sb.sendA, off);
+        this.launchpad.setSideButtonColor(sb.recordArm, off);
     }
 }
 
