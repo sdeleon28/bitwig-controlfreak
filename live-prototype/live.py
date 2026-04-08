@@ -224,10 +224,17 @@ class Quadrant(ABC, BitwigSubscriber, LaunchpadSubscriber):
     y_offset: int
 
     def __init__(self, bitwig: "Bitwig", launchpad: "Launchpad"):
+        self.active = False
         self.bitwig = bitwig
         self.bitwig.subscribe(self)
         self.launchpad = launchpad
         self.launchpad.subscribe(self)
+
+    def activate(self):
+        self.active = True
+
+    def deactivate(self):
+        self.active = False
 
     def paint_pad(self, n, color):
         rest = (n % 4)
@@ -257,11 +264,15 @@ class Quadrant(ABC, BitwigSubscriber, LaunchpadSubscriber):
         ...
 
     def on_bitwig_event(self, event: BitwigEvent) -> None:
+        if not self.active:
+            return
         match event:
             case TracksUpdated():
                 self.paint()
 
     def on_launchpad_event(self, event: LaunchpadEvent) -> None:
+        if not self.active:
+            return
         match event:
             case PadClick(n):
                 local = self._global_to_local(n)
@@ -439,6 +450,12 @@ class LaunchpadPage(LaunchpadSubscriber):
     def paint(self):
         ...
 
+    def activate(self):
+        ...
+
+    def deactivate(self):
+        ...
+
 T = TypeVar('T')
 
 class Pager(Generic[T]):
@@ -491,11 +508,30 @@ class MainPager(Pager[LaunchpadPage]):
     prev_button = TopButton.up
     next_button = TopButton.down
 
+    def previous(self):
+        if self._index <= 0:
+            return
+        self._index -= 1
+        self.launchpad.clear()
+        self.paint_buttons()
+        self.on_page_change()
+
+    def next(self):
+        if self._index >= len(self.items) - 1:
+            return
+        self._index += 1
+        self.launchpad.clear()
+        self.paint_buttons()
+        self.on_page_change()
+
     def on_page_change(self):
         self.current.paint()
+        for page in self.items:
+            page.deactivate()
+        self.current.activate()
 
     def paint(self):
-        self.launchpad.clear_keep_top()
+        self.launchpad.clear()
         self.paint_buttons()
         self.current.paint()
 
@@ -519,6 +555,18 @@ class ControlPage(LaunchpadPage):
         self.solo_q = SoloQuadrant(bw, l)
         self.mute_q = MuteQuadrant(bw, l)
         self.sel_q = SelectQuadrant(bw, l)
+
+    def activate(self):
+        self.rec_q.activate()
+        self.solo_q.activate()
+        self.mute_q.activate()
+        self.sel_q.activate()
+
+    def deactivate(self):
+        self.rec_q.deactivate()
+        self.solo_q.deactivate()
+        self.mute_q.deactivate()
+        self.sel_q.deactivate()
 
     def paint(self):
         self.launchpad.clear_keep_top()
@@ -555,9 +603,16 @@ REVERSED_MATRIX_INDICES = list(range(57, 65)) \
 
 class ProjectExplorerPage(LaunchpadPage):
     def __init__(self, bw: "Bitwig", l: "Launchpad"):
+        self.active = False
         self.bitwig = bw
         self.launchpad = l
         self.marker_set_pager = MarkerSetPager(self)
+
+    def activate(self):
+        self.active = True
+
+    def deactivate(self):
+        self.active = False
 
     def _bitwig_to_launchpad_color(self, c):
         # here's where we would perform the translation
@@ -577,7 +632,8 @@ class ProjectExplorerPage(LaunchpadPage):
                 i += 1
 
     def on_launchpad_event(self, event: LaunchpadEvent):
-        self.marker_set_pager.on_launchpad_event(event)
+        if self.active:
+            self.marker_set_pager.on_launchpad_event(event)
 
 
 def main():
