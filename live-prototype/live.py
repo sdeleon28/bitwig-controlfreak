@@ -163,6 +163,24 @@ class Bitwig:
         self._tracks = new_tracks
         self._emit(TracksUpdated())
 
+    def toggle_solo(self, track_n):
+        new_tracks = []
+        for t in self._tracks:
+            if f"({ track_n })" in t.name:
+                t.solo = not t.solo
+            new_tracks.append(t)
+        self._tracks = new_tracks
+        self._emit(TracksUpdated())
+
+    def toggle_mute(self, track_n):
+        new_tracks = []
+        for t in self._tracks:
+            if f"({ track_n })" in t.name:
+                t.mute = not t.mute
+            new_tracks.append(t)
+        self._tracks = new_tracks
+        self._emit(TracksUpdated())
+
     def get_tracks(self):
         out = {}
         for track in self._tracks:
@@ -265,7 +283,6 @@ class RecQuadrant(Quadrant):
                 self.paint_pad(i, 95 if t.rec else t.color)
 
     def on_pad_click(self, local_n: int) -> None:
-        print("local_n:", local_n)
         self.bitwig.toggle_rec(local_n)
 
 
@@ -277,8 +294,10 @@ class SoloQuadrant(Quadrant):
         tracks = self.bitwig.get_tracks()
         for i, t in enumerate(tracks, start=1):
             if t:
-                self.paint_pad(i, t.color)
+                self.paint_pad(i, 109 if t.solo else t.color)
 
+    def on_pad_click(self, local_n: int) -> None:
+        self.bitwig.toggle_solo(local_n)
 
 class MuteQuadrant(Quadrant):
     x_offset = 4
@@ -288,7 +307,10 @@ class MuteQuadrant(Quadrant):
         tracks = self.bitwig.get_tracks()
         for i, t in enumerate(tracks, start=1):
             if t:
-                self.paint_pad(i, t.color)
+                self.paint_pad(i, 108 if t.mute else t.color)
+
+    def on_pad_click(self, local_n: int) -> None:
+        self.bitwig.toggle_mute(local_n)
 
 
 class SelectQuadrant(Quadrant):
