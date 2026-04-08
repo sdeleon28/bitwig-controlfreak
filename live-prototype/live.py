@@ -5,7 +5,6 @@ import time
 import mido
 from dataclasses import dataclass
 import re
-from copy import deepcopy
 
 @dataclass
 class Track:
@@ -29,11 +28,88 @@ class Marker:
     of the "Launchpad + Twister" controller script.
     """
 
+class TopButton(IntEnum):
+    up = 104
+    down = 105
+    left = 106
+    right = 107
+    session = 108
+    user_1 = 109
+    user_2 = 110
+    mixer = 111
+
+
+class SideButton(IntEnum):
+    volume = 89
+    pan = 79
+    send_a = 69
+    send_b = 59
+    stop = 49
+    mute = 39
+    solo = 29
+    record_arm = 19
+
+
+HOLD_THRESHOLD = 0.4
+
 
 @dataclass
 class MarkerSet:
     name: str
     markers: List[Marker]
+
+
+@dataclass
+class TracksUpdated:
+    pass
+
+
+@dataclass
+class PadClick:
+    n: int
+
+
+@dataclass
+class PadHold:
+    n: int
+
+
+@dataclass
+class TopButtonClick:
+    button: TopButton
+
+
+@dataclass
+class TopButtonHold:
+    button: TopButton
+
+
+@dataclass
+class SideButtonClick:
+    button: SideButton
+
+
+@dataclass
+class SideButtonHold:
+    button: SideButton
+
+
+LaunchpadEvent = (
+    PadClick | PadHold
+    | TopButtonClick | TopButtonHold
+    | SideButtonClick | SideButtonHold
+)
+
+class LaunchpadSubscriber(Protocol):
+    def on_launchpad_event(self, event: LaunchpadEvent) -> None: ...
+
+
+BitwigEvent = (
+    TracksUpdated
+)
+
+class BitwigSubscriber(Protocol):
+    def on_bitwig_event(self, event: BitwigEvent) -> None: ...
 
 
 class Bitwig:
@@ -69,6 +145,23 @@ class Bitwig:
             Marker(name="estrib3", length=8, position=0, color=72),
             Marker(name="}", length=1, position=0, color=70),
         ]
+        self._subscribers: list[BitwigSubscriber] = []
+
+    def subscribe(self, subscriber: BitwigSubscriber):
+        self._subscribers.append(subscriber)
+
+    def _emit(self, event: BitwigEvent):
+        for sub in self._subscribers:
+            sub.on_bitwig_event(event)
+
+    def toggle_rec(self, track_n):
+        new_tracks = []
+        for t in self._tracks:
+            if f"({ track_n })" in t.name:
+                t.rec = not t.rec
+            new_tracks.append(t)
+        self._tracks = new_tracks
+        self._emit(TracksUpdated())
 
     def get_tracks(self):
         out = {}
@@ -108,13 +201,15 @@ class Bitwig:
         print("=============")
 
 
-class Quadrant(ABC):
+class Quadrant(ABC, BitwigSubscriber, LaunchpadSubscriber):
     x_offset: int
     y_offset: int
 
     def __init__(self, bitwig: "Bitwig", launchpad: "Launchpad"):
         self.bitwig = bitwig
+        self.bitwig.subscribe(self)
         self.launchpad = launchpad
+        self.launchpad.subscribe(self)
 
     def paint_pad(self, n, color):
         rest = (n % 4)
@@ -127,6 +222,57 @@ class Quadrant(ABC):
         note += self.x_offset
         self.launchpad.paint_pad(note, color)
 
+    def _global_to_local(self, global_n: int) -> int | None:
+        """Map a 1-64 launchpad pad index to this quadrant's 1-16 local
+        index, or None if the pad is outside this quadrant's region."""
+        row = (global_n - 1) // 8  # 0 (bottom) .. 7 (top)
+        col = (global_n - 1) % 8   # 0 (left)   .. 7 (right)
+        if not (self.y_offset <= row < self.y_offset + 4):
+            return None
+        if not (self.x_offset <= col < self.x_offset + 4):
+            return None
+        local_row = row - self.y_offset
+        local_col = col - self.x_offset
+        return local_row * 4 + local_col + 1
+
+    def paint(self):
+        ...
+
+    def on_bitwig_event(self, event: BitwigEvent) -> None:
+        match event:
+            case TracksUpdated():
+                self.paint()
+
+    def on_launchpad_event(self, event: LaunchpadEvent) -> None:
+        match event:
+            case PadClick(n):
+                local = self._global_to_local(n)
+                if local is not None:
+                    self.on_pad_click(local)
+
+    def on_pad_click(self, local_n: int) -> None:
+        ...
+
+
+class RecQuadrant(Quadrant):
+    x_offset = 0
+    y_offset = 0
+
+    def paint(self):
+        tracks = self.bitwig.get_tracks()
+        for i, t in enumerate(tracks, start=1):
+            if t:
+                self.paint_pad(i, 95 if t.rec else t.color)
+
+    def on_pad_click(self, local_n: int) -> None:
+        print("local_n:", local_n)
+        self.bitwig.toggle_rec(local_n)
+
+
+class SoloQuadrant(Quadrant):
+    x_offset = 4
+    y_offset = 0
+
     def paint(self):
         tracks = self.bitwig.get_tracks()
         for i, t in enumerate(tracks, start=1):
@@ -134,88 +280,34 @@ class Quadrant(ABC):
                 self.paint_pad(i, t.color)
 
 
-
-class RecQuadrant(Quadrant):
-    x_offset = 0
-    y_offset = 0
-
-
-class SoloQuadrant(Quadrant):
-    x_offset = 4
-    y_offset = 0
-
-
 class MuteQuadrant(Quadrant):
     x_offset = 4
     y_offset = 4
 
+    def paint(self):
+        tracks = self.bitwig.get_tracks()
+        for i, t in enumerate(tracks, start=1):
+            if t:
+                self.paint_pad(i, t.color)
 
 
 class SelectQuadrant(Quadrant):
     x_offset = 0
     y_offset = 4
 
-
-class TopButton(IntEnum):
-    up = 104
-    down = 105
-    left = 106
-    right = 107
-    session = 108
-    user_1 = 109
-    user_2 = 110
-    mixer = 111
+    def paint(self):
+        tracks = self.bitwig.get_tracks()
+        for i, t in enumerate(tracks, start=1):
+            if t:
+                self.paint_pad(i, t.color)
 
 
-class SideButton(IntEnum):
-    volume = 89
-    pan = 79
-    send_a = 69
-    send_b = 59
-    stop = 49
-    mute = 39
-    solo = 29
-    record_arm = 19
-
-
-@dataclass
-class PadClick:
-    note: int
-
-@dataclass
-class PadHold:
-    note: int
-
-@dataclass
-class TopButtonClick:
-    button: TopButton
-
-@dataclass
-class TopButtonHold:
-    button: TopButton
-
-@dataclass
-class SideButtonClick:
-    button: SideButton
-
-@dataclass
-class SideButtonHold:
-    button: SideButton
-
-LaunchpadEvent = (
-    PadClick | PadHold
-    | TopButtonClick | TopButtonHold
-    | SideButtonClick | SideButtonHold
-)
-
-HOLD_THRESHOLD = 0.4
-
-class LaunchpadSubscriber(Protocol):
-    def on_launchpad_event(self, event: LaunchpadEvent) -> None: ...
-
-
-class LaunchpadLayout:
-    pass
+def _mk2_note_to_pad_n(note: int) -> int:
+    """Convert a Launchpad MK2 grid note (11-88) to a 1-64 pad index
+    (bottom-to-top, left-to-right)."""
+    row = note // 10  # 1 (bottom) .. 8 (top)
+    col = note % 10   # 1 (left) .. 8 (right)
+    return (row - 1) * 8 + col
 
 
 class _GestureState:
@@ -284,7 +376,7 @@ class Launchpad:
                     SideButton(msg.note)
                     key = ('side', msg.note)
                 except ValueError:
-                    key = ('pad', msg.note)
+                    key = ('pad', _mk2_note_to_pad_n(msg.note))
                 if msg.velocity > 0:
                     self._on_press(key)
                 else:
@@ -423,10 +515,10 @@ class ControlPage(LaunchpadPage):
         #         print("SideButton click:", sb)
         #     case SideButtonHold(button=sb):
         #         print("SideButton hold:", sb)
-        #     case PadClick(note=note):
-        #         print("Pad click:", note)
-        #     case PadHold(note=note):
-        #         print("Pad hold:", note)
+        #     case PadClick(n=n):
+        #         print("Pad click:", n)
+        #     case PadHold(n=n):
+        #         print("Pad hold:", n)
         pass
 
 REVERSED_MATRIX_INDICES = list(range(57, 65)) \
