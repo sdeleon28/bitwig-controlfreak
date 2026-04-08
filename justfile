@@ -34,3 +34,16 @@ test:
     node DrumPadMapper.test.js
     node QuickActions.test.js
     node FavBar.test.js
+    node live/Pager.test.js
+    node live/Launchpad.test.js
+    node live/Twister.test.js
+    node live/Bitwig.test.js
+    node live/MarkerSets.test.js
+    node live/Page_Control.test.js
+    node live/Page_ProjectExplorer.test.js
+    node live/MainPager.test.js
+    node live/SongPager.test.js
+    node live/BarPager.test.js
+    node live/ModeSwitcher.test.js
+    node live/SideButtons.test.js
+    node live/Controller.test.js
