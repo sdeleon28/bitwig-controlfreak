@@ -22,7 +22,11 @@ class LaunchpadHW {
         this.sideButtons = LaunchpadHW.SIDE_BUTTONS;
         this.holdTiming = LaunchpadHW.HOLD_TIMING;
 
-        this._padTimers = {};        // padNote -> { clickCallback, holdCallback, pageNumber, pressTime }
+        // padNote -> { pageNumber|"null" -> { clickCallback, holdCallback, pressTime } }
+        // Each page registers its own behavior on the same physical pad,
+        // so we key behaviors by pageNumber to avoid one page overwriting
+        // another's registration on overlapping pads.
+        this._padTimers = {};
         this._sideButtonHandlers = {}; // note -> { onClick, pageNumber }
         this._topButtonHandlers = {};  // cc   -> { onClick, pageNumber }
     }
@@ -79,45 +83,61 @@ class LaunchpadHW {
     // ---- Pad behavior (click/hold, page-aware) ----
 
     registerPadBehavior(padNote, clickCallback, holdCallback, pageNumber) {
-        this._padTimers[padNote] = {
+        var key = (pageNumber === undefined || pageNumber === null) ? "null" : String(pageNumber);
+        if (!this._padTimers[padNote]) this._padTimers[padNote] = {};
+        this._padTimers[padNote][key] = {
             clickCallback: clickCallback || null,
             holdCallback: holdCallback || null,
-            pageNumber: (pageNumber === undefined) ? null : pageNumber,
             pressTime: null
         };
     }
 
-    clearPadBehavior(padNote) {
-        delete this._padTimers[padNote];
+    clearPadBehavior(padNote, pageNumber) {
+        if (pageNumber === undefined) {
+            delete this._padTimers[padNote];
+            return;
+        }
+        var key = (pageNumber === null) ? "null" : String(pageNumber);
+        if (this._padTimers[padNote]) delete this._padTimers[padNote][key];
     }
 
     clearAllPadBehaviors() {
         this._padTimers = {};
     }
 
-    handlePadPress(padNote) {
-        var timer = this._padTimers[padNote];
-        if (!timer) return false;
-        if (timer.pageNumber !== null && this.pager && timer.pageNumber !== this.pager.getActivePage()) {
-            return false;
+    /**
+     * Look up the behavior for a pad on the currently-active page. Falls
+     * back to a "null" (page-independent) behavior if no page-specific one
+     * is registered.
+     */
+    _activeBehavior(padNote) {
+        var bucket = this._padTimers[padNote];
+        if (!bucket) return null;
+        if (this.pager) {
+            var active = String(this.pager.getActivePage());
+            if (bucket[active]) return bucket[active];
         }
-        timer.pressTime = Date.now();
+        if (bucket["null"]) return bucket["null"];
+        return null;
+    }
+
+    handlePadPress(padNote) {
+        var behavior = this._activeBehavior(padNote);
+        if (!behavior) return false;
+        behavior.pressTime = Date.now();
         return true;
     }
 
     handlePadRelease(padNote) {
-        var timer = this._padTimers[padNote];
-        if (!timer) return false;
-        if (timer.pageNumber !== null && this.pager && timer.pageNumber !== this.pager.getActivePage()) {
-            return false;
+        var behavior = this._activeBehavior(padNote);
+        if (!behavior) return false;
+        var holdDuration = Date.now() - (behavior.pressTime || 0);
+        if (holdDuration >= this.holdTiming.hold && behavior.holdCallback) {
+            behavior.holdCallback();
+        } else if (behavior.clickCallback) {
+            behavior.clickCallback();
         }
-        var holdDuration = Date.now() - (timer.pressTime || 0);
-        if (holdDuration >= this.holdTiming.hold && timer.holdCallback) {
-            timer.holdCallback();
-        } else if (timer.clickCallback) {
-            timer.clickCallback();
-        }
-        timer.pressTime = null;
+        behavior.pressTime = null;
         return true;
     }
 

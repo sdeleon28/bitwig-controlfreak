@@ -273,7 +273,11 @@ class BitwigHW {
 
     setPlayheadPosition(beats) {
         if (!this._transport) return;
-        this._transport.setPosition(beats);
+        // Use playStartPosition + jumpToPlayStartPosition so that if the
+        // transport is currently playing it continues from the new spot,
+        // matching the existing Launchpad+Twister ProjectExplorer behavior.
+        this._transport.playStartPosition().set(beats);
+        this._transport.jumpToPlayStartPosition();
     }
 
     isLoopEnabled() { return this._isLoopEnabled; }

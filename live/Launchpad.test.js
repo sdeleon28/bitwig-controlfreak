@@ -48,10 +48,52 @@ function fakeOutput() {
     var clicked = 0, held = 0;
     lp.registerPadBehavior(11, function(){ clicked++; }, function(){ held++; }, 1);
     lp.handlePadPress(11);
-    // simulate elapsed time by mutating pressTime
-    lp._padTimers[11].pressTime = Date.now() - 1000;
+    // simulate elapsed time by mutating pressTime on the active behavior
+    lp._padTimers[11]["1"].pressTime = Date.now() - 1000;
     lp.handlePadRelease(11);
     assert(held === 1 && clicked === 0, 'hold fires, click does not');
+})();
+
+// two pages registered on the same pad: only the active page's behavior fires
+(function() {
+    var lp = new LaunchpadHW({});
+    var activePage = 1;
+    lp.pager = { getActivePage: function(){ return activePage; } };
+    var page1Hits = 0, page2Hits = 0;
+    lp.registerPadBehavior(11, function(){ page1Hits++; }, null, 1);
+    lp.registerPadBehavior(11, function(){ page2Hits++; }, null, 2);
+
+    lp.handlePadPress(11);
+    lp.handlePadRelease(11);
+    assert(page1Hits === 1 && page2Hits === 0, 'page 1 active -> page 1 fires');
+
+    activePage = 2;
+    lp.handlePadPress(11);
+    lp.handlePadRelease(11);
+    assert(page1Hits === 1 && page2Hits === 1, 'page 2 active -> page 2 fires');
+})();
+
+// page-independent behavior (pageNumber=null) is used as a fallback
+(function() {
+    var lp = new LaunchpadHW({});
+    lp.pager = { getActivePage: function(){ return 5; } };
+    var hits = 0;
+    lp.registerPadBehavior(11, function(){ hits++; }, null, null);
+    lp.handlePadPress(11);
+    lp.handlePadRelease(11);
+    assert(hits === 1, 'null-page behavior fires regardless of active page');
+})();
+
+// page-specific behavior takes precedence over null fallback
+(function() {
+    var lp = new LaunchpadHW({});
+    lp.pager = { getActivePage: function(){ return 3; } };
+    var nullHits = 0, pageHits = 0;
+    lp.registerPadBehavior(11, function(){ nullHits++; }, null, null);
+    lp.registerPadBehavior(11, function(){ pageHits++; }, null, 3);
+    lp.handlePadPress(11);
+    lp.handlePadRelease(11);
+    assert(pageHits === 1 && nullHits === 0, 'page-specific wins over null fallback');
 })();
 
 // side button click handler
