@@ -117,6 +117,8 @@ function init() {
         launchpad: Live.launchpad,
         pager: Live.pager,
         projectExplorer: Live.pageProjectExplorer,
+        bitwig: Live.bitwig,
+        host: host,
         pageNumber: EXPLORER_PAGE
     });
 
