@@ -208,6 +208,52 @@ function fakePager() {
     assert(bw.lastSel === prevSel, 'no time selection after cancellation');
 })();
 
+// time selection hides loop highlight and shows start-pad highlight
+(function() {
+    var markers = [
+        fakeMarker('{ song', 0),
+        fakeMarker('a', 0),
+        fakeMarker('}', 32)
+    ];
+    var bw = fakeBitwig(markers, 0);
+    var lp = fakeLaunchpad();
+    var pg = fakePager();
+    var pe = new PageProjectExplorerHW({
+        bitwig: bw, launchpad: lp, pager: pg, host: null,
+        markerSets: MarkerSets, pageNumber: 2, beatsPerBar: 4
+    });
+    pe.init();
+
+    // Set a loop range so pads 0..2 are white
+    pe.setLoopRange(0, 12);
+    pg._paints.length = 0;
+    pe.paint();
+    var whiteBefore = pg._paints.filter(function(p) { return p.color === 3; });
+    assert(whiteBefore.length > 0, 'loop range highlighted before gesture');
+
+    // Start gesture: loop highlight should vanish
+    pg._paints.length = 0;
+    pe.toggleTimeSelect();
+    var whiteAfter = pg._paints.filter(function(p) { return p.color === 3; });
+    assert(whiteAfter.length === 0, 'loop highlight hidden during gesture');
+
+    // Click start pad (pad 0 = note 81): that pad turns white
+    pg._paints.length = 0;
+    lp._behaviors[81].click();
+    var startHighlight = pg._paints.filter(function(p) { return p.pad === 81 && p.color === 3; });
+    assert(startHighlight.length > 0, 'start pad highlighted white');
+    // Other pads should NOT be white
+    var otherWhite = pg._paints.filter(function(p) { return p.pad !== 81 && p.color === 3; });
+    assert(otherWhite.length === 0, 'only start pad is white');
+
+    // Finish gesture: loop highlight returns
+    lp._behaviors[83].click();
+    pg._paints.length = 0;
+    pe.paint();
+    var whiteRestored = pg._paints.filter(function(p) { return p.color === 3; });
+    assert(whiteRestored.length > 0, 'loop highlight restored after gesture');
+})();
+
 // resolution override via decreaseResolution
 (function() {
     var markers = [

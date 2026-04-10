@@ -315,8 +315,13 @@ class PageProjectExplorerHW {
             }
             var entry = this._padLayout[globalIndex];
             var color = entry.color;
-            // Loop range overrides color
-            if (this._isPadInLoopRange(entry)) {
+            // Loop range overrides color (but hide while time-select is active
+            // so the user sees a clean grid while choosing start/end).
+            if (!this._timeSelectActive && this._isPadInLoopRange(entry)) {
+                color = this.launchpad.colors.white;
+            }
+            // Highlight the start pad while waiting for the end pad.
+            if (this._timeSelectActive && this._timeSelectStartPad === globalIndex) {
                 color = this.launchpad.colors.white;
             }
             this.pager.requestPaint(this.pageNumber, note, color);
@@ -347,6 +352,7 @@ class PageProjectExplorerHW {
         this._timeSelectActive = !this._timeSelectActive;
         this._timeSelectStartPad = null;
         if (this.sideButtons) this.sideButtons.refreshColors();
+        this.paint();
     }
 
     isTimeSelectActive() { return this._timeSelectActive; }
@@ -361,6 +367,7 @@ class PageProjectExplorerHW {
         if (this._timeSelectActive) {
             if (this._timeSelectStartPad === null) {
                 this._timeSelectStartPad = globalIndex;
+                this.paint();
                 return;
             }
             var startGlobal = Math.min(this._timeSelectStartPad, globalIndex);
