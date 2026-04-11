@@ -21,6 +21,7 @@ function fakeBitwig(markers, playPos) {
         setTimeSelection: function(s, e) { this.lastSel = [s, e]; },
         onMarkersUpdated: function(cb) { this._markerCb = cb; },
         onPlayPosition: function(cb) { this._playCb = cb; },
+        onIsPlayingChanged: function() {},
         _setMarkers: function(m) { marks = m.slice(); },
         _emitMarkers: function() { if (this._markerCb) this._markerCb(); },
         _emitPlay: function(b) { playPos = b; if (this._playCb) this._playCb(b); }
@@ -301,6 +302,67 @@ function fakePager() {
     ]);
     bw._emitMarkers();
     assert(pe.getSongCount() === 2, 'two songs after marker update');
+})();
+
+// playhead passing the last pad (past "}") restores its color
+(function() {
+    var markers = [
+        fakeMarker('{ song', 0),
+        fakeMarker('a', 0),
+        fakeMarker('}', 32)
+    ];
+    var bw = fakeBitwig(markers, 0);
+    var lp = fakeLaunchpad();
+    var pg = fakePager();
+    var pe = new PageProjectExplorerHW({
+        bitwig: bw, launchpad: lp, pager: pg, host: null,
+        markerSets: MarkerSets, pageNumber: 2, beatsPerBar: 4
+    });
+    pe.init();
+
+    // Move playhead to last pad (beat 28..32 = pad 7)
+    pg._paints.length = 0;
+    bw._emitPlay(28);
+    var flash = pg._paints.filter(function(p) { return p.mode === 'flashing'; });
+    assert(flash.length === 1, 'last pad is flashing');
+
+    // Move playhead past "}" — should restore the last pad
+    pg._paints.length = 0;
+    bw._emitPlay(33);
+    var restores = pg._paints.filter(function(p) { return p.mode === 'static'; });
+    assert(restores.length === 1, 'last pad restored when playhead passes end');
+    var noFlash = pg._paints.filter(function(p) { return p.mode === 'flashing'; });
+    assert(noFlash.length === 0, 'no new flash after passing end');
+})();
+
+
+// clicking a pad that the playhead is already on flashes it immediately
+(function() {
+    var markers = [
+        fakeMarker('{ song', 0),
+        fakeMarker('a', 0),
+        fakeMarker('}', 32)
+    ];
+    var bw = fakeBitwig(markers, 0);
+    var lp = fakeLaunchpad();
+    var pg = fakePager();
+    var pe = new PageProjectExplorerHW({
+        bitwig: bw, launchpad: lp, pager: pg, host: null,
+        markerSets: MarkerSets, pageNumber: 2, beatsPerBar: 4
+    });
+    pe.init();
+
+    // Playhead moves to pad 2 (beat 8)
+    bw._emitPlay(8);
+    // Full repaint clears the flash (simulates what paint() does)
+    pe.paint();
+    pg._paints.length = 0;
+
+    // Click pad 2 (note 83) while playhead is already there
+    lp._behaviors[83].click();
+    var flash = pg._paints.filter(function(p) { return p.mode === 'flashing'; });
+    assert(flash.length === 1, 'clicking same pad flashes it immediately');
+    assert(flash[0].pad === 83, 'correct pad flashed');
 })();
 
 process.exit(t.summary('Page_ProjectExplorer'));

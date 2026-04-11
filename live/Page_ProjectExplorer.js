@@ -85,6 +85,7 @@ class PageProjectExplorerHW {
             self._onPlayPosition(beats);
         });
 
+
         // Initial population (markers may not be loaded yet — caller should
         // schedule a delayed rebuild after Bitwig has populated the bank).
         this.rebuildFromBitwig();
@@ -382,8 +383,13 @@ class PageProjectExplorerHW {
             return;
         }
 
-        // Plain seek
+        // Plain seek — flash immediately so there's no lag waiting for
+        // the next playPosition callback (which would no-op if we're
+        // already on the same pad).
         this.bitwig.setPlayheadPosition(entry.startBeat);
+        this._restorePlayingPad();
+        this._playingPad = padIndex;
+        this.pager.requestPaintFlashing(this.pageNumber, this.pads[padIndex], this.launchpad.colors.white);
     }
 
     // ----- Playhead -----
@@ -420,6 +426,7 @@ class PageProjectExplorerHW {
         if (beat === undefined) beat = this.bitwig.getPlayPosition();
         var globalIndex = this._padIndexForBeat(beat);
         if (globalIndex === null) {
+            this._restorePlayingPad();
             this._playingPad = null;
             return;
         }
@@ -434,18 +441,25 @@ class PageProjectExplorerHW {
         if (this._playingPad === localIndex) return;
 
         // Restore previous playing pad to its base color
-        if (this._playingPad !== null) {
-            var prevGlobal = this._currentBarPage * 64 + this._playingPad;
-            if (prevGlobal < this._padLayout.length) {
-                var prevEntry = this._padLayout[prevGlobal];
-                var prevColor = this._isPadInLoopRange(prevEntry) ? this.launchpad.colors.white : prevEntry.color;
-                this.pager.requestPaint(this.pageNumber, this.pads[this._playingPad], prevColor);
-            }
-        }
+        this._restorePlayingPad();
 
         this._playingPad = localIndex;
         this.pager.requestPaintFlashing(this.pageNumber, this.pads[localIndex], this.launchpad.colors.white);
     }
+
+    /**
+     * Restore the currently-blinking pad back to its base color.
+     */
+    _restorePlayingPad() {
+        if (this._playingPad === null) return;
+        var prevGlobal = this._currentBarPage * 64 + this._playingPad;
+        if (prevGlobal < this._padLayout.length) {
+            var prevEntry = this._padLayout[prevGlobal];
+            var prevColor = this._isPadInLoopRange(prevEntry) ? this.launchpad.colors.white : prevEntry.color;
+            this.pager.requestPaint(this.pageNumber, this.pads[this._playingPad], prevColor);
+        }
+    }
+
 }
 
 // Pad layout — top-left to bottom-right reading order.
