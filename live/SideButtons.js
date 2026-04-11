@@ -84,7 +84,7 @@ class SideButtonsHW {
         // visual separator between song names.
         var parts = [];
         for (var i = 0; i < songs.length; i++) {
-            parts.push((i + 1) + ". " + songs[i].name);
+            parts.push(songs[i].name);
         }
         this.host.showPopupNotification(parts.join("  ·  "));
     }
