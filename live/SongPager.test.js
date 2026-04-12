@@ -16,7 +16,7 @@ function fakePager(active) {
 }
 function fakeExplorer(count, idx) {
     var songs = [];
-    for (var i = 0; i < count; i++) songs.push({ name: 'song ' + i });
+    for (var i = 0; i < count; i++) songs.push({ name: 'song ' + i, startBeat: i * 100 });
     return {
         _idx: idx, _count: count, _switches: [], _songs: songs,
         getCurrentSongIndex: function() { return this._idx; },
@@ -30,26 +30,30 @@ function fakeHost() {
 }
 function fakeBitwig(playing) {
     return {
-        _playing: !!playing, _playCb: null,
+        _playing: !!playing, _playCb: null, _seeks: [],
         isPlaying: function() { return this._playing; },
-        onIsPlayingChanged: function(cb) { this._playCb = cb; }
+        onIsPlayingChanged: function(cb) { this._playCb = cb; },
+        setPlayheadPositionWithoutPlayback: function(b) { this._seeks.push(b); }
     };
 }
 
-// next and previous walk songs and growl the song name
+// next and previous walk songs, seek playhead, and growl the song name
 (function() {
     var lp = fakeLaunchpad(); var pg = fakePager(2);
     var pe = fakeExplorer(3, 0);
     var hh = fakeHost();
+    var bw = fakeBitwig(false);
     var sp = new SongPagerHW({
-        launchpad: lp, pager: pg, projectExplorer: pe, host: hh, pageNumber: 2
+        launchpad: lp, pager: pg, projectExplorer: pe, host: hh, bitwig: bw, pageNumber: 2
     });
     sp.init();
     lp._topHandlers[107]();  // right
     assert(pe._switches[0] === 1, 'next -> song 1');
+    assert(bw._seeks[0] === 100, 'next seeks to song 1 startBeat');
     assert(hh._popups[0] === 'song 1', 'next growls new song name');
     lp._topHandlers[106]();  // left
     assert(pe._switches[1] === 0, 'prev -> song 0');
+    assert(bw._seeks[1] === 0, 'prev seeks to song 0 startBeat');
     assert(hh._popups[1] === 'song 0', 'prev growls new song name');
 })();
 

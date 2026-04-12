@@ -55,6 +55,7 @@ class SongPagerHW {
         var i = this.projectExplorer.getCurrentSongIndex();
         if (i <= 0) return;
         this.projectExplorer.setSong(i - 1);
+        this._seekToCurrentSong();
         this._growlCurrentSong();
         this.refreshButtons();
     }
@@ -64,8 +65,17 @@ class SongPagerHW {
         var i = this.projectExplorer.getCurrentSongIndex();
         if (i >= this.projectExplorer.getSongCount() - 1) return;
         this.projectExplorer.setSong(i + 1);
+        this._seekToCurrentSong();
         this._growlCurrentSong();
         this.refreshButtons();
+    }
+
+    _seekToCurrentSong() {
+        if (!this.bitwig || !this.bitwig.setPlayheadPositionWithoutPlayback) return;
+        var songs = this.projectExplorer.getSongs();
+        var i = this.projectExplorer.getCurrentSongIndex();
+        if (i < 0 || i >= songs.length) return;
+        this.bitwig.setPlayheadPositionWithoutPlayback(songs[i].startBeat);
     }
 
     _growlCurrentSong() {

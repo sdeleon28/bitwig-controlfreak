@@ -311,6 +311,11 @@ class BitwigHW {
         this._transport.jumpToPlayStartPosition();
     }
 
+    setPlayheadPositionWithoutPlayback(beats) {
+        if (!this._transport) return;
+        this._transport.playStartPosition().set(beats);
+    }
+
     isLoopEnabled() { return this._isLoopEnabled; }
     isMetronomeEnabled() { return this._isMetronomeEnabled; }
     isPlaying() { return this._isPlaying; }
