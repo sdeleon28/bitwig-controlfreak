@@ -55,13 +55,14 @@ class ControllerHW {
         this.modeSwitcher.init();
         this.sideButtons.init();
 
-        // Project explorer manual zoom buttons (cc 108 / 109)
-        this.launchpad.registerTopButton(this.launchpad.buttons.decreaseResolution, function() {
-            self.pageProjectExplorer.decreaseResolution();
-        }, this.pageProjectExplorer.pageNumber);
-        this.launchpad.registerTopButton(this.launchpad.buttons.increaseResolution, function() {
-            self.pageProjectExplorer.increaseResolution();
-        }, this.pageProjectExplorer.pageNumber);
+        // Master mute toggle (cc 110, global — works on all pages)
+        this.launchpad.registerTopButton(this.launchpad.buttons.masterMute, function() {
+            self.bitwig.getMasterTrack().mute().toggle();
+        }, null);
+
+        this.bitwig.onMasterMuteChanged(function() {
+            self.refreshMasterMuteButton();
+        });
 
         // Linking: every time the track list / properties change, re-link
         // encoders. This catches name changes ("(3)" added/removed),
@@ -82,6 +83,9 @@ class ControllerHW {
             });
         }
 
+        this.mainPager._onPageChanged = function() {
+            self.refreshMasterMuteButton();
+        };
         this.mainPager.init();
 
         // Initial linking + paint after Bitwig has had a moment to populate
@@ -91,6 +95,7 @@ class ControllerHW {
                 self.pageProjectExplorer.rebuildFromBitwig();
                 self.songPager.refreshButtons();
                 self.barPager.refreshButtons();
+                self.refreshMasterMuteButton();
             }, null, 200);
         } else {
             self.relinkEncoders();
@@ -114,6 +119,12 @@ class ControllerHW {
         }
         var master = this.bitwig.getMasterTrack();
         if (master) this.twister.linkEncoderToMaster(16, master);
+    }
+
+    refreshMasterMuteButton() {
+        var muted = this.bitwig.isMasterMuted();
+        var color = muted ? this.launchpad.colors.red : this.launchpad.colors.green;
+        this.launchpad.setTopButtonColor(this.launchpad.buttons.masterMute, color);
     }
 
     // ---- MIDI routing ----

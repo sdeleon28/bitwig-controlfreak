@@ -175,4 +175,40 @@ function fakeTransport() {
     assert(read[3].position === 32, 'last is highest position');
 })();
 
+// isMasterMuted returns the master track's mute state
+(function() {
+    var tracks = []; for (var i = 0; i < 16; i++) tracks.push(fakeTrack('', false));
+    var trackBank = fakeBank(tracks);
+    var markers = []; for (var j = 0; j < 256; j++) markers.push(fakeMarker('', 0, false));
+    var markerBank = fakeBank(markers);
+    var transport = fakeTransport();
+    var masterTrack = fakeTrack('master', true);
+    var host = fakeHost(trackBank, masterTrack, markerBank, transport);
+    var bw = new BitwigHW({ host: host });
+    bw.init();
+
+    assert(bw.isMasterMuted() === false, 'master starts unmuted');
+    masterTrack.mute().toggle();
+    assert(bw.isMasterMuted() === true, 'master muted after toggle');
+})();
+
+// onMasterMuteChanged fires when master mute changes
+(function() {
+    var tracks = []; for (var i = 0; i < 16; i++) tracks.push(fakeTrack('', false));
+    var trackBank = fakeBank(tracks);
+    var markers = []; for (var j = 0; j < 256; j++) markers.push(fakeMarker('', 0, false));
+    var markerBank = fakeBank(markers);
+    var transport = fakeTransport();
+    var masterTrack = fakeTrack('master', true);
+    var host = fakeHost(trackBank, masterTrack, markerBank, transport);
+    var bw = new BitwigHW({ host: host });
+    bw.init();
+
+    var changes = [];
+    bw.onMasterMuteChanged(function(muted) { changes.push(muted); });
+    masterTrack.mute().toggle();
+    assert(changes.length === 1, 'subscriber notified');
+    assert(changes[0] === true, 'received muted=true');
+})();
+
 process.exit(t.summary('Bitwig (live)'));

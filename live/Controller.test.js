@@ -2,15 +2,34 @@ var ControllerHW = require('./Controller');
 var t = require('../test-assert');
 var assert = t.assert;
 
-function fakeBitwig(slotMap, transport) {
+function fakeMasterTrack(muted) {
+    var _muted = muted || false;
+    return {
+        _master: true,
+        mute: function() {
+            return {
+                get: function() { return _muted; },
+                toggle: function() { _muted = !_muted; this._toggled = (this._toggled || 0) + 1; },
+                _toggled: 0
+            };
+        }
+    };
+}
+
+function fakeBitwig(slotMap, transport, masterTrack) {
     var trackUpdateSubs = [];
+    var masterMuteSubs = [];
+    var _master = masterTrack || fakeMasterTrack();
     return {
         _slotMap: slotMap,
         getSlotMap: function() { return this._slotMap; },
-        getMasterTrack: function() { return { _master: true }; },
+        getMasterTrack: function() { return _master; },
         getTransport: function() { return transport || null; },
         onTracksUpdated: function(cb) { trackUpdateSubs.push(cb); },
-        _trigger: function() { trackUpdateSubs.forEach(function(cb){ cb(); }); }
+        onMasterMuteChanged: function(cb) { masterMuteSubs.push(cb); },
+        isMasterMuted: function() { return _master.mute().get(); },
+        _trigger: function() { trackUpdateSubs.forEach(function(cb){ cb(); }); },
+        _triggerMasterMute: function() { masterMuteSubs.forEach(function(cb){ cb(); }); }
     };
 }
 
@@ -32,9 +51,11 @@ function fakeTwister() {
 
 function fakeLaunchpad() {
     return {
-        buttons: { decreaseResolution: 108, increaseResolution: 109 },
-        _topHandlers: {}, _topPresses: 0, _padPresses: 0, _padReleases: 0, _sidePresses: 0,
+        colors: { red: 5, green: 21 },
+        buttons: { masterMute: 110 },
+        _topHandlers: {}, _topPresses: 0, _padPresses: 0, _padReleases: 0, _sidePresses: 0, _topColors: {},
         registerTopButton: function(cc, fn) { this._topHandlers[cc] = fn; },
+        setTopButtonColor: function(cc, c) { this._topColors[cc] = c; },
         handleTopButtonPress: function(cc) { if (this._topHandlers[cc]) { this._topHandlers[cc](); this._topPresses++; return true; } return false; },
         handlePadPress: function() { this._padPresses++; return true; },
         handlePadRelease: function() { this._padReleases++; return true; },
@@ -49,7 +70,7 @@ function makeController() {
     var bw = fakeBitwig({ 1: 7, 3: 9 });
     var tw = fakeTwister();
     var lp = fakeLaunchpad();
-    var pe = { pageNumber: 2, decreaseResolution: function(){this._dec=(this._dec||0)+1;}, increaseResolution: function(){this._inc=(this._inc||0)+1;}, init: noop, rebuildFromBitwig: noop };
+    var pe = { pageNumber: 2, init: noop, rebuildFromBitwig: noop };
     var pc = { init: noop, paint: noop };
     var ctrl = new ControllerHW({
         bitwig: bw, launchpad: lp, twister: tw,
@@ -85,11 +106,37 @@ function makeController() {
     assert(s.tw._unlinks > unlinksBefore, 'tracks updated -> relinkEncoders');
 })();
 
-// onLaunchpadMidi: CC -> top button
+// master mute toggle: cc 110 toggles master track mute
 (function() {
     var s = makeController();
-    s.ctrl.onLaunchpadMidi(0xB0, 108, 127);
-    assert(s.pe._dec === 1, 'cc 108 -> decreaseResolution');
+    var master = s.bw.getMasterTrack();
+    var muteBefore = master.mute().get();
+    s.ctrl.onLaunchpadMidi(0xB0, 110, 127);
+    assert(master.mute().get() !== muteBefore, 'cc 110 toggled master mute');
+})();
+
+// master mute button color: green when unmuted, red when muted
+(function() {
+    var s = makeController();
+    s.ctrl.refreshMasterMuteButton();
+    assert(s.lp._topColors[110] === s.lp.colors.green, 'unmuted -> green');
+    // Toggle to muted
+    s.bw.getMasterTrack().mute().toggle();
+    s.ctrl.refreshMasterMuteButton();
+    assert(s.lp._topColors[110] === s.lp.colors.red, 'muted -> red');
+})();
+
+// master mute button survives page switch via _onPageChanged callback
+(function() {
+    var s = makeController();
+    var mp = s.ctrl.mainPager;
+    s.ctrl.refreshMasterMuteButton();
+    assert(s.lp._topColors[110] === s.lp.colors.green, 'green before page switch');
+    // Simulate page switch clearing the button
+    s.lp._topColors = {};
+    assert(mp._onPageChanged !== null, 'onPageChanged callback set');
+    mp._onPageChanged();
+    assert(s.lp._topColors[110] === s.lp.colors.green, 'green restored after page switch');
 })();
 
 // onLaunchpadMidi: note on side button

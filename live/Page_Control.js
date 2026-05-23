@@ -204,8 +204,6 @@ class PageControlHW {
         var b = this.launchpad.buttons;
         this.launchpad.setTopButtonColor(b.left, off);
         this.launchpad.setTopButtonColor(b.right, off);
-        this.launchpad.setTopButtonColor(b.decreaseResolution, off);
-        this.launchpad.setTopButtonColor(b.increaseResolution, off);
         this.launchpad.setTopButtonColor(b.barPagePrev, off);
         this.launchpad.setTopButtonColor(b.barPageNext, off);
         // Clear transport side buttons (volume/pan stay on, owned by ModeSwitcher)

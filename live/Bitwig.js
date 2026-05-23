@@ -36,6 +36,7 @@ class BitwigHW {
         this._loopEnabledSubscribers = [];
         this._metronomeEnabledSubscribers = [];
         this._isPlayingSubscribers = [];
+        this._masterMuteSubscribers = [];
 
         this._isLoopEnabled = false;
         this._isMetronomeEnabled = false;
@@ -141,6 +142,12 @@ class BitwigHW {
         this._masterTrack.color().markInterested();
         this._masterTrack.volume().markInterested();
         this._masterTrack.pan().markInterested();
+        this._masterTrack.mute().markInterested();
+
+        var self = this;
+        this._masterTrack.mute().addValueObserver(function(muted) {
+            self._emitMasterMuteChanged(muted);
+        });
     }
 
     _setupMarkerObservers(size) {
@@ -197,6 +204,20 @@ class BitwigHW {
         for (var i = 0; i < this._markersSubscribers.length; i++) {
             this._markersSubscribers[i]();
         }
+    }
+
+    onMasterMuteChanged(callback) {
+        this._masterMuteSubscribers.push(callback);
+    }
+
+    _emitMasterMuteChanged(muted) {
+        for (var i = 0; i < this._masterMuteSubscribers.length; i++) {
+            this._masterMuteSubscribers[i](muted);
+        }
+    }
+
+    isMasterMuted() {
+        return this._masterTrack && this._masterTrack.mute().get();
     }
 
     // ----- Track access -----

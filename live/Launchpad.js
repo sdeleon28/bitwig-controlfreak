@@ -245,8 +245,8 @@ LaunchpadHW.BUTTONS = {
     top5: 108, top6: 109, top7: 110, top8: 111,
     // Semantic aliases for the Live controller
     up: 104, down: 105, left: 106, right: 107,
-    decreaseResolution: 108, increaseResolution: 109,
-    barPagePrev: 110, barPageNext: 111
+    barPagePrev: 108, barPageNext: 109,
+    masterMute: 110
 };
 
 // Side buttons run down the right edge of the Launchpad MK2.

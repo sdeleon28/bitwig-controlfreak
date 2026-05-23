@@ -10,8 +10,7 @@
  * Pads fill in reading order: top-left (note 81) → top-right (88) →
  * row 7 (71..78) → ... → bottom row (11..18).
  *
- * Resolution: auto-picked so the song fits on one page (64 pads). Can
- * be manually overridden via cc 108 (decrease) / cc 109 (increase).
+ * Resolution: auto-picked so the song fits on one page (64 pads).
  * If a song still doesn't fit at the chosen resolution, it spans
  * multiple bar pages — see BarPager.
  *
@@ -97,12 +96,6 @@ class PageProjectExplorerHW {
      * side buttons) so they reflect this page's state.
      */
     show() {
-        // Resolution control buttons stay lit cyan whenever this page is showing
-        var cyan = this.launchpad.colors.cyan;
-        var b = this.launchpad.buttons;
-        this.launchpad.setTopButtonColor(b.decreaseResolution, cyan);
-        this.launchpad.setTopButtonColor(b.increaseResolution, cyan);
-
         // Song nav + bar paging buttons reflect availability
         if (this.songPager) this.songPager.refreshButtons();
         if (this.barPager) this.barPager.refreshButtons();

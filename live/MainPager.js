@@ -21,6 +21,7 @@ class MainPagerHW {
         this.launchpad = deps.launchpad;
         this.pager = deps.pager;
         this.pages = deps.pages || [];
+        this._onPageChanged = deps.onPageChanged || null;
         this._index = 0;
     }
 
@@ -65,6 +66,7 @@ class MainPagerHW {
         this.pager.switchToPage(this.currentPageNumber());
         this._showCurrent();
         this._refreshNavButtons();
+        if (this._onPageChanged) this._onPageChanged();
     }
 
     /**
