@@ -1,14 +1,27 @@
 from typing import List, Literal, Protocol
 from enum import IntEnum
 from dataclasses import dataclass
-from bitwig import BwTrack
+from colors import BwColor
+
+
+class BwTrack:
+    id: str
+    name: str
+    color: BwColor
+    children: List["BwTrack"]
 
 
 @dataclass
 class SchemaChangedEvent:
     tracks = List[BwTrack]
 
-TrackParam = Literal["volume"] | Literal["pan"] | Literal["mute"] | Literal["solo"]
+
+TrackParam = (
+      Literal["volume"] 
+    | Literal["pan"]
+    | Literal["mute"]
+    | Literal["solo"]
+)
 
 
 @dataclass
@@ -84,14 +97,29 @@ class SideButtonHold:
 
 
 LaunchpadEvent = (
-    PadClick | PadHold
-    | TopButtonClick | TopButtonHold
+      PadClick        | PadHold
+    | TopButtonClick  | TopButtonHold
     | SideButtonClick | SideButtonHold
+)
+
+@dataclass
+class BwTrackSelectedEvent:
+    track_id: str
+
+
+@dataclass
+class BwDeviceSelectedEvent:
+    track_id: str
+
+
+BwEvent = (
+    BwTrackSelectedEvent
 )
 
 
 Event = (
-    LaunchpadEvent
+      LaunchpadEvent
+    | BwEvent 
     | SchemaChangedEvent 
     | TrackParamChangedEvent
     | DeviceSelectedEvent
@@ -119,6 +147,9 @@ class EventBus:
         for s in self._subscribers:
             s.notify(event)
 
+    # TODO
+    # [ ] rename to send
+    # [ ] collect sender
     def append(self, event: Event) -> None:
         self.events.append(event)
         self._fanout(event)

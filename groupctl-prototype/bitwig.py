@@ -1,15 +1,25 @@
 from typing import List, Literal
+from events import (
+    EventBusSubscriber,
+    BwTrackSelectedEvent,
+    EventBus,
+    RequestSelectGroupEvent,
+)
 
-BwColor = Literal["red"] | Literal["green"] | Literal["blue"]
+class Bitwig(EventBusSubscriber):
+    def __init__(self, bus: EventBus) -> None:
+        self.bus = bus
 
+    def select_track(self, track_id):
+        print("# select_track: ", track_id)
+        # this is what the API should return
+        self.bus.append(
+            BwTrackSelectedEvent(
+                track_id=track_id,
+            ),
+        )
 
-class BwTrack:
-    id: str
-    name: str
-    color: BwColor
-    children: List["BwTrack"]
-
-
-class Bitwig:
-    def __init__(self) -> None:
-        pass
+    def notify(self, event) -> None:
+        match event:
+            case RequestSelectGroupEvent(track_id=track_id):
+                self.select_track(track_id)
