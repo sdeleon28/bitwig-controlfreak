@@ -1,0 +1,21 @@
+from events import (
+    EventBus,
+    EventBusSubscriber,
+    RequestSelectGroupEvent,
+    PadClick,
+)
+
+class Growler(EventBusSubscriber):
+    def __init__(self, bus: EventBus) -> None:
+        self.bus = bus
+        self.bus.subscribe(self)
+
+    def notify(self, event) -> None:
+        match event:
+            case RequestSelectGroupEvent(track_name=track_name):
+                self.growl(f"[GROUP] {track_name}")
+            case PadClick(n=pad_n):
+                self.growl(f"[CLICKED PAD] {pad_n}")
+
+    def growl(self, message) -> None:
+        print(message)

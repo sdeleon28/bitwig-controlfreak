@@ -1,0 +1,128 @@
+from typing import List, Literal, Protocol
+from enum import IntEnum
+from dataclasses import dataclass
+from bitwig import BwTrack
+
+
+@dataclass
+class SchemaChangedEvent:
+    tracks = List[BwTrack]
+
+TrackParam = Literal["volume"] | Literal["pan"] | Literal["mute"] | Literal["solo"]
+
+
+@dataclass
+class TrackParamChangedEvent:
+    track_id: str
+    param: TrackParam
+    new_value: int
+
+
+@dataclass
+class DeviceSelectedEvent:
+    device_id: str
+
+
+@dataclass
+class RequestSelectGroupEvent:
+    track_id: str
+    track_name: str
+
+
+# BEGIN: Launchpad
+class TopButton(IntEnum):
+    up = 104
+    down = 105
+    left = 106
+    right = 107
+    session = 108
+    user_1 = 109
+    user_2 = 110
+    mixer = 111
+
+
+class SideButton(IntEnum):
+    volume = 89
+    pan = 79
+    send_a = 69
+    send_b = 59
+    stop = 49
+    mute = 39
+    solo = 29
+    record_arm = 19
+
+
+@dataclass
+class PadClick:
+    n: int
+
+
+@dataclass
+class PadHold:
+    n: int
+
+
+@dataclass
+class TopButtonClick:
+    button: TopButton
+
+
+@dataclass
+class TopButtonHold:
+    button: TopButton
+
+
+@dataclass
+class SideButtonClick:
+    button: SideButton
+
+
+@dataclass
+class SideButtonHold:
+    button: SideButton
+# END: Launchpad
+
+
+LaunchpadEvent = (
+    PadClick | PadHold
+    | TopButtonClick | TopButtonHold
+    | SideButtonClick | SideButtonHold
+)
+
+
+Event = (
+    LaunchpadEvent
+    | SchemaChangedEvent 
+    | TrackParamChangedEvent
+    | DeviceSelectedEvent
+    | RequestSelectGroupEvent
+)
+
+
+class EventBusSubscriber(Protocol):
+    def notify(self, event) -> None:
+        ...
+
+
+class EventBus:
+    def __init__(self) -> None:
+        self.events: List[Event] = []
+        self._subscribers: List[EventBusSubscriber] = []
+
+    def subscribe(self, subject):
+        self._subscribers.append(subject)
+        # TODO: should i do initial fanout?
+        for e in self.get_all_events():
+            subject.notify(e)
+
+    def _fanout(self, event: Event):
+        for s in self._subscribers:
+            s.notify(event)
+
+    def append(self, event: Event) -> None:
+        self.events.append(event)
+        self._fanout(event)
+
+    def get_all_events(self) -> List[Event]:
+        return list(self.events)
+

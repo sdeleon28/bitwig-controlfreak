@@ -335,18 +335,11 @@ class SelectQuadrant(Quadrant):
                 self.paint_pad(i, t.color)
 
 
-def _mk2_note_to_pad_n(note: int) -> int:
-    """Convert a Launchpad MK2 grid note (11-88) to a 1-64 pad index
-    (bottom-to-top, left-to-right)."""
-    row = note // 10  # 1 (bottom) .. 8 (top)
-    col = note % 10   # 1 (left) .. 8 (right)
-    return (row - 1) * 8 + col
-
-
 class _GestureState:
     def __init__(self):
         self.down_at: float | None = None
         self.hold_emitted: bool = False
+
 
 class Launchpad:
     def __init__(self):
@@ -354,6 +347,13 @@ class Launchpad:
         self.input = mido.open_input('Launchpad MK2 12')
         self._subscribers: list[LaunchpadSubscriber] = []
         self._gestures: dict[tuple[str, int], _GestureState] = {}
+        
+    def _mk2_note_to_pad_n(self, note: int) -> int:
+        """Convert a Launchpad MK2 grid note (11-88) to a 1-64 pad index
+        (bottom-to-top, left-to-right)."""
+        row = note // 10  # 1 (bottom) .. 8 (top)
+        col = note % 10   # 1 (left) .. 8 (right)
+        return (row - 1) * 8 + col
 
     def subscribe(self, subscriber: LaunchpadSubscriber):
         self._subscribers.append(subscriber)
@@ -409,7 +409,7 @@ class Launchpad:
                     SideButton(msg.note)
                     key = ('side', msg.note)
                 except ValueError:
-                    key = ('pad', _mk2_note_to_pad_n(msg.note))
+                    key = ('pad', self._mk2_note_to_pad_n(msg.note))
                 if msg.velocity > 0:
                     self._on_press(key)
                 else:
