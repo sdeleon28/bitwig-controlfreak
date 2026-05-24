@@ -3,35 +3,35 @@ from typing import Literal
 
 BwColor = (
     # row 0
-      Literal["84,84,82"]
-    | Literal["122,122,122"]
-    | Literal["200,200,200"]
-    | Literal["134,136,170"]
-    | Literal["162,120,64"]
-    | Literal["198,158,110"]
-    | Literal["86,96,198"]
-    | Literal["132,138,224"]
-    | Literal["148,72,202"]
+      Literal["84,84,82"] # black
+    | Literal["122,122,122"] # gray
+    | Literal["200,200,200"] # white
+    | Literal["134,136,170"] # pale purple
+    | Literal["162,120,64"] # brown
+    | Literal["198,158,110"] # pale brown
+    | Literal["86,96,198"] # blue
+    | Literal["132,138,224"] # pale blue
+    | Literal["148,72,202"] # purple
     # row 1
-    | Literal["216,56,110"]
-    | Literal["216,46,34"]
-    | Literal["254,86,4"]
-    | Literal["216,156,14"]
-    | Literal["114,152,18"]
-    | Literal["0,156,68"]
-    | Literal["0,166,146"]
-    | Literal["0,152,214"]
-    | Literal["188,118,240"]
+    | Literal["216,56,110"] # magenta
+    | Literal["216,46,34"] # red
+    | Literal["254,86,4"] # orange
+    | Literal["216,156,14"] # light orange
+    | Literal["114,152,18"] # dark lime
+    | Literal["0,156,68"] # green
+    | Literal["0,166,146"] # dim aqua
+    | Literal["0,152,214"] # teal
+    | Literal["188,118,240"] # light purple
     # row 2
-    | Literal["224,102,142"]
-    | Literal["236,96,84"]
-    | Literal["254,130,60"]
-    | Literal["228,182,76"]
-    | Literal["160,192,74"]
-    | Literal["62,184,96"]
-    | Literal["66,210,182"]
-    | Literal["68,200,254"]
-    | Literal["208,184,218"]
+    | Literal["224,102,142"] # pink
+    | Literal["236,96,84"] # pinkorange
+    | Literal["254,130,60"] # sober orange
+    | Literal["228,182,76"] # yellow
+    | Literal["160,192,74"] # light lime
+    | Literal["62,184,96"] # light green
+    | Literal["66,210,182"] # sky blue
+    | Literal["68,200,254"] # blinding cyan
+    | Literal["208,184,218"] # lightest purple
 )
 
 

@@ -4,16 +4,18 @@ from dataclasses import dataclass
 from colors import BwColor
 
 
+@dataclass
 class BwTrack:
-    id: str
     name: str
+    position: int
     color: BwColor
+    depth: Literal[0] | Literal[1] | Literal[2]
     children: List["BwTrack"]
 
 
 @dataclass
 class SchemaChangedEvent:
-    tracks = List[BwTrack]
+    tracks: List[BwTrack]
 
 
 TrackParam = (
