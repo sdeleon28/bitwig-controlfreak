@@ -1,11 +1,12 @@
 from typing import List, Literal, Protocol
 from enum import IntEnum
 from dataclasses import dataclass
-from colors import BwColor
+from colors import BwColor, LaunchpadColor
 
 
 @dataclass
 class BwTrack:
+    id: str
     name: str
     position: int
     color: BwColor
@@ -65,6 +66,11 @@ class SideButton(IntEnum):
     mute = 39
     solo = 29
     record_arm = 19
+
+@dataclass
+class LightPadUp:
+    n: int
+    color: LaunchpadColor
 
 
 @dataclass
@@ -149,11 +155,10 @@ class EventBus:
         for s in self._subscribers:
             s.notify(event)
 
-    # TODO
-    # [ ] take *args
-    def send(self, event: Event) -> None:
-        self.events.append(event)
-        self._fanout(event)
+    def send(self, *evs: List[Event]) -> None:
+        for event in evs:
+            self.events.append(event)
+            self._fanout(event)
 
     def get_all_events(self) -> List[Event]:
         return list(self.events)

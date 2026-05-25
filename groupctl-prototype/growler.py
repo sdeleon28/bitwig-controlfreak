@@ -6,6 +6,8 @@ from events import (
 )
 
 class Growler(EventBusSubscriber):
+    enabled = False
+
     def __init__(self, bus: EventBus) -> None:
         self.bus = bus
         self.bus.subscribe(self)
@@ -18,4 +20,5 @@ class Growler(EventBusSubscriber):
                 self.growl(f"[CLICKED PAD] {pad_n}")
 
     def growl(self, message) -> None:
-        print(message)
+        if self.enabled:
+            print(message)

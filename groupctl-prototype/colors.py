@@ -100,3 +100,37 @@ BITIWG_TO_LAUNCHPAD_COLORS = {
     "68,200,254":   41,
     "208,184,218":  56
 }
+
+
+LaunchpadColor = (
+    # row 0
+    Literal[0],
+    Literal[103],
+    Literal[70],
+    Literal[112],
+    Literal[83],
+    Literal[108],
+    Literal[69],
+    Literal[49],
+    Literal[81],
+    # row 1
+    Literal[95],
+    Literal[72],
+    Literal[84],
+    Literal[99],
+    Literal[101],
+    Literal[87],
+    Literal[34],
+    Literal[79],
+    Literal[52],
+    # row 2
+    Literal[53],
+    Literal[83],
+    Literal[108],
+    Literal[109],
+    Literal[98],
+    Literal[31],
+    Literal[33],
+    Literal[41],
+    Literal[56]
+)

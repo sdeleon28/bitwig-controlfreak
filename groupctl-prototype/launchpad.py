@@ -1,4 +1,5 @@
 from events import (
+    Event,
     EventBus,
     LaunchpadEvent,
     TopButton,
@@ -124,3 +125,8 @@ class Launchpad:
     def paint_side_button(self, note: SideButton, color):
         self.port.send(mido.Message('note_on', note=note, velocity=color))
 
+
+    def notify(self, event: Event) -> None:
+        match event:
+            case LightPadUp(n=n, color=color):
+                self.paint_pad(s, color)
