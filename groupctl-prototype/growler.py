@@ -1,7 +1,7 @@
 from events import (
     EventBus,
     EventBusSubscriber,
-    RequestSelectGroupEvent,
+    RequestSelectGroup,
     PadClick,
 )
 
@@ -14,7 +14,7 @@ class Growler(EventBusSubscriber):
 
     def on(self, event) -> None:
         match event:
-            case RequestSelectGroupEvent(track_name=track_name):
+            case RequestSelectGroup(track_name=track_name):
                 self.growl(f"[GROUP] {track_name}")
             case PadClick(n=pad_n):
                 self.growl(f"[CLICKED PAD] {pad_n}")

@@ -1,6 +1,6 @@
 from events import (
     EventBus,
-    RequestSelectGroupEvent,
+    RequestSelectGroup,
     SchemaChanged,
 )
 from bitwig import Bitwig

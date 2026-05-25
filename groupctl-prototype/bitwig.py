@@ -3,7 +3,7 @@ from events import (
     EventBusSubscriber,
     BwTrackSelectedEvent,
     EventBus,
-    RequestSelectGroupEvent,
+    RequestSelectGroup,
 )
 
 class Bitwig(EventBusSubscriber):
@@ -22,5 +22,5 @@ class Bitwig(EventBusSubscriber):
 
     def on(self, event) -> None:
         match event:
-            case RequestSelectGroupEvent(track_id=track_id):
+            case RequestSelectGroup(track_id=track_id):
                 self.select_track(track_id)

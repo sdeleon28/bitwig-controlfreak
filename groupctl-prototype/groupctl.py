@@ -2,7 +2,7 @@ from typing import List
 from events import (
     EventBusSubscriber,
     EventBus,
-    RequestSelectGroupEvent,
+    RequestSelectGroup,
     PadClick,
     Event,
     SchemaChanged,
@@ -82,7 +82,7 @@ class GroupCtl(EventBusSubscriber):
                 track_name = self._track_position_to_name(pos)
                 if pos and track_id and track_name:
                     self.bus.send(
-                        RequestSelectGroupEvent(
+                        RequestSelectGroup(
                             track_id=track_id,
                             track_name=track_name,
                         ),

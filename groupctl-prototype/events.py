@@ -40,7 +40,7 @@ class DeviceSelected:
 
 
 @dataclass
-class RequestSelectGroupEvent:
+class RequestSelectGroup:
     track_id: str
     track_name: str
 
@@ -131,7 +131,7 @@ Event = (
     | SchemaChanged 
     | TrackParamChanged
     | DeviceSelected
-    | RequestSelectGroupEvent
+    | RequestSelectGroup
 )
 
 
