@@ -41,9 +41,6 @@ class Launchpad(EventBusSubscriber):
         col = note % 10   # 1 (left) .. 8 (right)
         return (row - 1) * 8 + col
 
-    def _emit(self, event: LaunchpadEvent):
-        self.bus.send(event)
-
     def _gs(self, key: tuple[str, int]) -> _GestureState:
         if key not in self._gestures:
             self._gestures[key] = _GestureState()
@@ -72,7 +69,7 @@ class Launchpad(EventBusSubscriber):
             gs.down_at = None
             return
         gs.down_at = None
-        self._emit(self._make_event(key, 'click'))
+        self.bus.send(self._make_event(key, 'click'))
 
     def poll(self):
         now = time.monotonic()
@@ -101,7 +98,7 @@ class Launchpad(EventBusSubscriber):
         for key, gs in self._gestures.items():
             if gs.down_at is not None and not gs.hold_emitted and now - gs.down_at >= HOLD_THRESHOLD:
                 gs.hold_emitted = True
-                self._emit(self._make_event(key, 'hold'))
+                self.bus.send(self._make_event(key, 'hold'))
 
     def clear(self):
         for i in range(128):
