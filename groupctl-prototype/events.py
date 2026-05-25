@@ -111,7 +111,7 @@ LaunchpadEvent = (
 )
 
 @dataclass
-class BwTrackSelectedEvent:
+class BwTrackSelected:
     track_id: str
 
 
@@ -121,7 +121,7 @@ class BwDeviceSelectedEvent:
 
 
 BwEvent = (
-    BwTrackSelectedEvent
+    BwTrackSelected
 )
 
 

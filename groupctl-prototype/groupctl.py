@@ -6,7 +6,7 @@ from events import (
     PadClick,
     Event,
     SchemaChanged,
-    BwTrackSelectedEvent,
+    BwTrackSelected,
     BwTrack,
     LightPadUp,
 ) 
@@ -87,7 +87,7 @@ class GroupCtl(EventBusSubscriber):
                             track_name=track_name,
                         ),
                     )
-            case BwTrackSelectedEvent(track_id=track_id):
+            case BwTrackSelected(track_id=track_id):
                 self.bus.send(
                     LightPadUp(
                         n=self._local_to_global_position(

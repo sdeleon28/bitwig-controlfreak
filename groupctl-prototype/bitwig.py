@@ -1,7 +1,7 @@
 from typing import List, Literal
 from events import (
     EventBusSubscriber,
-    BwTrackSelectedEvent,
+    BwTrackSelected,
     EventBus,
     RequestSelectGroup,
 )
@@ -15,7 +15,7 @@ class Bitwig(EventBusSubscriber):
         print("# select_track: ", track_id)
         # this is what the API should return
         self.bus.send(
-            BwTrackSelectedEvent(
+            BwTrackSelected(
                 track_id=track_id,
             ),
         )
