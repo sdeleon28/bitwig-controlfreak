@@ -6,11 +6,12 @@ from events import (
 )
 
 class Logger(EventBusSubscriber):
+    enabled = True
+
     def __init__(self, bus) -> None:
         self.bus = bus
         self.bus.subscribe(self)
 
     def notify(self, event: Event) -> None:
-        match event:
-            case SchemaChangedEvent(tracks=tracks):
-                print(f">>> SchemaChangedEvent: {tracks}")
+        if self.enabled:
+            print(event)

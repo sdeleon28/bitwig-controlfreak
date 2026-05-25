@@ -3,6 +3,7 @@ from events import (
     RequestSelectGroupEvent,
     SchemaChangedEvent,
 )
+from bitwig import Bitwig
 from growler import Growler
 from launchpad import Launchpad
 from groupctl import GroupCtl
@@ -15,6 +16,7 @@ def main():
     growler = Growler(bus)
     l = Launchpad(bus)
     groupctl = GroupCtl(bus)
+    bitwig = Bitwig(bus)
     bus.send(
         SchemaChangedEvent(
             tracks=track_structure_1,

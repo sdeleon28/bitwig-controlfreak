@@ -1,6 +1,7 @@
 from events import (
     Event,
     EventBus,
+    EventBusSubscriber,
     LaunchpadEvent,
     TopButton,
     SideButton,
@@ -10,6 +11,7 @@ from events import (
     TopButtonHold,
     SideButtonClick,
     SideButtonHold,
+    LightPadUp,
 )
 import time
 import mido
@@ -24,9 +26,10 @@ class _GestureState:
         self.hold_emitted: bool = False
 
 
-class Launchpad:
+class Launchpad(EventBusSubscriber):
     def __init__(self, bus: EventBus):
         self.bus = bus
+        self.bus.subscribe(self)
         self.port = mido.open_output('Launchpad MK2 12')
         self.input = mido.open_input('Launchpad MK2 12')
         self._gestures: dict[tuple[str, int], _GestureState] = {}
@@ -129,4 +132,4 @@ class Launchpad:
     def notify(self, event: Event) -> None:
         match event:
             case LightPadUp(n=n, color=color):
-                self.paint_pad(s, color)
+                self.paint_pad(n, color)

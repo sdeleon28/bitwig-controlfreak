@@ -1,4 +1,3 @@
-from functools import cached_property
 from typing import List
 from events import (
     EventBusSubscriber,
@@ -9,6 +8,7 @@ from events import (
     SchemaChangedEvent,
     BwTrackSelectedEvent,
     BwTrack,
+    LightPadUp,
 ) 
 
 
@@ -34,7 +34,8 @@ class GroupCtl(EventBusSubscriber):
         self.bus.subscribe(self)
         self.tracks: List[BwTrack] = []
 
-    @cached_property
+    # TODO: cache
+    @property
     def groups(self):
         without_refs = [
             t for t in self.tracks
@@ -67,12 +68,14 @@ class GroupCtl(EventBusSubscriber):
         """
         return GLOBAL_TO_LOCAL.get(n)
 
+    def _local_to_global_position(self, n: int) -> int | None:
+        local_to_global = dict([(b, a) for a, b in GLOBAL_TO_LOCAL.items()])
+        return local_to_global.get(n)
+
     def notify(self, event: Event) -> None:
         match event:
             case SchemaChangedEvent(tracks=tracks):
                 self.tracks = tracks
-                # invalidate cache
-                del self.groups
             case PadClick(n=n):
                 pos = self._global_to_local_position(n)
                 track_id = self._track_position_to_id(pos)
@@ -87,7 +90,9 @@ class GroupCtl(EventBusSubscriber):
             case BwTrackSelectedEvent(track_id=track_id):
                 self.bus.send(
                     LightPadUp(
-                        n=5,
+                        n=self._local_to_global_position(
+                            self._track_id_to_position(track_id),
+                        ),
                         color=108,
                     ),
                 )

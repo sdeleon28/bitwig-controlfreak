@@ -9,6 +9,7 @@ from events import (
 class Bitwig(EventBusSubscriber):
     def __init__(self, bus: EventBus) -> None:
         self.bus = bus
+        self.bus.subscribe(self)
 
     def select_track(self, track_id):
         print("# select_track: ", track_id)
