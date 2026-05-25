@@ -12,7 +12,7 @@ class Growler(EventBusSubscriber):
         self.bus = bus
         self.bus.subscribe(self)
 
-    def notify(self, event) -> None:
+    def on(self, event) -> None:
         match event:
             case RequestSelectGroupEvent(track_name=track_name):
                 self.growl(f"[GROUP] {track_name}")

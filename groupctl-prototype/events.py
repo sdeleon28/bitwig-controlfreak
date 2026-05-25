@@ -136,7 +136,7 @@ Event = (
 
 
 class EventBusSubscriber(Protocol):
-    def notify(self, event) -> None:
+    def on(self, event) -> None:
         ...
 
 
@@ -149,11 +149,11 @@ class EventBus:
         self._subscribers.append(subject)
         # TODO: should i do initial fanout?
         for e in self.get_all_events():
-            subject.notify(e)
+            subject.on(e)
 
     def _fanout(self, event: Event):
         for s in self._subscribers:
-            s.notify(event)
+            s.on(event)
 
     def send(self, *evs: List[Event]) -> None:
         for event in evs:

@@ -72,7 +72,7 @@ class GroupCtl(EventBusSubscriber):
         local_to_global = dict([(b, a) for a, b in GLOBAL_TO_LOCAL.items()])
         return local_to_global.get(n)
 
-    def notify(self, event: Event) -> None:
+    def on(self, event: Event) -> None:
         match event:
             case SchemaChangedEvent(tracks=tracks):
                 self.tracks = tracks

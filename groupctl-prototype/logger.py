@@ -12,6 +12,6 @@ class Logger(EventBusSubscriber):
         self.bus = bus
         self.bus.subscribe(self)
 
-    def notify(self, event: Event) -> None:
+    def on(self, event: Event) -> None:
         if self.enabled:
             print(event)

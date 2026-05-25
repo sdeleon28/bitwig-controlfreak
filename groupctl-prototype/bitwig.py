@@ -20,7 +20,7 @@ class Bitwig(EventBusSubscriber):
             ),
         )
 
-    def notify(self, event) -> None:
+    def on(self, event) -> None:
         match event:
             case RequestSelectGroupEvent(track_id=track_id):
                 self.select_track(track_id)

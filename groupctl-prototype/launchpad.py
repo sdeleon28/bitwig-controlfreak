@@ -126,7 +126,7 @@ class Launchpad(EventBusSubscriber):
         self.port.send(mido.Message('note_on', note=note, velocity=color))
 
 
-    def notify(self, event: Event) -> None:
+    def on(self, event: Event) -> None:
         match event:
             case LightPadUp(n=n, color=color):
                 self.paint_pad(n, color)
