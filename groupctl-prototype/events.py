@@ -155,7 +155,7 @@ class EventBus:
         for s in self._subscribers:
             s.on(event)
 
-    def send(self, *evs: List[Event]) -> None:
+    def send(self, *evs: Event) -> None:
         for event in evs:
             self.events.append(event)
             self._fanout(event)
