@@ -28,7 +28,7 @@ TrackParam = (
 
 
 @dataclass
-class TrackParamChangedEvent:
+class TrackParamChanged:
     track_id: str
     param: TrackParam
     new_value: int
@@ -129,7 +129,7 @@ Event = (
       LaunchpadEvent
     | BwEvent 
     | SchemaChanged 
-    | TrackParamChangedEvent
+    | TrackParamChanged
     | DeviceSelectedEvent
     | RequestSelectGroupEvent
 )
