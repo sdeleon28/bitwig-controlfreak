@@ -15,7 +15,7 @@ class GroupCtl(EventBusSubscriber):
         match event:
             # let's make it match any for now
             case PadClick(n=n):
-                self.bus.append(
+                self.bus.send(
                     RequestSelectGroupEvent(
                         # TODO: wire this up
                         track_id="1",

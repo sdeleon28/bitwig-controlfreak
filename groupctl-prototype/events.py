@@ -150,9 +150,8 @@ class EventBus:
             s.notify(event)
 
     # TODO
-    # [ ] rename to send
-    # [ ] collect sender
-    def append(self, event: Event) -> None:
+    # [ ] take *args
+    def send(self, event: Event) -> None:
         self.events.append(event)
         self._fanout(event)
 

@@ -15,7 +15,7 @@ def main():
     growler = Growler(bus)
     l = Launchpad(bus)
     groupctl = GroupCtl(bus)
-    bus.append(
+    bus.send(
         SchemaChangedEvent(
             tracks=track_structure_1,
         )

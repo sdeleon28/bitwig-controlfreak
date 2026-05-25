@@ -13,7 +13,7 @@ class Bitwig(EventBusSubscriber):
     def select_track(self, track_id):
         print("# select_track: ", track_id)
         # this is what the API should return
-        self.bus.append(
+        self.bus.send(
             BwTrackSelectedEvent(
                 track_id=track_id,
             ),

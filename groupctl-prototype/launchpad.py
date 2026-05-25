@@ -38,7 +38,7 @@ class Launchpad:
         return (row - 1) * 8 + col
 
     def _emit(self, event: LaunchpadEvent):
-        self.bus.append(event)
+        self.bus.send(event)
 
     def _gs(self, key: tuple[str, int]) -> _GestureState:
         if key not in self._gestures:
