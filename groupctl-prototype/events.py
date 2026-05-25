@@ -35,7 +35,7 @@ class TrackParamChanged:
 
 
 @dataclass
-class DeviceSelectedEvent:
+class DeviceSelected:
     device_id: str
 
 
@@ -130,7 +130,7 @@ Event = (
     | BwEvent 
     | SchemaChanged 
     | TrackParamChanged
-    | DeviceSelectedEvent
+    | DeviceSelected
     | RequestSelectGroupEvent
 )
 
