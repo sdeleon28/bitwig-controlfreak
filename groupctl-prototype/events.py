@@ -116,7 +116,7 @@ class BwTrackSelected:
 
 
 @dataclass
-class BwDeviceSelectedEvent:
+class BwDeviceSelected:
     track_id: str
 
 
