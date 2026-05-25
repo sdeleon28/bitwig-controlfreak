@@ -2,7 +2,7 @@ from events import (
     Event,
     EventBus,
     EventBusSubscriber,
-    SchemaChangedEvent,
+    SchemaChanged,
 )
 
 class Logger(EventBusSubscriber):

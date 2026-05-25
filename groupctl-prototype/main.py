@@ -1,7 +1,7 @@
 from events import (
     EventBus,
     RequestSelectGroupEvent,
-    SchemaChangedEvent,
+    SchemaChanged,
 )
 from bitwig import Bitwig
 from growler import Growler
@@ -18,7 +18,7 @@ def main():
     groupctl = GroupCtl(bus)
     bitwig = Bitwig(bus)
     bus.send(
-        SchemaChangedEvent(
+        SchemaChanged(
             tracks=track_structure_1,
         )
     )

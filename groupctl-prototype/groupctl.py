@@ -5,7 +5,7 @@ from events import (
     RequestSelectGroupEvent,
     PadClick,
     Event,
-    SchemaChangedEvent,
+    SchemaChanged,
     BwTrackSelectedEvent,
     BwTrack,
     LightPadUp,
@@ -74,7 +74,7 @@ class GroupCtl(EventBusSubscriber):
 
     def on(self, event: Event) -> None:
         match event:
-            case SchemaChangedEvent(tracks=tracks):
+            case SchemaChanged(tracks=tracks):
                 self.tracks = tracks
             case PadClick(n=n):
                 pos = self._global_to_local_position(n)

@@ -15,7 +15,7 @@ class BwTrack:
 
 
 @dataclass
-class SchemaChangedEvent:
+class SchemaChanged:
     tracks: List[BwTrack]
 
 
@@ -128,7 +128,7 @@ BwEvent = (
 Event = (
       LaunchpadEvent
     | BwEvent 
-    | SchemaChangedEvent 
+    | SchemaChanged 
     | TrackParamChangedEvent
     | DeviceSelectedEvent
     | RequestSelectGroupEvent
