@@ -23,13 +23,11 @@ def main():
             tracks=track_structure_1,
         )
     )
-    # try:
-    #     while True:
-    #         l.poll()
-    # except KeyboardInterrupt:
-    #     l.clear()
-    test_ui = TestUi()
-    test_ui.run()
+    test_ui = TestUi(on_tick=l.poll)
+    try:
+        test_ui.run()
+    finally:
+        l.clear()
 
 
 if __name__ == '__main__':
