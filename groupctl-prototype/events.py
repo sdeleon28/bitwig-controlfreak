@@ -19,6 +19,11 @@ class SchemaChanged:
     tracks: List[BwTrack]
 
 
+@dataclass
+class TempoChanged:
+    tempo: int
+
+
 TrackParam = (
       Literal["volume"] 
     | Literal["pan"]
@@ -150,7 +155,8 @@ class BwDeviceSelected:
 
 
 BwEvent = (
-    BwTrackSelected
+      BwTrackSelected
+    | TempoChanged
 )
 
 

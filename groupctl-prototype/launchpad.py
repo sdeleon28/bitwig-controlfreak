@@ -144,7 +144,6 @@ class Launchpad(EventBusSubscriber):
             channel=_CH_PULSE))
 
     def send_clock_tick(self) -> None:
-        """Relay one beat-clock pulse (0xF8) to the Launchpad."""
         self.port.send(mido.Message('clock'))
 
     def paint_top_button(self, cc: TopButton, color):

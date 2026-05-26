@@ -1,12 +1,12 @@
 from events import (
     EventBus,
     RequestSelectGroup,
-    BlinkPad,
-    PulsePad,
+    SchemaChanged,
 )
 from bitwig import Bitwig
 from growler import Growler
 from launchpad import Launchpad
+from ticker import Ticker
 from twister import Twister
 from groupctl import GroupCtl
 from fixtures import track_structure_1
@@ -21,19 +21,20 @@ def main():
     t = Twister(bus)
     groupctl = GroupCtl(bus)
     bitwig = Bitwig(bus)
+    ticker = Ticker(bus)
     bus.send(
-        BlinkPad(
-            n=1,
-            color=123,
-        ),
-        PulsePad(
-            n=2,
-            color=123,
+        SchemaChanged(
+            tracks=track_structure_1,
         )
     )
+    def _on_tick():
+        l.poll()
+        t.poll()
+        ticker.poll()
+
     test_ui = TestUi(
         bus,
-        on_tick=lambda: l.poll() and t.poll()
+        on_tick=_on_tick,
     )
     try:
         test_ui.run()

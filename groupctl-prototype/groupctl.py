@@ -1,6 +1,7 @@
 from typing import List
 from colors import BITIWG_TO_LAUNCHPAD_COLORS, BwColor, LaunchpadColor
 from events import (
+    BlinkPad,
     EventBusSubscriber,
     EventBus,
     RequestSelectGroup,
@@ -34,6 +35,7 @@ class GroupCtl(EventBusSubscriber):
         self.bus = bus
         self.bus.subscribe(self)
         self.tracks: List[BwTrack] = []
+        self.selected_group_id = None
 
     # TODO: cache
     @property
@@ -83,7 +85,12 @@ class GroupCtl(EventBusSubscriber):
             position = self._local_to_global_position(gt.position)
             color = self._bw_to_launchpad_color(gt.color)
             if position and color:
-                self.bus.send(LightPadUp(n=position, color=color))
+                event_cls = (
+                    BlinkPad
+                    if gt.id == self.selected_group_id
+                    else LightPadUp
+                )
+                self.bus.send(event_cls(n=position, color=color))
 
     def on(self, event: Event) -> None:
         match event:
@@ -105,15 +112,5 @@ class GroupCtl(EventBusSubscriber):
                         ),
                     )
             case BwTrackSelected(track_id=track_id):
-                local_pos = self._track_id_to_position(track_id)
-                if local_pos:
-                    global_pos = self._local_to_global_position(
-                        local_pos,
-                    )
-                    if global_pos:
-                        self.bus.send(
-                            LightPadUp(
-                                n=global_pos,
-                                color=108,
-                            ),
-                        )
+                self.selected_group_id = track_id
+                self._repaint_groups()
