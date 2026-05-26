@@ -1,13 +1,13 @@
 from textual.app import ComposeResult
 from textual.widget import Widget
+from textual.widgets import Label
 from events import EventBus
 from testui.slider import Slider
 from testui.palette import Palette
 
-
-class Track(Widget):
+class TrackControls(Widget):
     DEFAULT_CSS = """
-    Track {
+    TrackControls {
         layout: horizontal;
     }
     """
@@ -26,3 +26,20 @@ class Track(Widget):
             title="Changed",
             severity="information",
         )
+
+class Track(Widget):
+    DEFAULT_CSS = """
+    Track {
+        layout: vertical;
+        height: 5;
+    }
+    """
+
+    def __init__(self, bus: EventBus, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.bus = bus
+
+    def compose(self) -> ComposeResult:
+        yield Label("Track")
+        yield TrackControls(self.bus)
+

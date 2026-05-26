@@ -1,6 +1,7 @@
 from typing import Callable
 from textual.app import App, ComposeResult
 from events import EventBus
+from testui.tempo import Tempo
 from testui.track import Track
 
 
@@ -10,7 +11,11 @@ POLL_INTERVAL = 1 / 120
 
 
 class TestUi(App):
-    CSS_PATH = "testui.tcss"
+    DEFAULT_CSS = """
+    TestUi {
+        layout: vertical;
+    }
+    """
 
     def __init__(
         self,
@@ -26,4 +31,5 @@ class TestUi(App):
             self.set_interval(POLL_INTERVAL, self._on_tick)
 
     def compose(self) -> ComposeResult:
+        yield Tempo(self.bus)
         yield Track(self.bus)
