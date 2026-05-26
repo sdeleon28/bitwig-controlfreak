@@ -117,7 +117,10 @@ class SideButtonHold:
 
 
 LaunchpadEvent = (
-      PadClick        | PadHold
+    # input events
+      LightPadUp
+    # output events
+    | PadClick        | PadHold
     | TopButtonClick  | TopButtonHold
     | SideButtonClick | SideButtonHold
 )

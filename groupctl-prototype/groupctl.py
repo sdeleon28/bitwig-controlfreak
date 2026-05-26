@@ -50,6 +50,7 @@ class GroupCtl(EventBusSubscriber):
         for track in self.groups:
             if track.id == track_id:
                 return track.position
+        return None
 
     def _track_position_to_id(self, position: int):
         for track in self.groups:
@@ -78,8 +79,11 @@ class GroupCtl(EventBusSubscriber):
                 self.tracks = tracks
             case PadClick(n=n):
                 pos = self._global_to_local_position(n)
-                track_id = self._track_position_to_id(pos)
-                track_name = self._track_position_to_name(pos)
+                track_id = None
+                track_name = None
+                if pos:
+                    track_id = self._track_position_to_id(pos)
+                    track_name = self._track_position_to_name(pos)
                 if pos and track_id and track_name:
                     self.bus.send(
                         RequestSelectGroup(
@@ -88,11 +92,15 @@ class GroupCtl(EventBusSubscriber):
                         ),
                     )
             case BwTrackSelected(track_id=track_id):
-                self.bus.send(
-                    LightPadUp(
-                        n=self._local_to_global_position(
-                            self._track_id_to_position(track_id),
-                        ),
-                        color=108,
-                    ),
-                )
+                local_pos = self._track_id_to_position(track_id)
+                if local_pos:
+                    global_pos = self._local_to_global_position(
+                        local_pos,
+                    )
+                    if global_pos:
+                        self.bus.send(
+                            LightPadUp(
+                                n=global_pos,
+                                color=108,
+                            ),
+                        )
