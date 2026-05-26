@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, Dict
 
 BwColor = (
     # row 0
@@ -34,8 +34,41 @@ BwColor = (
     | Literal["208,184,218"] # lightest purple
 )
 
+TwisterColor = (
+    # row 0
+      Literal[0]
+    | Literal[0]
+    | Literal[31]
+    | Literal[0]
+    | Literal[76]
+    | Literal[72]
+    | Literal[123]
+    | Literal[126]
+    | Literal[107]
+    # row 1
+    | Literal[87]
+    | Literal[85]
+    | Literal[79]
+    | Literal[71]
+    | Literal[42]
+    | Literal[44]
+    | Literal[37]
+    | Literal[27]
+    | Literal[103]
+    # row 2
+    | Literal[88]
+    | Literal[80]
+    | Literal[71]
+    | Literal[66]
+    | Literal[41]
+    | Literal[42]
+    | Literal[36]
+    | Literal[19]
+    | Literal[93]
+)
 
-BITIWG_TO_TWISTER_COLORS = {
+
+BITIWG_TO_TWISTER_COLORS: Dict[BwColor, TwisterColor] = {
     # row 0
     '84,84,82':     0,
     '122,122,122':  0,
@@ -98,39 +131,40 @@ BITIWG_TO_LAUNCHPAD_COLORS = {
     "62,184,96":    31,
     "66,210,182":   33,
     "68,200,254":   41,
-    "208,184,218":  56
+    "208,184,218":  56,
 }
 
 
 LaunchpadColor = (
     # row 0
-    Literal[0],
-    Literal[103],
-    Literal[70],
-    Literal[112],
-    Literal[83],
-    Literal[108],
-    Literal[69],
-    Literal[49],
-    Literal[81],
+      Literal[0]
+    | Literal[103]
+    | Literal[70]
+    | Literal[112]
+    | Literal[83]
+    | Literal[108]
+    | Literal[69]
+    | Literal[49]
+    | Literal[81]
     # row 1
-    Literal[95],
-    Literal[72],
-    Literal[84],
-    Literal[99],
-    Literal[101],
-    Literal[87],
-    Literal[34],
-    Literal[79],
-    Literal[52],
+    | Literal[95]
+    | Literal[72]
+    | Literal[84]
+    | Literal[99]
+    | Literal[101]
+    | Literal[87]
+    | Literal[34]
+    | Literal[79]
+    | Literal[52]
     # row 2
-    Literal[53],
-    Literal[83],
-    Literal[108],
-    Literal[109],
-    Literal[98],
-    Literal[31],
-    Literal[33],
-    Literal[41],
-    Literal[56]
+    | Literal[53]
+    | Literal[83]
+    | Literal[108]
+    | Literal[109]
+    | Literal[98]
+    | Literal[31]
+    | Literal[33]
+    | Literal[41]
+    | Literal[56]
 )
+

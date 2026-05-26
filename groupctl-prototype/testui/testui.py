@@ -1,5 +1,6 @@
 from typing import Callable
 from textual.app import App, ComposeResult
+from events import EventBus
 from testui.track import Track
 
 
@@ -11,8 +12,13 @@ POLL_INTERVAL = 1 / 120
 class TestUi(App):
     CSS_PATH = "testui.tcss"
 
-    def __init__(self, on_tick: Callable[[], None] | None = None):
+    def __init__(
+        self,
+        bus: EventBus,
+        on_tick: Callable[[], None] | None = None
+    ):
         super().__init__()
+        self.bus = bus
         self._on_tick = on_tick
 
     def on_mount(self) -> None:
@@ -20,4 +26,4 @@ class TestUi(App):
             self.set_interval(POLL_INTERVAL, self._on_tick)
 
     def compose(self) -> ComposeResult:
-        yield Track()
+        yield Track(self.bus)

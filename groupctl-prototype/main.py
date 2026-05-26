@@ -6,6 +6,7 @@ from events import (
 from bitwig import Bitwig
 from growler import Growler
 from launchpad import Launchpad
+from twister import Twister
 from groupctl import GroupCtl
 from fixtures import track_structure_1
 from logger import Logger
@@ -16,6 +17,7 @@ def main():
     logger = Logger(bus)
     growler = Growler(bus)
     l = Launchpad(bus)
+    t = Twister(bus)
     groupctl = GroupCtl(bus)
     bitwig = Bitwig(bus)
     bus.send(
@@ -23,7 +25,10 @@ def main():
             tracks=track_structure_1,
         )
     )
-    test_ui = TestUi(on_tick=l.poll)
+    test_ui = TestUi(
+        bus,
+        on_tick=lambda: l.poll() and t.poll()
+    )
     try:
         test_ui.run()
     finally:

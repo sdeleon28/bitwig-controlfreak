@@ -1,7 +1,7 @@
 from typing import List, Literal, Protocol
 from enum import IntEnum
 from dataclasses import dataclass
-from colors import BwColor, LaunchpadColor
+from colors import BwColor, LaunchpadColor, TwisterColor
 
 
 @dataclass
@@ -45,6 +45,17 @@ class RequestSelectGroup:
     track_name: str
 
 
+# BEGIN: Twister
+@dataclass
+class ChangeEncoderColor:
+    n: int
+    color: TwisterColor
+
+TwisterEvent = (
+    ChangeEncoderColor
+)
+# END: Twister
+
 # BEGIN: Launchpad
 class TopButton(IntEnum):
     up = 104
@@ -66,6 +77,7 @@ class SideButton(IntEnum):
     mute = 39
     solo = 29
     record_arm = 19
+
 
 @dataclass
 class LightPadUp:
@@ -127,6 +139,7 @@ BwEvent = (
 
 Event = (
       LaunchpadEvent
+    | TwisterEvent
     | BwEvent 
     | SchemaChanged 
     | TrackParamChanged
