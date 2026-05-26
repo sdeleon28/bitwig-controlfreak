@@ -1,4 +1,5 @@
 from typing import List
+from colors import BITIWG_TO_LAUNCHPAD_COLORS, BwColor, LaunchpadColor
 from events import (
     EventBusSubscriber,
     EventBus,
@@ -36,7 +37,7 @@ class GroupCtl(EventBusSubscriber):
 
     # TODO: cache
     @property
-    def groups(self):
+    def groups(self) -> List[BwTrack]:
         without_refs = [
             t for t in self.tracks
             if "top refs" not in t.name
@@ -73,10 +74,22 @@ class GroupCtl(EventBusSubscriber):
         local_to_global = dict([(b, a) for a, b in GLOBAL_TO_LOCAL.items()])
         return local_to_global.get(n)
 
+    def _bw_to_launchpad_color(self, color: BwColor) -> LaunchpadColor | None:
+        return BITIWG_TO_LAUNCHPAD_COLORS.get(color)
+
+    def _repaint_groups(self) -> None:
+        groups = self.groups
+        for gt in groups:
+            position = self._local_to_global_position(gt.position)
+            color = self._bw_to_launchpad_color(gt.color)
+            if position and color:
+                self.bus.send(LightPadUp(n=position, color=color))
+
     def on(self, event: Event) -> None:
         match event:
             case SchemaChanged(tracks=tracks):
                 self.tracks = tracks
+                self._repaint_groups()
             case PadClick(n=n):
                 pos = self._global_to_local_position(n)
                 track_id = None
