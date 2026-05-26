@@ -12,12 +12,20 @@ from events import (
     SideButtonClick,
     SideButtonHold,
     LightPadUp,
+    BlinkPad,
+    PulsePad,
+    Tick,
 )
+from colors import LaunchpadColor
 import time
 import mido
 
 
 HOLD_THRESHOLD = 0.4
+
+_CH_STATIC = 0  # 0x90
+_CH_FLASH = 1   # 0x91
+_CH_PULSE = 2   # 0x92
 
 
 class _GestureState:
@@ -110,14 +118,34 @@ class Launchpad(EventBusSubscriber):
         for i in range(128):
             self.port.send(mido.Message('note_on', note=i, velocity=0))
 
-    def paint_pad(self, n, color):
+    def _pad_n_to_note(self, n: int) -> int:
+        """1-64 pad index (bottom-to-top, left-to-right) -> MK2 grid note 11-88."""
         rest = (n % 8)
         row = (n // 8) + 1
         if rest:
-            note = (10 * row) + rest
-        else:
-            note = (10 * (row - 1)) + 8
-        self.port.send(mido.Message('note_on', note=note, velocity=color))
+            return (10 * row) + rest
+        return (10 * (row - 1)) + 8
+
+    def paint_pad(self, n, color):
+        self.port.send(mido.Message(
+            'note_on', note=self._pad_n_to_note(n), velocity=color,
+            channel=_CH_STATIC))
+
+    def blink_pad(self, n: int, color: LaunchpadColor) -> None:
+        note = self._pad_n_to_note(n)
+        self.port.send(mido.Message(
+            'note_on', note=note, velocity=0, channel=_CH_STATIC))
+        self.port.send(mido.Message(
+            'note_on', note=note, velocity=int(color), channel=_CH_FLASH))
+
+    def pulse_pad(self, n: int, color: LaunchpadColor) -> None:
+        self.port.send(mido.Message(
+            'note_on', note=self._pad_n_to_note(n), velocity=int(color),
+            channel=_CH_PULSE))
+
+    def send_clock_tick(self) -> None:
+        """Relay one beat-clock pulse (0xF8) to the Launchpad."""
+        self.port.send(mido.Message('clock'))
 
     def paint_top_button(self, cc: TopButton, color):
         self.port.send(mido.Message('control_change', control=cc, value=color))
@@ -129,3 +157,9 @@ class Launchpad(EventBusSubscriber):
         match event:
             case LightPadUp(n=n, color=color):
                 self.paint_pad(n, color)
+            case BlinkPad(n=n, color=color):
+                self.blink_pad(n, color)
+            case PulsePad(n=n, color=color):
+                self.pulse_pad(n, color)
+            case Tick():
+                self.send_clock_tick()

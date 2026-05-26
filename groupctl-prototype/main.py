@@ -1,7 +1,8 @@
 from events import (
     EventBus,
     RequestSelectGroup,
-    SchemaChanged,
+    BlinkPad,
+    PulsePad,
 )
 from bitwig import Bitwig
 from growler import Growler
@@ -21,8 +22,13 @@ def main():
     groupctl = GroupCtl(bus)
     bitwig = Bitwig(bus)
     bus.send(
-        SchemaChanged(
-            tracks=track_structure_1,
+        BlinkPad(
+            n=1,
+            color=123,
+        ),
+        PulsePad(
+            n=2,
+            color=123,
         )
     )
     test_ui = TestUi(

@@ -86,6 +86,18 @@ class LightPadUp:
 
 
 @dataclass
+class BlinkPad:
+    n: int
+    color: LaunchpadColor
+
+
+@dataclass
+class PulsePad:
+    n: int
+    color: LaunchpadColor
+
+
+@dataclass
 class PadClick:
     n: int
 
@@ -117,9 +129,11 @@ class SideButtonHold:
 
 
 LaunchpadEvent = (
-    # input events
+    # paint events
       LightPadUp
-    # output events
+    | BlinkPad
+    | PulsePad
+    # input events
     | PadClick        | PadHold
     | TopButtonClick  | TopButtonHold
     | SideButtonClick | SideButtonHold
@@ -140,14 +154,20 @@ BwEvent = (
 )
 
 
+@dataclass
+class Tick:
+    pass
+
+
 Event = (
       LaunchpadEvent
     | TwisterEvent
-    | BwEvent 
-    | SchemaChanged 
+    | BwEvent
+    | SchemaChanged
     | TrackParamChanged
     | DeviceSelected
     | RequestSelectGroup
+    | Tick
 )
 
 
