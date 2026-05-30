@@ -35,7 +35,7 @@ class GroupCtl(EventBusSubscriber):
         self.bus = bus
         self.bus.subscribe(self)
         self.tracks: List[BwTrack] = []
-        self.selected_group_id = None
+        self.selected_group_id: str | None = None
 
     # TODO: cache
     @property
