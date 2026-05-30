@@ -1,0 +1,18 @@
+# ROADMAP
+
+[ ] group state (bottom right quadrant)
+[ ] track state (bottom left quadrant)
+    [ ] recall tracks from selected group and color them
+    [ ] mute mode
+    [ ] solo mode
+    [ ] rec mode
+    [ ] select mode?
+    [ ] special 16 pad
+        [ ] mute / solo / rec group (depending on selected mode)
+[ ] map encoders to groups
+    [ ] volume mode
+    [ ] pan mode
+[ ] map encoders to tracks
+[ ] send mode
+    [ ] reverse engineer how it works on the other one
+[-] pager
