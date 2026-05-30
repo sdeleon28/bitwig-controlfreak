@@ -6,6 +6,7 @@ from events import (
 from bitwig import Bitwig
 from growler import Growler
 from launchpad import Launchpad
+from pager import Pager
 from ticker import Ticker
 from twister import Twister
 from groupctl import GroupCtl
@@ -22,6 +23,7 @@ def main():
     groupctl = GroupCtl(bus)
     bitwig = Bitwig(bus)
     ticker = Ticker(bus)
+    pager = Pager(bus)
     bus.send(
         SchemaChanged(
             tracks=track_structure_1,

@@ -15,6 +15,7 @@ from events import (
     BlinkPad,
     PulsePad,
     Tick,
+    PaintTopButton,
 )
 from colors import LaunchpadColor
 import time
@@ -154,6 +155,11 @@ class Launchpad(EventBusSubscriber):
 
     def on(self, event: Event) -> None:
         match event:
+            case PaintTopButton(
+                button=button,
+                color=color,
+            ):
+                self.paint_top_button(button, color)
             case LightPadUp(n=n, color=color):
                 self.paint_pad(n, color)
             case BlinkPad(n=n, color=color):

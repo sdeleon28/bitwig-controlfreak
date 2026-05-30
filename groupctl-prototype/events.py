@@ -123,6 +123,12 @@ class TopButtonHold:
 
 
 @dataclass
+class PaintTopButton:
+    button: TopButton
+    color: LaunchpadColor
+
+
+@dataclass
 class SideButtonClick:
     button: SideButton
 
@@ -138,6 +144,7 @@ LaunchpadEvent = (
       LightPadUp
     | BlinkPad
     | PulsePad
+    | PaintTopButton
     # input events
     | PadClick        | PadHold
     | TopButtonClick  | TopButtonHold
