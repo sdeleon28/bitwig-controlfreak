@@ -32,7 +32,7 @@ GLOBAL_TO_LOCAL = {
 }
 
 
-class GroupCtl(EventBusSubscriber):
+class LaunchpadGroupCtl(EventBusSubscriber):
     def __init__(self, bus: EventBus) -> None:
         self.bus = bus
         self.bus.subscribe(self)

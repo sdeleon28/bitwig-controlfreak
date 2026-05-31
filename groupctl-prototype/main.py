@@ -9,7 +9,7 @@ from launchpad import Launchpad
 from pager import Pager
 from ticker import Ticker
 from twister import Twister
-from groupctl import GroupCtl
+from groupctl import LaunchpadGroupCtl
 from trackctl import LaunchpadTrackCtl
 from volpanctl import VolPanCtl
 from modectl import ModeCtl
@@ -23,7 +23,7 @@ def main():
     growler = Growler(bus)
     l = Launchpad(bus)
     t = Twister(bus)
-    groupctl = GroupCtl(bus)
+    groupctl = LaunchpadGroupCtl(bus)
     trackctl = LaunchpadTrackCtl(bus)
     volpanctl = VolPanCtl(bus)
     modectl = ModeCtl(bus)
