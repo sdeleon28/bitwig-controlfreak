@@ -180,6 +180,11 @@ class Log:
     message: str
 
 
+@dataclass
+class PageSelected:
+    n: int
+
+
 Event = (
       LaunchpadEvent
     | TwisterEvent
@@ -190,6 +195,7 @@ Event = (
     | RequestSelectGroup
     | Tick
     | Log
+    | PageSelected
 )
 
 

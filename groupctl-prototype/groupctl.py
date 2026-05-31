@@ -4,6 +4,7 @@ from events import (
     BlinkPad,
     EventBusSubscriber,
     EventBus,
+    PageSelected,
     RequestSelectGroup,
     PadClick,
     Event,
@@ -11,7 +12,9 @@ from events import (
     BwTrackSelected,
     BwTrack,
     LightPadUp,
-) 
+    Log,
+)
+from pager import Page 
 
 
 def flatten(tracks: List[BwTrack]):
@@ -36,6 +39,7 @@ class GroupCtl(EventBusSubscriber):
         self.bus.subscribe(self)
         self.tracks: List[BwTrack] = []
         self.selected_group_id: str | None = None
+        self.page_active: bool = True
 
     # TODO: cache
     @property
@@ -79,7 +83,10 @@ class GroupCtl(EventBusSubscriber):
     def _bw_to_launchpad_color(self, color: BwColor) -> LaunchpadColor | None:
         return BITIWG_TO_LAUNCHPAD_COLORS.get(color)
 
-    def _repaint_groups(self) -> None:
+    def _repaint(self) -> None:
+        if not self.page_active:
+            self.bus.send(Log("not repainting"))
+            return
         groups = self.groups
         for gt in groups:
             position = self._local_to_global_position(gt.position)
@@ -96,8 +103,8 @@ class GroupCtl(EventBusSubscriber):
         match event:
             case SchemaChanged(tracks=tracks):
                 self.tracks = tracks
-                self._repaint_groups()
-            case PadClick(n=n):
+                self._repaint()
+            case PadClick(n=n) if self.page_active:
                 pos = self._global_to_local_position(n)
                 track_id = None
                 track_name = None
@@ -113,4 +120,7 @@ class GroupCtl(EventBusSubscriber):
                     )
             case BwTrackSelected(track_id=track_id):
                 self.selected_group_id = track_id
-                self._repaint_groups()
+                self._repaint()
+            case PageSelected(n=n):
+                self.page_active = n == 0
+                self._repaint()

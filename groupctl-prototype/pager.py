@@ -3,9 +3,11 @@ from events import (
     Event,
     EventBus,
     EventBusSubscriber,
+    LightPadUp,
     PaintTopButton,
     TopButton,
     TopButtonClick,
+    PageSelected,
 )
 
 
@@ -29,17 +31,24 @@ class Pager(EventBusSubscriber):
     def _prev_page(self):
         if self.current_page > 0:
             self.current_page -= 1
+            self._clear()
             self._repaint()
+            self.bus.send(PageSelected(self.current_page))
             # FIXME: send PageSelected event
         
     def _next_page(self):
         if self.current_page < self._get_page_count() - 1:
             self.current_page += 1
+            self._clear()
             self._repaint()
+            self.bus.send(PageSelected(self.current_page))
             # FIXME: send PageSelected event
 
+    def _clear(self):
+        for i in range(1, 65):
+            self.bus.send(LightPadUp(n=i, color=0))
+
     def _repaint(self):
-        # clear
         self.bus.send(PaintTopButton(button=TopButton.up, color=0))
         self.bus.send(PaintTopButton(button=TopButton.down, color=0))
         if self.current_page != 0:
