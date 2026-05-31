@@ -10,7 +10,7 @@ from pager import Pager
 from ticker import Ticker
 from twister import Twister
 from groupctl import GroupCtl
-from trackctl import TrackCtl
+from trackctl import LaunchpadTrackCtl
 from volpanctl import VolPanCtl
 from modectl import ModeCtl
 from fixtures import track_structure_1
@@ -24,7 +24,7 @@ def main():
     l = Launchpad(bus)
     t = Twister(bus)
     groupctl = GroupCtl(bus)
-    trackctl = TrackCtl(bus)
+    trackctl = LaunchpadTrackCtl(bus)
     volpanctl = VolPanCtl(bus)
     modectl = ModeCtl(bus)
     bitwig = Bitwig(bus)

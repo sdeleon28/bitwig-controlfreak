@@ -29,7 +29,7 @@ GLOBAL_TO_LOCAL = {
 }
 
 
-class TrackCtl(EventBusSubscriber):
+class LaunchpadTrackCtl(EventBusSubscriber):
     def __init__(self, bus: EventBus) -> None:
         self.bus = bus
         self.bus.subscribe(self)
