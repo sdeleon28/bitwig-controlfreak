@@ -3,6 +3,7 @@ from events import (
     EventBus,
     EventBusSubscriber,
     LaunchpadEvent,
+    PaintSideButton,
     TopButton,
     SideButton,
     PadClick,
@@ -160,6 +161,11 @@ class Launchpad(EventBusSubscriber):
                 color=color,
             ):
                 self.paint_top_button(button, color)
+            case PaintSideButton(
+                button=button,
+                color=color,
+            ):
+                self.paint_side_button(button, color)
             case LightPadUp(n=n, color=color):
                 self.paint_pad(n, color)
             case BlinkPad(n=n, color=color):

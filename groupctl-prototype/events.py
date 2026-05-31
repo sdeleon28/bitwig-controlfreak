@@ -53,6 +53,16 @@ class RequestSelectGroup:
     track_name: str
 
 
+@dataclass
+class VolModeSelected:
+    pass
+
+
+@dataclass
+class PanModeSelected:
+    pass
+
+
 # BEGIN: Twister
 @dataclass
 class ChangeEncoderColor:
@@ -132,6 +142,12 @@ class PaintTopButton:
 
 
 @dataclass
+class PaintSideButton:
+    button: SideButton
+    color: LaunchpadColor
+
+
+@dataclass
 class SideButtonClick:
     button: SideButton
 
@@ -147,7 +163,7 @@ LaunchpadEvent = (
       LightPadUp
     | BlinkPad
     | PulsePad
-    | PaintTopButton
+    | PaintTopButton  | PaintSideButton
     # input events
     | PadClick        | PadHold
     | TopButtonClick  | TopButtonHold
@@ -196,6 +212,8 @@ Event = (
     | Tick
     | Log
     | PageSelected
+    | VolModeSelected
+    | PanModeSelected
 )
 
 

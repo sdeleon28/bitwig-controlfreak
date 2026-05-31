@@ -5,9 +5,11 @@ from events import (
     EventBusSubscriber,
     LightPadUp,
     PaintTopButton,
+    SideButton,
     TopButton,
     TopButtonClick,
     PageSelected,
+    PaintSideButton,
 )
 
 
@@ -45,6 +47,12 @@ class Pager(EventBusSubscriber):
             # FIXME: send PageSelected event
 
     def _clear(self):
+        self.bus.send(
+            PaintSideButton(button=SideButton.volume, color=0)
+        )
+        self.bus.send(
+            PaintSideButton(button=SideButton.pan, color=0)
+        )
         for i in range(1, 65):
             self.bus.send(LightPadUp(n=i, color=0))
 
