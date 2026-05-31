@@ -16,7 +16,7 @@ from events import (
 from pager import Page 
 
 
-def flatten(tracks: List[BwTrack]):
+def flatten(tracks: List[BwTrack]) -> List[BwTrack]:
     result = []
     for track in tracks:
         result.append(track)
@@ -49,7 +49,7 @@ class LaunchpadGroupCtl(EventBusSubscriber):
         ]
         return [
             t for t in flatten(without_refs)
-            if t.depth in [0, 1]
+            if t.depth in [0, 1] and t.children
         ]
 
     def _track_id_to_position(self, track_id: str) -> int | None:
