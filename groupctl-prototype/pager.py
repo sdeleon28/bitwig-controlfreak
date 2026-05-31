@@ -48,10 +48,14 @@ class Pager(EventBusSubscriber):
 
     def _clear(self):
         self.bus.send(
-            PaintSideButton(button=SideButton.volume, color=0)
-        )
-        self.bus.send(
-            PaintSideButton(button=SideButton.pan, color=0)
+            PaintSideButton(button=SideButton.volume, color=0),
+            PaintSideButton(button=SideButton.pan, color=0),
+            PaintSideButton(button=SideButton.send_a, color=0),
+            PaintSideButton(button=SideButton.send_b, color=0),
+            PaintSideButton(button=SideButton.stop, color=0),
+            PaintSideButton(button=SideButton.mute, color=0),
+            PaintSideButton(button=SideButton.solo, color=0),
+            PaintSideButton(button=SideButton.record_arm, color=0),
         )
         for i in range(1, 65):
             self.bus.send(LightPadUp(n=i, color=0))
