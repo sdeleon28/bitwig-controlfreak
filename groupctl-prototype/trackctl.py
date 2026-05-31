@@ -8,6 +8,7 @@ from events import (
     EventBus,
     EventBusSubscriber,
     LightPadUp,
+    PageSelected,
     SchemaChanged,
 )
 
@@ -34,6 +35,7 @@ class TrackCtl(EventBusSubscriber):
         self.bus.subscribe(self)
         self.tracks: List[BwTrack] = []
         self.selected_track_id: str | None = None
+        self.page_active: bool = True
 
     # TODO: cache
     @property
@@ -82,7 +84,9 @@ class TrackCtl(EventBusSubscriber):
                 )
             )
 
-    def _repaint_tracks(self) -> None:
+    def _paint(self) -> None:
+        if not self.page_active:
+            return
         tracks = self.tracks_in_selected_group
         self._clear_quadrant()
         for t in tracks:
@@ -104,8 +108,11 @@ class TrackCtl(EventBusSubscriber):
         match event:
             case SchemaChanged(tracks=tracks):
                 self.tracks = tracks
-                self._repaint_tracks()
+                self._paint()
             case BwTrackSelected(track_id=track_id):
                 self.selected_track_id = track_id
                 if self._is_group(track_id):
-                    self._repaint_tracks()
+                    self._paint()
+            case PageSelected(n=n):
+                self.page_active = n == 0
+                self._paint()

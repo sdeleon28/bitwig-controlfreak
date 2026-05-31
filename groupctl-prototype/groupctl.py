@@ -12,7 +12,6 @@ from events import (
     BwTrackSelected,
     BwTrack,
     LightPadUp,
-    Log,
 )
 from pager import Page 
 
@@ -83,9 +82,8 @@ class GroupCtl(EventBusSubscriber):
     def _bw_to_launchpad_color(self, color: BwColor) -> LaunchpadColor | None:
         return BITIWG_TO_LAUNCHPAD_COLORS.get(color)
 
-    def _repaint(self) -> None:
+    def _paint(self) -> None:
         if not self.page_active:
-            self.bus.send(Log("not repainting"))
             return
         groups = self.groups
         for gt in groups:
@@ -103,7 +101,7 @@ class GroupCtl(EventBusSubscriber):
         match event:
             case SchemaChanged(tracks=tracks):
                 self.tracks = tracks
-                self._repaint()
+                self._paint()
             case PadClick(n=n) if self.page_active:
                 pos = self._global_to_local_position(n)
                 track_id = None
@@ -120,7 +118,7 @@ class GroupCtl(EventBusSubscriber):
                     )
             case BwTrackSelected(track_id=track_id):
                 self.selected_group_id = track_id
-                self._repaint()
+                self._paint()
             case PageSelected(n=n):
                 self.page_active = n == 0
-                self._repaint()
+                self._paint()
