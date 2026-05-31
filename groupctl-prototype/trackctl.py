@@ -1,9 +1,16 @@
 from typing import List
-from colors import BITIWG_TO_LAUNCHPAD_COLORS, BwColor, LaunchpadColor, TwisterColor
+from colors import (
+    BITIWG_TO_LAUNCHPAD_COLORS,
+    BITIWG_TO_TWISTER_COLORS,
+    BwColor,
+    LaunchpadColor,
+    TwisterColor,
+)
 from events import (
     BlinkPad,
     BwTrack,
     BwTrackSelected,
+    ChangeEncoderColor,
     Event,
     EventBus,
     EventBusSubscriber,
@@ -29,13 +36,12 @@ GLOBAL_TO_LOCAL = {
 }
 
 
-class LaunchpadTrackCtl(EventBusSubscriber):
+class TrackCtl(EventBusSubscriber):
     def __init__(self, bus: EventBus) -> None:
         self.bus = bus
         self.bus.subscribe(self)
         self.tracks: List[BwTrack] = []
         self.selected_track_id: str | None = None
-        self.page_active: bool = True
 
     # TODO: cache
     @property
@@ -64,6 +70,16 @@ class LaunchpadTrackCtl(EventBusSubscriber):
             if track.id == track_id:
                 return track
         return None
+
+    def _is_group(self, track_id: str) -> bool:
+        gids = [g.id for g in self.groups]
+        return track_id in gids
+
+
+class LaunchpadTrackCtl(TrackCtl):
+    def __init__(self, bus: EventBus) -> None:
+        super().__init__(bus)
+        self.page_active: bool = True
 
     def _local_to_global_position(self, n: int) -> int | None:
         local_to_global = dict([(b, a) for a, b in GLOBAL_TO_LOCAL.items()])
@@ -100,10 +116,6 @@ class LaunchpadTrackCtl(EventBusSubscriber):
                 )
                 self.bus.send(event_cls(n=position, color=color))
 
-    def _is_group(self, track_id: str) -> bool:
-        gids = [g.id for g in self.groups]
-        return track_id in gids
-
     def on(self, event: Event) -> None:
         match event:
             case SchemaChanged(tracks=tracks):
@@ -116,3 +128,34 @@ class LaunchpadTrackCtl(EventBusSubscriber):
             case PageSelected(n=n):
                 self.page_active = n == 0
                 self._paint()
+
+
+class TwisterTrackCtl(TrackCtl):
+    def __init__(self, bus: EventBus) -> None:
+        super().__init__(bus)
+
+    def _clear(self) -> None:
+        for n in range(1, 17):
+            self.bus.send(ChangeEncoderColor(n=n, color=0))
+
+    def _bw_to_twister_color(self, color: BwColor) -> TwisterColor | None:
+        return BITIWG_TO_TWISTER_COLORS.get(color)
+
+    def _paint(self) -> None:
+        tracks = self.tracks_in_selected_group
+        self._clear()
+        for t in tracks:
+            color = self._bw_to_twister_color(t.color)
+            if not color:
+                continue
+            self.bus.send(ChangeEncoderColor(n=t.position, color=color))
+
+    def on(self, event: Event) -> None:
+        match event:
+            case SchemaChanged(tracks=tracks):
+                self.tracks = tracks
+                self._paint()
+            case BwTrackSelected(track_id=track_id):
+                self.selected_track_id = track_id
+                if self._is_group(track_id):
+                    self._paint()
