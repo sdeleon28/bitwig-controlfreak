@@ -10,6 +10,7 @@ from pager import Pager
 from ticker import Ticker
 from twister import Twister
 from groupctl import GroupCtl
+from trackctl import TrackCtl
 from fixtures import track_structure_1
 from logger import Logger
 from testui.testui import TestUi
@@ -21,6 +22,7 @@ def main():
     l = Launchpad(bus)
     t = Twister(bus)
     groupctl = GroupCtl(bus)
+    trackctl = TrackCtl(bus)
     bitwig = Bitwig(bus)
     ticker = Ticker(bus)
     pager = Pager(bus)

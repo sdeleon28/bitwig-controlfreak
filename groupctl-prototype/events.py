@@ -13,6 +13,9 @@ class BwTrack:
     depth: Literal[0] | Literal[1] | Literal[2]
     children: List["BwTrack"]
 
+    def __eq__(self, other):
+        return self.id == other.id
+
 
 @dataclass
 class SchemaChanged:
@@ -172,6 +175,11 @@ class Tick:
     pass
 
 
+@dataclass
+class Log:
+    message: str
+
+
 Event = (
       LaunchpadEvent
     | TwisterEvent
@@ -181,6 +189,7 @@ Event = (
     | DeviceSelected
     | RequestSelectGroup
     | Tick
+    | Log
 )
 
 

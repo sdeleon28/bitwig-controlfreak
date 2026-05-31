@@ -3,6 +3,7 @@ from events import (
     EventBus,
     EventBusSubscriber,
     SchemaChanged,
+    Tick,
 )
 
 class Logger(EventBusSubscriber):
@@ -15,4 +16,8 @@ class Logger(EventBusSubscriber):
 
     def on(self, event: Event) -> None:
         if self.enabled:
-            print(event, file=self._file)
+            match event:
+                case Tick():
+                    return
+                case _:
+                    print(event, file=self._file)

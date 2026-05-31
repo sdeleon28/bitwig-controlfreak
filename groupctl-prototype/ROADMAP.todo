@@ -1,17 +1,22 @@
 # ROADMAP
 
 [X] pager
-[ ] group state (bottom right quadrant)
-    [ ] page guard
-[ ] track state (bottom left quadrant)
-    [ ] recall tracks from selected group and color them
-    [ ] mute mode
-    [ ] solo mode
-    [ ] rec mode
-    [ ] select mode?
+[ ] testui
+    [ ] show full track layout
+[-] track state (bottom left quadrant)
+    [X] recall tracks from selected group and color them
+    [ ] modes
+        [ ] mute mode
+        [ ] solo mode
+        [ ] rec mode
+        [ ] select mode?
     [ ] special 16 pad
         [ ] mute / solo / rec group (depending on selected mode)
     [ ] page guard
+[ ] group state (bottom right quadrant)
+    [ ] page guard
+[ ] go through TODOs
+[ ] go through FIXMEs
 [ ] device state (bottom left quadrant?)
 [ ] send mode
     [ ] reverse engineer how it works on the other one
