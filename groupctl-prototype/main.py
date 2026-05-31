@@ -10,10 +10,10 @@ from pager import Pager
 from ticker import Ticker
 from twister import Twister
 from groupctl import LaunchpadGroupCtl
-from trackctl import LaunchpadTrackCtl
+from trackctl import LaunchpadTrackCtl, TwisterTrackCtl
 from volpanctl import VolPanCtl
 from modectl import ModeCtl
-from fixtures import track_structure_1
+from fixtures import complete_fixture
 from logger import Logger
 from testui.testui import TestUi
 
@@ -23,8 +23,9 @@ def main():
     growler = Growler(bus)
     l = Launchpad(bus)
     t = Twister(bus)
-    groupctl = LaunchpadGroupCtl(bus)
-    trackctl = LaunchpadTrackCtl(bus)
+    launchopad_groupctl = LaunchpadGroupCtl(bus)
+    launchpad_trackctl = LaunchpadTrackCtl(bus)
+    twister_trackctl = TwisterTrackCtl(bus)
     volpanctl = VolPanCtl(bus)
     modectl = ModeCtl(bus)
     bitwig = Bitwig(bus)
@@ -32,7 +33,7 @@ def main():
     pager = Pager(bus)
     bus.send(
         SchemaChanged(
-            tracks=track_structure_1,
+            tracks=complete_fixture,
         )
     )
     def _on_tick():
