@@ -1,0 +1,15 @@
+# GroupCtl Bitwig extension build tasks
+
+ext_name := "GroupCtl.bwextension"
+bitwig_ext_dir := env_var('HOME') / "Documents/Bitwig Studio/Extensions"
+
+# Compile + deploy (default)
+default: compile deploy
+
+# Build the .bwextension via maven (rename happens at the install phase)
+compile:
+    mvn install
+
+# Copy the built .bwextension into Bitwig's Extensions directory
+deploy:
+    cp "target/{{ext_name}}" "{{bitwig_ext_dir}}/{{ext_name}}"
