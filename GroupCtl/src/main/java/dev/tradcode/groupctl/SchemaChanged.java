@@ -11,6 +11,10 @@ public class SchemaChanged extends Event {
 
     @Override
     public String toString() {
-        return schema.toString();
+        String out = "========================================\n";
+        for (BitwigTrack t : schema)
+            out += t.toString();
+        out += "========================================\n";
+        return out;
     }
 }

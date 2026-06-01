@@ -38,6 +38,7 @@ public class BitwigSchemaTracker {
         this.mainTrackBank = host.createTrackBank(TRACKS_COUNT, FX_TRACKS_COUNT, SCENES_COUNT);
         for (int i = 0; i < TRACKS_COUNT; i++) {
             rawCache[i] = new TrackCache();
+            rawCache[i].id = i;
             final int j = i;
             Track t = getTrack(i);
             t.exists().addValueObserver(v -> {
@@ -76,6 +77,8 @@ public class BitwigSchemaTracker {
         bt.id = t.id;
         bt.name = t.name;
         bt.isGroup = t.isGroup;
+        bt.mute = t.mute;
+        bt.solo = t.solo;
         bt.depth = 0; // TODO
         bt.children = new ArrayList<BitwigTrack>(); // TODO
         return bt;
