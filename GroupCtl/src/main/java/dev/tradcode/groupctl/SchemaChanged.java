@@ -1,0 +1,16 @@
+package dev.tradcode.groupctl;
+
+import java.util.ArrayList;
+
+public class SchemaChanged extends Event {
+    ArrayList<BitwigTrack> schema;
+
+    public SchemaChanged(ArrayList<BitwigTrack> schema) {
+        this.schema = schema;
+    }
+
+    @Override
+    public String toString() {
+        return schema.toString();
+    }
+}

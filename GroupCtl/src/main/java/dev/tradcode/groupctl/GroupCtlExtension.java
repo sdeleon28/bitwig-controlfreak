@@ -8,6 +8,10 @@ import com.bitwig.extension.controller.ControllerExtension;
 
 public class GroupCtlExtension extends ControllerExtension
 {
+   BitwigSchemaTracker schemaTracker;
+   EventBus eventBus;
+   Logger logger;
+
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
    {
       super(definition, host);
@@ -23,6 +27,10 @@ public class GroupCtlExtension extends ControllerExtension
       host.getMidiInPort(0).setSysexCallback((String data) -> onSysex0(data));
       host.getMidiInPort(1).setMidiCallback((ShortMidiMessageReceivedCallback)msg -> onMidi1(msg));
       host.getMidiInPort(1).setSysexCallback((String data) -> onSysex1(data));
+
+      eventBus = new EventBus();
+      logger = new Logger(eventBus, host);
+      schemaTracker = new BitwigSchemaTracker(host, eventBus);
 
       // TODO: Perform your driver initialization here.
       // For now just show a popup notification for verification that it is running.
@@ -40,6 +48,7 @@ public class GroupCtlExtension extends ControllerExtension
    @Override
    public void flush()
    {
+       schemaTracker.flush();
       // TODO Send any updates you need here.
    }
 
