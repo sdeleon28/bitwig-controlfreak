@@ -3,7 +3,8 @@ package dev.tradcode.groupctl;
 import java.util.ArrayList;
 
 public class BitwigTrack {
-    Integer id;
+    Integer id; // index of the track in our internal cache
+    Integer channelIndex; // bw channel index
     String name;
     boolean isGroup;
     boolean mute;

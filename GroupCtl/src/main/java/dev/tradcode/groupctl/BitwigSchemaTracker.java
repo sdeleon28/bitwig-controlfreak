@@ -16,6 +16,7 @@ class TrackCache {
     boolean mute;
     boolean solo;
     String trackType;
+    int channelIndex;
 }
 
 public class BitwigSchemaTracker {
@@ -65,6 +66,10 @@ public class BitwigSchemaTracker {
                 rawCache[j].trackType = v;
                 cacheDirty = true;
             });
+            t.channelIndex().addValueObserver(v -> {
+                rawCache[j].channelIndex = v;
+                cacheDirty = true;
+            });
         }
     }
 
@@ -79,6 +84,7 @@ public class BitwigSchemaTracker {
         bt.isGroup = t.isGroup;
         bt.mute = t.mute;
         bt.solo = t.solo;
+        bt.channelIndex = t.channelIndex;
         bt.depth = 0; // TODO
         bt.children = new ArrayList<BitwigTrack>(); // TODO
         return bt;
