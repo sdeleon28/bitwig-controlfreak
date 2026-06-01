@@ -30,6 +30,7 @@ public class BitwigSchemaTracker {
     TrackCache[] rawCache = new TrackCache[TRACKS_COUNT];
     ArrayList<BitwigTrack> tracks = new ArrayList<BitwigTrack>();
     ArrayList<Integer> trackDepths;
+    boolean cacheDirty = false;
 
     protected BitwigSchemaTracker(ControllerHost host, EventBus bus) {
         this.host = host;
@@ -39,12 +40,30 @@ public class BitwigSchemaTracker {
             rawCache[i] = new TrackCache();
             final int j = i;
             Track t = getTrack(i);
-            t.exists().addValueObserver(v -> rawCache[j].exists = v);
-            t.name().addValueObserver(v -> rawCache[j].name = v);
-            t.isGroup().addValueObserver(v -> rawCache[j].isGroup = v);
-            t.mute().addValueObserver(v -> rawCache[j].mute = v);
-            t.solo().addValueObserver(v -> rawCache[j].solo = v);
-            t.trackType().addValueObserver(v -> rawCache[j].trackType = v);
+            t.exists().addValueObserver(v -> {
+                rawCache[j].exists = v;
+                cacheDirty = true;
+            });
+            t.name().addValueObserver(v -> {
+                rawCache[j].name = v;
+                cacheDirty = true;
+            });
+            t.isGroup().addValueObserver(v -> {
+                rawCache[j].isGroup = v;
+                cacheDirty = true;
+            });
+            t.mute().addValueObserver(v -> {
+                rawCache[j].mute = v;
+                cacheDirty = true;
+            });
+            t.solo().addValueObserver(v -> {
+                rawCache[j].solo = v;
+                cacheDirty = true;
+            });
+            t.trackType().addValueObserver(v -> {
+                rawCache[j].trackType = v;
+                cacheDirty = true;
+            });
         }
     }
 
@@ -63,9 +82,8 @@ public class BitwigSchemaTracker {
     }
 
     public void flush() {
-        // TODO: in case this gets hammered, it might be better to have a separate cacheDirty field
-        // that indicates whether there have been updates to the raw cache. schemaDirty is about
-        // the structured cache.
+        if (!this.cacheDirty)
+            return;
         boolean schemaDirty = false;
         List<Integer> ids = tracks
             .stream()
@@ -77,15 +95,23 @@ public class BitwigSchemaTracker {
                 t.exists
                 && t.trackType != "Master"
                 && t.trackType != "Effect"
-                && !ids.contains(t.id)
             ) {
-                tracks.add(cacheToTrackDef(t));
-                schemaDirty = true;
+                if (ids.contains(t.id)) {
+                    BitwigTrack newTrack = cacheToTrackDef(t);
+                    BitwigTrack oldTrack = tracks.get(t.id);
+                    if (!newTrack.equals(oldTrack)) {
+                        tracks.set(i, newTrack);
+                        schemaDirty = true;
+                    }
+                }
+                else {
+                    tracks.add(cacheToTrackDef(t));
+                    schemaDirty = true;
+                }
             }
-            // TODO: when id.contains(t.id) and tracks aren't identical, replace
         }
-        if (schemaDirty) {
+        if (schemaDirty)
             this.bus.send(new SchemaChanged(this.tracks));
-        }
+        this.cacheDirty = false;
     }
 }
