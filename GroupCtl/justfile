@@ -2,6 +2,8 @@
 
 ext_name := "GroupCtl.bwextension"
 bitwig_ext_dir := env_var('HOME') / "Documents/Bitwig Studio/Extensions"
+bitwig_bin := "/Applications/Bitwig Studio.app/Contents/MacOS/BitwigStudio"
+debug_port := "5005"
 
 # Compile + deploy (default)
 default: compile deploy
@@ -13,3 +15,99 @@ compile:
 # Copy the built .bwextension into Bitwig's Extensions directory
 deploy:
     cp "target/{{ext_name}}" "{{bitwig_ext_dir}}/{{ext_name}}"
+
+# Dotted Java package every source class lives under; used to pick the
+# relevant frame out of a failure's stack trace.
+pkg := "dev.tradcode.groupctl"
+
+# Run the full JUnit 5 suite (human-readable Maven output).
+test:
+    mvn test
+
+# Run the suite and emit failures/errors as quickfix lines:
+#   path/to/File.java:LINE:COL: message
+# Covers both compilation errors and test failures/errors. Always exits 0 so
+# editors can load whatever it prints; empty output means everything passed.
+# Mapped to <leader>0 in .lvimrc.
+test-qf:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    log="$(mktemp)"
+    rm -rf target/surefire-reports
+    # -B disables ANSI colour so the log stays grep-friendly.
+    mvn -q -B test >"$log" 2>&1 || true
+
+    # Both sections below are deduped at the end: Maven echoes compile errors
+    # twice (compile phase + final summary), and `!seen[$0]++` keeps first hit.
+    {
+    # 1) javac errors: "[ERROR] /abs/Foo.java:[12,34] cannot find symbol"
+    grep -E '\.java:\[[0-9]+,[0-9]+\]' "$log" \
+      | sed -E 's/^\[ERROR\][[:space:]]*//' \
+      | sed -E 's#^(.*\.java):\[([0-9]+),([0-9]+)\][[:space:]]*#\1:\2:\3: #'
+
+    # 2) test failures/errors: parse the plain-text surefire reports. For each
+    #    failing method take its message line and the first stack frame inside
+    #    our own package — that's the assertion/throw site.
+    if compgen -G 'target/surefire-reports/*.txt' >/dev/null; then
+      awk -v pkg="{{pkg}}" '
+        /<<< (FAILURE|ERROR)!/ && $0 !~ /^Tests run:/ { state=1; msg=""; next }
+        state==1 && msg=="" && $0 !~ /^[ \t]*$/ {
+            msg=$0; sub(/^[ \t]+/, "", msg); state=2; next
+        }
+        state==2 && $0 ~ ("at[ \t]+" pkg "\\.") && $0 ~ /\.java:[0-9]+\)/ {
+            p=$0; sub(/.*\(/, "", p); sub(/\).*/, "", p);     # File.java:NN
+            n=split(p, a, ":"); ln=a[n];
+            q=$0; sub(/.*at[ \t]+/, "", q); sub(/\(.*/, "", q); # pkg.Class.method
+            sub(/\.[^.]+$/, "", q); gsub(/\./, "/", q);         # pkg/Class
+            printf "%s.java\t%s\t%s\n", q, ln, msg;
+            state=0; next
+        }
+      ' target/surefire-reports/*.txt \
+      | while IFS=$'\t' read -r rel ln msg; do
+          for base in src/test/java src/main/java; do
+            if [ -f "$base/$rel" ]; then
+              printf '%s:%s:1: %s\n' "$base/$rel" "$ln" "$msg"
+              break
+            fi
+          done
+        done
+    fi
+    } | awk '!seen[$0]++'
+
+    rm -f "$log"
+
+# The extension runs inside the Bitwig Audio Engine, a child process whose
+# embedded JVM honors JAVA_TOOL_OPTIONS, so we enable JDWP there and attach
+# from nvim-dap (see .lvimrc for the dap config).
+#
+# Build, deploy, and relaunch Bitwig ready for remote debugging.
+debug: compile deploy launch-debug
+
+# (Re)launch Bitwig with JDWP enabled on {{debug_port}}.
+launch-debug:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PORT="{{debug_port}}"
+    BIN="{{bitwig_bin}}"
+    # The JDWP agent must be present when the audio-engine JVM starts, so a
+    # running Bitwig has to be restarted. Quit gracefully (you'll get the
+    # native save prompt if there are unsaved changes).
+    if pgrep -x BitwigStudio >/dev/null 2>&1; then
+      echo "Quitting running Bitwig Studio (save prompts may appear)…"
+      osascript -e 'quit app "Bitwig Studio"' || true
+      for _ in $(seq 1 40); do
+        pgrep -x BitwigStudio >/dev/null 2>&1 || break
+        sleep 0.5
+      done
+    fi
+    if pgrep -x BitwigStudio >/dev/null 2>&1; then
+      echo "Bitwig is still running; quit it and retry." >&2
+      exit 1
+    fi
+    echo "Launching Bitwig with JDWP on 127.0.0.1:${PORT} (suspend=n)…"
+    JAVA_TOOL_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=127.0.0.1:${PORT}" \
+      nohup "$BIN" >/tmp/bitwig-debug.log 2>&1 &
+    disown || true
+    echo "When Bitwig is up, attach from nvim: <leader>dd → 'Attach to Bitwig'."
+    echo "Verify the agent loaded:"
+    echo "  grep 'Listening for transport' ~/Library/Logs/Bitwig/BitwigStudio.log"
