@@ -3,10 +3,10 @@ package dev.tradcode.groupctl;
 import com.bitwig.extension.controller.api.ControllerHost;
 
 public class Logger implements IEventBusSubscriber {
-    EventBus bus;
+    IEventBus bus;
     ControllerHost host;
 
-    public Logger(EventBus bus, ControllerHost host) {
+    public Logger(IEventBus bus, ControllerHost host) {
         this.bus = bus;
         this.bus.subscribe(this);
         this.host = host;

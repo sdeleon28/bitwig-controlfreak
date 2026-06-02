@@ -9,7 +9,7 @@ import com.bitwig.extension.controller.ControllerExtension;
 public class GroupCtlExtension extends ControllerExtension
 {
    BitwigSchemaTracker schemaTracker;
-   EventBus eventBus;
+   IEventBus eventBus;
    Logger logger;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)

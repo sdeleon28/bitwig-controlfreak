@@ -2,7 +2,7 @@ package dev.tradcode.groupctl;
 
 import java.util.ArrayList;
 
-public class EventBus {
+public class EventBus implements IEventBus {
     ArrayList<IEventBusSubscriber> subs = new ArrayList<IEventBusSubscriber>();
 
     public EventBus() {}
