@@ -13,6 +13,7 @@ public class BitwigTrack {
     public boolean solo;
     public int depth; // (0=top, 1=child, 2=grandchild)
     public ArrayList<BitwigTrack> children;
+    public String color;
 
     public int getPosition() {
         Pattern pattern = Pattern.compile("\\((\\d+)\\)");
@@ -31,7 +32,16 @@ public class BitwigTrack {
     public String toString() {
         String s = this.solo ? "S" : "-";
         String m = this.mute ? "M" : "-";
-        String out = name + " | " + s + m + " -> " + getPosition() + "\n";
+        String out = name
+            + " | "
+            + s
+            + m
+            + " -> "
+            + getPosition()
+            + " ["
+            + this.color
+            + "]"
+            + "\n";
         for (BitwigTrack t : children) {
             String[] lines = t.toString().split("\n");
             for (String l : lines)
