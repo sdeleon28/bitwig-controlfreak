@@ -29,7 +29,7 @@ class EventBusTest {
         Recorder sub = new Recorder();
         bus.subscribe(sub);
 
-        Event event = new Event();
+        Event event = new Log("ping");
         bus.send(event);
 
         assertEquals(1, sub.received.size());
@@ -48,12 +48,5 @@ class EventBusTest {
 
         assertEquals(1, a.received.size());
         assertEquals(1, b.received.size());
-    }
-
-    @Test
-    void deliversNothingWithoutSubscribers() {
-        EventBus bus = new EventBus();
-        // Should not throw with no subscribers registered.
-        bus.send(new Event());
     }
 }

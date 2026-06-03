@@ -31,9 +31,9 @@ public class LaunchpadOutput implements IEventBusSubscriber {
     }
 
     public void on(Event event) {
-        if (event instanceof PaintPad) {
-            PaintPad e = (PaintPad) event;
-            this.paintPad(e.n, e.color);
+        switch (event) {
+            case PaintPad(int n, int color) -> this.paintPad(n, color);
+            default -> { }
         }
     }
 

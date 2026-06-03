@@ -2,7 +2,7 @@ package dev.tradcode.groupctl;
 
 import dev.tradcode.groupctl.events.Event;
 
-public class Log extends Event {
+public class Log implements Event {
     public String message;
 
     public Log(String message) {

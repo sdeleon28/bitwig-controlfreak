@@ -2,7 +2,7 @@ package dev.tradcode.groupctl.events;
 
 import java.util.ArrayList;
 
-public class SchemaChanged extends Event {
+public class SchemaChanged implements Event {
     ArrayList<BitwigTrack> schema;
 
     public SchemaChanged(ArrayList<BitwigTrack> schema) {
