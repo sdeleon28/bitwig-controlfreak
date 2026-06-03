@@ -17,6 +17,7 @@ public class GroupCtlExtension extends ControllerExtension
    Logger logger;
    LaunchpadOutput launchpadOut;
    LaunchpadInput launchpadIn;
+   TwisterInput twisterIn;
    Growler growler;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
@@ -40,6 +41,7 @@ public class GroupCtlExtension extends ControllerExtension
       schemaTracker = new BitwigSchemaTracker(host, eventBus);
       launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
       launchpadIn = new LaunchpadInput(eventBus, host.getMidiInPort(0));
+      twisterIn = new TwisterInput(eventBus, host.getMidiInPort(1));
       growler = new Growler(eventBus, host);
       eventBus.send(new PaintPad(55, 60));
 

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.EventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
+import dev.tradcode.groupctl.events.Log;
 
 class EventBusTest {
 
