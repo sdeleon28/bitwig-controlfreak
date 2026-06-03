@@ -84,9 +84,9 @@ class BitwigSchemaTrackerTest {
 
         String expected = (
             "========================================\n" +
-            "Group 1 (1) | --\n" +
-            "    Inst 1 (1) | S-\n" +
-            "    Audio 2 (2) | --\n" +
+            "Group 1 (1) | -- -> 1\n" +
+            "    Inst 1 (1) | S- -> 1\n" +
+            "    Audio 2 (2) | -- -> 2\n" +
             "========================================\n"
         );
         assertEquals(expected, repr);
