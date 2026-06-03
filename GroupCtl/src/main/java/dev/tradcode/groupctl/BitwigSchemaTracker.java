@@ -84,7 +84,10 @@ public class BitwigSchemaTracker {
                 cacheDirty = true;
             });
             t.color().addValueObserver((r, g, b) -> {
-                rawCache[j].color = r + "," + g + "," + b;
+                int r255 = Math.round(r * 255);
+                int g255 = Math.round(g * 255);
+                int b255 = Math.round(b * 255);
+                rawCache[j].color = r255 + "," + g255 + "," + b255;
                 cacheDirty = true;
             });
         }
