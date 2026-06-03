@@ -111,32 +111,23 @@ public class BitwigSchemaTracker {
             return res;
         }
 
-        int nextI = -1;
-        if (nextTrack.name.startsWith("top")) {
-            for (int i = 1; i < tracks.size(); i++) {
-                BitwigTrack t = tracks.get(i);
-                nextI = i;
-                if (t.isGroup && t.name.startsWith("top")) {
-                    break;
-                }
-            }
-        } else {
-            // track is group but not top
-            for (int i = 1; i < tracks.size(); i++) {
-                BitwigTrack t = tracks.get(i);
-                nextI = i;
-                if (t.isGroup) {
-                    break;
-                }
+        int boundary = tracks.size();
+        boolean topGroup = nextTrack.name.startsWith("top");
+        for (int i = 1; i < tracks.size(); i++) {
+            BitwigTrack t = tracks.get(i);
+            boolean isNextSibling = topGroup
+                ? (t.isGroup && t.name.startsWith("top"))
+                : t.isGroup;
+            if (isNextSibling) {
+                boundary = i;
+                break;
             }
         }
-        assert nextI != -1;
-        nextI++;
 
-        nextTrack.children = getStructuredTracks(tracks.subList(1, nextI));
+        nextTrack.children = getStructuredTracks(tracks.subList(1, boundary));
         res.add(nextTrack);
-        if (nextI != tracks.size()) {
-            res.addAll(getStructuredTracks(tracks.subList(nextI, tracks.size())));
+        if (boundary != tracks.size()) {
+            res.addAll(getStructuredTracks(tracks.subList(boundary, tracks.size())));
         }
         return res;
     }
