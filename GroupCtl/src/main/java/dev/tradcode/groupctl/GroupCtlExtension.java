@@ -50,7 +50,7 @@ public class GroupCtlExtension extends ControllerExtension
    public void exit()
    {
       getHost().showPopupNotification("GroupCtl Exited");
-      launchpad.clear();
+      launchpadOut.clear();
    }
 
    @Override
