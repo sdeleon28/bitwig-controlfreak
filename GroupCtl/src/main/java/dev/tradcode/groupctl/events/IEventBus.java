@@ -1,6 +1,6 @@
-package dev.tradcode.groupctl;
+package dev.tradcode.groupctl.events;
 
-interface IEventBus {
+public interface IEventBus {
     public void subscribe(IEventBusSubscriber sub);
     public void send(Event event);
 }

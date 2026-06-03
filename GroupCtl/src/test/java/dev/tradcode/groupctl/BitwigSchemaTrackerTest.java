@@ -3,6 +3,10 @@ package dev.tradcode.groupctl;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
+import dev.tradcode.groupctl.events.Event;
+import dev.tradcode.groupctl.events.IEventBus;
+import dev.tradcode.groupctl.events.IEventBusSubscriber;
+
 import java.util.ArrayList;
 
 class FakeEventBus implements IEventBus {

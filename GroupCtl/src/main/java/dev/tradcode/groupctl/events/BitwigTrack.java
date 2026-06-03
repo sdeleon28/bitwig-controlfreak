@@ -1,18 +1,18 @@
-package dev.tradcode.groupctl;
+package dev.tradcode.groupctl.events;
 
 import java.util.ArrayList;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public class BitwigTrack {
-    Integer id; // index of the track in our internal cache
-    Integer channelIndex; // bw channel index
-    String name;
-    boolean isGroup;
-    boolean mute;
-    boolean solo;
-    int depth; // (0=top, 1=child, 2=grandchild)
-    ArrayList<BitwigTrack> children;
+    public Integer id; // index of the track in our internal cache
+    public Integer channelIndex; // bw channel index
+    public String name;
+    public boolean isGroup;
+    public boolean mute;
+    public boolean solo;
+    public int depth; // (0=top, 1=child, 2=grandchild)
+    public ArrayList<BitwigTrack> children;
 
     public int getPosition() {
         Pattern pattern = Pattern.compile("\\((\\d+)\\)");

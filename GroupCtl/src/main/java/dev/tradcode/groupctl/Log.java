@@ -1,5 +1,7 @@
 package dev.tradcode.groupctl;
 
+import dev.tradcode.groupctl.events.Event;
+
 public class Log extends Event {
     public String message;
 

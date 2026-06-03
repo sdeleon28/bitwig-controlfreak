@@ -6,6 +6,9 @@ import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Transport;
 import com.bitwig.extension.controller.ControllerExtension;
 
+import dev.tradcode.groupctl.events.EventBus;
+import dev.tradcode.groupctl.events.IEventBus;
+
 public class GroupCtlExtension extends ControllerExtension
 {
    BitwigSchemaTracker schemaTracker;

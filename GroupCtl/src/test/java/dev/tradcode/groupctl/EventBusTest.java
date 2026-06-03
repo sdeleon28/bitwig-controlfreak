@@ -7,6 +7,10 @@ import java.util.ArrayList;
 
 import org.junit.jupiter.api.Test;
 
+import dev.tradcode.groupctl.events.Event;
+import dev.tradcode.groupctl.events.EventBus;
+import dev.tradcode.groupctl.events.IEventBusSubscriber;
+
 class EventBusTest {
 
     /** Collects every event it receives so tests can assert on delivery. */

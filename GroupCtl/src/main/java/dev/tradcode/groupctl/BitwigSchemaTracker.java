@@ -8,6 +8,10 @@ import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Track;
 import com.bitwig.extension.controller.api.TrackBank;
 
+import dev.tradcode.groupctl.events.SchemaChanged;
+import dev.tradcode.groupctl.events.BitwigTrack;
+import dev.tradcode.groupctl.events.IEventBus;
+
 class TrackCache {
     boolean exists;
     Integer id;
