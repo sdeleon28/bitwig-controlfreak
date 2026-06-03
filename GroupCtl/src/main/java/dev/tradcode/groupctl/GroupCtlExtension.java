@@ -8,12 +8,14 @@ import com.bitwig.extension.controller.ControllerExtension;
 
 import dev.tradcode.groupctl.events.EventBus;
 import dev.tradcode.groupctl.events.IEventBus;
+import dev.tradcode.groupctl.events.PaintPad;
 
 public class GroupCtlExtension extends ControllerExtension
 {
    BitwigSchemaTracker schemaTracker;
    IEventBus eventBus;
    Logger logger;
+   LaunchpadOutput launchpad;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
    {
@@ -34,31 +36,28 @@ public class GroupCtlExtension extends ControllerExtension
       eventBus = new EventBus();
       logger = new Logger(eventBus, host);
       schemaTracker = new BitwigSchemaTracker(host, eventBus);
+      launchpad = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
+      eventBus.send(new PaintPad(55, 60));
 
-      // TODO: Perform your driver initialization here.
-      // For now just show a popup notification for verification that it is running.
       host.showPopupNotification("GroupCtl Initialized");
    }
 
    @Override
    public void exit()
    {
-      // TODO: Perform any cleanup once the driver exits
-      // For now just show a popup notification for verification that it is no longer running.
       getHost().showPopupNotification("GroupCtl Exited");
+      launchpad.clear();
    }
 
    @Override
    public void flush()
    {
        schemaTracker.flush();
-      // TODO Send any updates you need here.
    }
 
    /** Called when we receive short MIDI message on port 0. */
    private void onMidi0(ShortMidiMessage msg) 
    {
-      // TODO: Implement your MIDI input handling code here.
    }
 
    /** Called when we receive sysex MIDI message on port 0. */
@@ -76,13 +75,11 @@ public class GroupCtlExtension extends ControllerExtension
       else if (data.equals("f07f7f0606f7"))
             mTransport.record();
    }
-   /** Called when we receive short MIDI message on port 1. */
+
    private void onMidi1(ShortMidiMessage msg) 
    {
-      // TODO: Implement your MIDI input handling code here.
    }
 
-   /** Called when we receive sysex MIDI message on port 1. */
    private void onSysex1(final String data) 
    {
    }
