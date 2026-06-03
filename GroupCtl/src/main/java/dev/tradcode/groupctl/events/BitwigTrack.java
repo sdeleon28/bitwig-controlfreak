@@ -11,6 +11,7 @@ public class BitwigTrack {
     public boolean isGroup;
     public boolean mute;
     public boolean solo;
+    public boolean rec;
     public int depth; // (0=top, 1=child, 2=grandchild)
     public ArrayList<BitwigTrack> children;
     public String color;
@@ -32,10 +33,12 @@ public class BitwigTrack {
     public String toString() {
         String s = this.solo ? "S" : "-";
         String m = this.mute ? "M" : "-";
+        String r = this.rec ? "R" : "-";
         String out = name
             + " | "
             + s
             + m
+            + r
             + " -> "
             + getPosition()
             + " ["
