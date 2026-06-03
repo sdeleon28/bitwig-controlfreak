@@ -15,7 +15,9 @@ public class GroupCtlExtension extends ControllerExtension
    BitwigSchemaTracker schemaTracker;
    IEventBus eventBus;
    Logger logger;
-   LaunchpadOutput launchpad;
+   LaunchpadOutput launchpadOut;
+   LaunchpadInput launchpadIn;
+   Growler growler;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
    {
@@ -36,7 +38,9 @@ public class GroupCtlExtension extends ControllerExtension
       eventBus = new EventBus();
       logger = new Logger(eventBus, host);
       schemaTracker = new BitwigSchemaTracker(host, eventBus);
-      launchpad = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
+      launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
+      launchpadIn = new LaunchpadInput(eventBus, host.getMidiInPort(0));
+      growler = new Growler(eventBus, host);
       eventBus.send(new PaintPad(55, 60));
 
       host.showPopupNotification("GroupCtl Initialized");
