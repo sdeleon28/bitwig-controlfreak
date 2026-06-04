@@ -8,16 +8,19 @@ import com.bitwig.extension.controller.ControllerExtension;
 
 import dev.tradcode.groupctl.events.EventBus;
 import dev.tradcode.groupctl.events.IEventBus;
+import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.PaintPad;
+import dev.tradcode.groupctl.events.SetEncoderValue;
 
 public class GroupCtlExtension extends ControllerExtension
 {
    BitwigSchemaTracker schemaTracker;
    IEventBus eventBus;
    Logger logger;
-   LaunchpadOutput launchpadOut;
    LaunchpadInput launchpadIn;
+   LaunchpadOutput launchpadOut;
    TwisterInput twisterIn;
+   TwisterOutput twisterOut;
    Growler growler;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
@@ -39,11 +42,21 @@ public class GroupCtlExtension extends ControllerExtension
       eventBus = new EventBus();
       logger = new Logger(eventBus, host);
       schemaTracker = new BitwigSchemaTracker(host, eventBus);
-      launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
       launchpadIn = new LaunchpadInput(eventBus, host.getMidiInPort(0));
+      launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
       twisterIn = new TwisterInput(eventBus, host.getMidiInPort(1));
+      twisterOut = new TwisterOutput(eventBus, host.getMidiOutPort(1));
       growler = new Growler(eventBus, host);
       eventBus.send(new PaintPad(55, 60));
+      eventBus.send(new PaintEncoder(5, 108));
+      eventBus.send(new PaintEncoder(6, 108));
+      eventBus.send(new PaintEncoder(7, 108));
+      eventBus.send(new PaintEncoder(8, 108));
+
+      eventBus.send(new SetEncoderValue(5, 10));
+      eventBus.send(new SetEncoderValue(6, 50));
+      eventBus.send(new SetEncoderValue(7, 80));
+      eventBus.send(new SetEncoderValue(8, 127));
 
       host.showPopupNotification("GroupCtl Initialized");
    }
@@ -51,8 +64,9 @@ public class GroupCtlExtension extends ControllerExtension
    @Override
    public void exit()
    {
-      getHost().showPopupNotification("GroupCtl Exited");
       launchpadOut.clear();
+      twisterOut.clear();
+      getHost().showPopupNotification("GroupCtl Exited");
    }
 
    @Override
