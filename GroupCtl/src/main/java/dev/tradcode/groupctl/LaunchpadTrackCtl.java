@@ -6,22 +6,15 @@ import java.util.List;
 import java.util.Map;
 
 import dev.tradcode.groupctl.events.BitwigTrack;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.BlinkPad;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
-import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
-import dev.tradcode.groupctl.events.SchemaChanged;
 
-class LaunchpadTrackCtl implements IEventBusSubscriber {
-    IEventBus bus;
-    ArrayList<BitwigTrack> tracks = new ArrayList<>();
-    int selectedTrackId = -1;
-    int selectedGroupId = -1;
+class LaunchpadTrackCtl extends TrackCtl {
     boolean pageActive = true;
 
     Map<Integer, Integer> GLOBAL_TO_LOCAL = Map.ofEntries(
@@ -40,18 +33,7 @@ class LaunchpadTrackCtl implements IEventBusSubscriber {
     );
 
     public LaunchpadTrackCtl(IEventBus bus) {
-        this.bus = bus;
-        this.bus.subscribe(this);
-    }
-
-    private ArrayList<BitwigTrack> flatten(ArrayList<BitwigTrack> tracks) {
-        ArrayList<BitwigTrack> res = new ArrayList<>();
-        if (tracks.size() == 0) return res;
-        for (var t : tracks) {
-            res.add(t);
-            res.addAll(this.flatten(t.children));
-        }
-        return res;
+        super(bus);
     }
 
     private List<BitwigTrack> getGroups() {
@@ -70,14 +52,6 @@ class LaunchpadTrackCtl implements IEventBusSubscriber {
             .orElse(new ArrayList<>());
     }
     
-    private BitwigTrack getTrackById(int id) {
-        return this.flatten(this.tracks)
-            .stream()
-            .filter(t -> t.id == id)
-            .findFirst()
-            .orElse(null);
-    }
-
     private int globalToLocalPosition(int gpos) {
         if (gpos == -1) return -1;
         return GLOBAL_TO_LOCAL.getOrDefault(gpos, -1);
@@ -103,7 +77,8 @@ class LaunchpadTrackCtl implements IEventBusSubscriber {
         return Colors.toLaunchpad(bwColor);
     }
 
-    private void paint() {
+    @Override
+    protected void paint() {
         if (!this.pageActive)
             return;
         this.clearQuadrant();
@@ -139,13 +114,8 @@ class LaunchpadTrackCtl implements IEventBusSubscriber {
     }
 
     public void on(Event event) {
+        super.on(event);
         switch (event) {
-            case SchemaChanged(ArrayList<BitwigTrack> schema) -> {
-                if (!this.tracks.equals(schema)) {
-                    this.tracks = schema;
-                    this.paint();
-                }
-            }
             case PadClicked(int n) when this.pageActive -> {
                 var pos = this.globalToLocalPosition(n);
                 if (pos != -1) {
@@ -158,14 +128,6 @@ class LaunchpadTrackCtl implements IEventBusSubscriber {
                                 trackName
                             )
                         );
-                }
-            }
-            case BitwigTrackSelected(int id) -> {
-                this.selectedTrackId = id;
-                var track = this.getTrackById(id);
-                if (track != null && track.isGroup) {
-                    this.selectedGroupId = id;
-                    this.paint();
                 }
             }
             case PageSelected(int n) -> {
