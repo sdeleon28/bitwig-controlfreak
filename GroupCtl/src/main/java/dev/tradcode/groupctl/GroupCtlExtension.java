@@ -8,9 +8,6 @@ import com.bitwig.extension.controller.ControllerExtension;
 
 import dev.tradcode.groupctl.events.EventBus;
 import dev.tradcode.groupctl.events.IEventBus;
-import dev.tradcode.groupctl.events.PaintEncoder;
-import dev.tradcode.groupctl.events.PaintPad;
-import dev.tradcode.groupctl.events.SetEncoderValue;
 
 public class GroupCtlExtension extends ControllerExtension
 {
@@ -24,6 +21,7 @@ public class GroupCtlExtension extends ControllerExtension
    Growler growler;
    LaunchpadGroupCtl launchpadGroupCtl;
    LaunchpadTrackCtl launchpadTrackCtl;
+   TwisterTrackCtl twisterTrackCtl;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
    {
@@ -51,16 +49,7 @@ public class GroupCtlExtension extends ControllerExtension
       growler = new Growler(eventBus, host);
       launchpadGroupCtl = new LaunchpadGroupCtl(eventBus);
       launchpadTrackCtl = new LaunchpadTrackCtl(eventBus);
-
-      // testing
-      eventBus.send(new PaintEncoder(5, 108));
-      eventBus.send(new PaintEncoder(6, 108));
-      eventBus.send(new PaintEncoder(7, 108));
-      eventBus.send(new PaintEncoder(8, 108));
-      eventBus.send(new SetEncoderValue(5, 10));
-      eventBus.send(new SetEncoderValue(6, 50));
-      eventBus.send(new SetEncoderValue(7, 80));
-      eventBus.send(new SetEncoderValue(8, 127));
+      twisterTrackCtl = new TwisterTrackCtl(eventBus);
 
       host.showPopupNotification("GroupCtl Initialized");
    }

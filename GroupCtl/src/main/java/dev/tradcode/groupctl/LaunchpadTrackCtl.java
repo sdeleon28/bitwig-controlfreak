@@ -36,22 +36,6 @@ class LaunchpadTrackCtl extends TrackCtl {
         super(bus);
     }
 
-    private List<BitwigTrack> getGroups() {
-        return this.flatten(this.tracks)
-            .stream()
-            .filter(t -> t.isGroup)
-            .toList();
-    }
-
-    private List<BitwigTrack> tracksInSelectedGroup() {
-        return this.getGroups()
-            .stream()
-            .filter(g -> g.id == this.selectedGroupId)
-            .findFirst()
-            .map(g -> g.children)
-            .orElse(new ArrayList<>());
-    }
-    
     private int globalToLocalPosition(int gpos) {
         if (gpos == -1) return -1;
         return GLOBAL_TO_LOCAL.getOrDefault(gpos, -1);

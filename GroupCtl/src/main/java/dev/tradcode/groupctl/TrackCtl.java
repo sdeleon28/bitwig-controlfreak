@@ -1,6 +1,7 @@
 package dev.tradcode.groupctl;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
@@ -19,6 +20,22 @@ public abstract class TrackCtl implements IEventBusSubscriber {
     public TrackCtl(IEventBus bus) {
         this.bus = bus;
         this.bus.subscribe(this);
+    }
+
+    private List<BitwigTrack> getGroups() {
+        return this.flatten(this.tracks)
+            .stream()
+            .filter(t -> t.isGroup)
+            .toList();
+    }
+
+    protected List<BitwigTrack> tracksInSelectedGroup() {
+        return this.getGroups()
+            .stream()
+            .filter(g -> g.id == this.selectedGroupId)
+            .findFirst()
+            .map(g -> g.children)
+            .orElse(new ArrayList<>());
     }
 
     protected ArrayList<BitwigTrack> flatten(ArrayList<BitwigTrack> tracks) {
