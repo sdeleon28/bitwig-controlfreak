@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.bitwig.extension.controller.api.ControllerHost;
+import com.bitwig.extension.controller.api.CursorTrack;
 import com.bitwig.extension.controller.api.Track;
 import com.bitwig.extension.controller.api.TrackBank;
 
@@ -13,7 +14,6 @@ import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.Log;
 import dev.tradcode.groupctl.events.RequestSelectGroup;
 
 class TrackCache {
@@ -27,7 +27,9 @@ class TrackCache {
     String trackType;
     int channelIndex;
     String color = "";
-    boolean isActivated;
+    boolean isSelectedInEditor;
+    boolean isSelectedInMixer;
+    int position;
 }
 
 public class BitwigSchemaTracker implements IEventBusSubscriber {
@@ -43,6 +45,7 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
     ArrayList<BitwigTrack> flatTracks = new ArrayList<BitwigTrack>();
     ArrayList<Integer> trackDepths;
     boolean cacheDirty = false;
+    CursorTrack cursorTrack;
 
     protected BitwigSchemaTracker(ControllerHost host, IEventBus bus) {
         this.host = host;
@@ -101,9 +104,12 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
                 rawCache[j].color = r255 + "," + g255 + "," + b255;
                 cacheDirty = true;
             });
-            t.isActivated().addValueObserver(v -> {
-                rawCache[j].isActivated = v;
-                this.bus.send(new Log(t.name().get() + " activated: " + (v ? "yes" : "no")));
+            t.addIsSelectedInEditorObserver(v -> {
+                rawCache[j].isSelectedInEditor = v;
+                cacheDirty = true;
+            });
+            t.addIsSelectedInEditorObserver(v -> {
+                rawCache[j].isSelectedInMixer = v;
                 cacheDirty = true;
             });
         }
@@ -121,7 +127,6 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
             default -> { }
         }
     }
-
 
     /**
      * For testing. Don't use this.
@@ -189,6 +194,8 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
         bt.rec = t.rec;
         bt.channelIndex = t.channelIndex;
         bt.color = t.color;
+        bt.isSelectedInEditor = t.isSelectedInEditor;
+        bt.isSelectedInMixer = t.isSelectedInMixer;
         bt.depth = 0; // TODO
         bt.children = new ArrayList<BitwigTrack>(); // TODO
         return bt;

@@ -15,6 +15,30 @@ public class BitwigTrack {
     public int depth; // (0=top, 1=child, 2=grandchild)
     public ArrayList<BitwigTrack> children;
     public String color;
+    public boolean isSelectedInEditor;
+    public boolean isSelectedInMixer;
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof BitwigTrack))
+            return false;
+        BitwigTrack o = (BitwigTrack) other;
+        return (
+            this.id == o.id
+            && this.channelIndex == o.channelIndex
+            && this.name == o.name
+            && this.isGroup == o.isGroup
+            && this.mute == o.mute
+            && this.solo == o.solo
+            && this.rec == o.rec
+            && this.depth == o.depth
+            && this.children.equals(o.children)
+            && this.color == o.color
+            && this.isSelectedInEditor == o.isSelectedInEditor
+            && this.isSelectedInMixer == o.isSelectedInMixer
+        );
+    }
+
 
     public int getPosition() {
         Pattern pattern = Pattern.compile("\\((\\d+)\\)");

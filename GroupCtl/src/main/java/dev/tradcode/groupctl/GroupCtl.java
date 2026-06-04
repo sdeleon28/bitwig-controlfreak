@@ -7,10 +7,10 @@ import java.util.Map;
 
 import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.events.BlinkPad;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.Log;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
@@ -109,9 +109,10 @@ public class GroupCtl implements IEventBusSubscriber {
             var pos = this.localToGlobalPosition(gt.getPosition());
             var color = this.bwToLaunchpadColor(gt.color);
             if (pos != -1 && color != -1)
-                // TODO: blink distinction
                 this.bus.send(
-                    new PaintPad(pos, color)
+                    gt.isSelectedInEditor ?
+                          new BlinkPad(pos, color)
+                        : new PaintPad(pos, color)
                 );
         }
     }

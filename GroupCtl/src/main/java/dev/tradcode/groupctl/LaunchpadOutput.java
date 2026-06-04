@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.bitwig.extension.controller.api.MidiOut;
 
+import dev.tradcode.groupctl.events.BlinkPad;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -24,6 +25,10 @@ public class LaunchpadOutput implements IEventBusSubscriber {
         81, 82, 83, 84, 85, 86, 87, 88
     );
 
+    static int CH_STATIC = 0x90;
+    static int CH_FLASH = 0x91;
+    static int CH_PULSE = 0x92;
+
     public LaunchpadOutput(IEventBus bus, MidiOut out) {
         this.bus = bus;
         this.bus.subscribe(this);
@@ -33,13 +38,19 @@ public class LaunchpadOutput implements IEventBusSubscriber {
     public void on(Event event) {
         switch (event) {
             case PaintPad(int n, int color) -> this.paintPad(n, color);
+            case BlinkPad(int n, int color) -> this.blinkPad(n, color);
             default -> { }
         }
     }
 
     public void paintPad(int n, int color) {
         assert PADS.contains(n);
-        out.sendMidi(0x90, n, color);
+        out.sendMidi(CH_STATIC, n, color);
+    }
+
+    public void blinkPad(int n, int color) {
+        out.sendMidi(CH_STATIC, n, 0);
+        out.sendMidi(CH_FLASH, n, color);
     }
 
     public void clear() {
