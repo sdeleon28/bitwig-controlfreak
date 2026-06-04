@@ -84,9 +84,14 @@ public class BitwigSchemaTracker {
                 cacheDirty = true;
             });
             t.color().addValueObserver((r, g, b) -> {
-                int r255 = Math.round(r * 255);
-                int g255 = Math.round(g * 255);
-                int b255 = Math.round(b * 255);
+                // Quantize each channel to the nearest even value, mirroring the JS
+                // impl's `(r >> 1 << 1)` in findClosestColorIndex ("quantized to even
+                // to absorb rounding"). float->255 rounding can land on 217 where the
+                // palette key is 216; clearing the low bit makes that difference moot,
+                // so the palette tables don't need re-mapping.
+                int r255 = (int) Math.round(r * 255.0) & ~1;
+                int g255 = (int) Math.round(g * 255.0) & ~1;
+                int b255 = (int) Math.round(b * 255.0) & ~1;
                 rawCache[j].color = r255 + "," + g255 + "," + b255;
                 cacheDirty = true;
             });

@@ -31,7 +31,7 @@ public class Growler implements IEventBusSubscriber {
             case PadClicked(int n) -> this.growl(event);
             case PadLongPressed(int n) -> this.growl(event);
             case Log(String msg) -> this.growl(msg);
-            case EncoderTurned(int msg, float val) -> this.growl(event);
+            case EncoderTurned(int msg, int val) -> this.growl(event);
             case EncoderButtonPressed(int n) -> this.growl(event);
             case EncoderButtonReleased(int n) -> this.growl(event);
             default -> { }

@@ -2,12 +2,8 @@ package dev.tradcode.groupctl.events;
 
 import java.util.ArrayList;
 
-public class SchemaChanged implements Event {
-    ArrayList<BitwigTrack> schema;
-
-    public SchemaChanged(ArrayList<BitwigTrack> schema) {
-        this.schema = schema;
-    }
+public record SchemaChanged(ArrayList<BitwigTrack> schema)
+    implements Event {
 
     @Override
     public String toString() {
