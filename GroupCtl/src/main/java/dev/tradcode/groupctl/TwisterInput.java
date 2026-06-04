@@ -21,10 +21,7 @@ public class TwisterInput {
         this.in.setMidiCallback((int ch, int msg, int vel) -> {
             int n = this.hwToHumanIndex(msg);
             if (ch == ENCODER_CHANNEL_BYTE)
-                this.bus.send(new EncoderTurned(
-                    n,
-                    (float) vel / 127.0f
-                ));
+                this.bus.send(new EncoderTurned(n, vel));
             else if (ch == BUTTON_CHANNEL_BYTE)
                 this.bus.send(
                     vel == 0 ?
