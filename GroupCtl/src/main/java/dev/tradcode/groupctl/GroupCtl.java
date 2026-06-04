@@ -10,6 +10,7 @@ import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
+import dev.tradcode.groupctl.events.Log;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
@@ -124,8 +125,8 @@ public class GroupCtl implements IEventBusSubscriber {
             case PadClicked(int n) when this.pageActive -> {
                 var pos = this.globalToLocalPosition(n);
                 if (pos != -1) {
-                    var trackId = this.trackPositionToId(n);
-                    var trackName = this.trackPositionToName(n);
+                    var trackId = this.trackPositionToId(pos);
+                    var trackName = this.trackPositionToName(pos);
                     if (trackId != -1 && trackName != null)
                         this.bus.send(
                             new RequestSelectGroup(

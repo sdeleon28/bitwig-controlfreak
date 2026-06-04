@@ -10,7 +10,11 @@ import com.bitwig.extension.controller.api.TrackBank;
 
 import dev.tradcode.groupctl.events.SchemaChanged;
 import dev.tradcode.groupctl.events.BitwigTrack;
+import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
+import dev.tradcode.groupctl.events.IEventBusSubscriber;
+import dev.tradcode.groupctl.events.Log;
+import dev.tradcode.groupctl.events.RequestSelectGroup;
 
 class TrackCache {
     boolean exists;
@@ -23,9 +27,10 @@ class TrackCache {
     String trackType;
     int channelIndex;
     String color = "";
+    boolean isActivated;
 }
 
-public class BitwigSchemaTracker {
+public class BitwigSchemaTracker implements IEventBusSubscriber {
     int TRACKS_COUNT = 64;
     int FX_TRACKS_COUNT = 8;
     // I'm not sure about this one
@@ -42,6 +47,7 @@ public class BitwigSchemaTracker {
     protected BitwigSchemaTracker(ControllerHost host, IEventBus bus) {
         this.host = host;
         this.bus = bus;
+        this.bus.subscribe(this);
         // escape hatch for testing without major refactor
         if (host == null)
             return;
@@ -95,8 +101,27 @@ public class BitwigSchemaTracker {
                 rawCache[j].color = r255 + "," + g255 + "," + b255;
                 cacheDirty = true;
             });
+            t.isActivated().addValueObserver(v -> {
+                rawCache[j].isActivated = v;
+                this.bus.send(new Log(t.name().get() + " activated: " + (v ? "yes" : "no")));
+                cacheDirty = true;
+            });
         }
     }
+
+    public void on(Event event) {
+        switch (event) {
+            case RequestSelectGroup(int trackId, String trackName) -> {
+                var track = getTrack(trackId);
+                track.selectInMixer();
+                track.makeVisibleInMixer();
+                track.selectInEditor();
+                track.makeVisibleInArranger();
+            }
+            default -> { }
+        }
+    }
+
 
     /**
      * For testing. Don't use this.
