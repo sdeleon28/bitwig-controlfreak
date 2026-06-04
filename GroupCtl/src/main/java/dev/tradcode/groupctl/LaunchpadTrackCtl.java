@@ -17,27 +17,29 @@ import dev.tradcode.groupctl.events.PaintPad;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.events.SchemaChanged;
 
-public class LaunchpadGroupCtl implements IEventBusSubscriber {
+class LaunchpadTrackCtl implements IEventBusSubscriber {
     IEventBus bus;
-    ArrayList<BitwigTrack> schema = new ArrayList<>();
+    ArrayList<BitwigTrack> tracks = new ArrayList<>();
+    int selectedTrackId = -1;
     int selectedGroupId = -1;
-    boolean pageActive = true; // TODO
+    boolean pageActive = true;
+
     Map<Integer, Integer> GLOBAL_TO_LOCAL = Map.ofEntries(
         // row 1
-        Map.entry(15, 1),  Map.entry(16, 2),
-        Map.entry(17, 3),  Map.entry(18, 4),
+        Map.entry(11, 1),  Map.entry(12, 2),
+        Map.entry(13, 3),  Map.entry(14, 4),
         // row 2
-        Map.entry(25, 5),  Map.entry(26, 6),
-        Map.entry(27, 7),  Map.entry(28, 8),
+        Map.entry(21, 5),  Map.entry(22, 6),
+        Map.entry(23, 7),  Map.entry(24, 8),
         // row 3
-        Map.entry(35, 9),  Map.entry(36, 10),
-        Map.entry(37, 11), Map.entry(38, 12),
+        Map.entry(31, 9),  Map.entry(32, 10),
+        Map.entry(33, 11), Map.entry(34, 12),
         // row 4
-        Map.entry(45, 13), Map.entry(46, 14),
-        Map.entry(47, 15), Map.entry(48, 16)
+        Map.entry(41, 13), Map.entry(42, 14),
+        Map.entry(43, 15), Map.entry(44, 16)
     );
 
-    public LaunchpadGroupCtl(IEventBus bus) {
+    public LaunchpadTrackCtl(IEventBus bus) {
         this.bus = bus;
         this.bus.subscribe(this);
     }
@@ -53,36 +55,26 @@ public class LaunchpadGroupCtl implements IEventBusSubscriber {
     }
 
     private List<BitwigTrack> getGroups() {
-        return this.flatten(this.schema)
+        return this.flatten(this.tracks)
             .stream()
             .filter(t -> t.isGroup)
             .toList();
     }
 
-    private int trackIdToPosition(int id) {
+    private List<BitwigTrack> tracksInSelectedGroup() {
         return this.getGroups()
+            .stream()
+            .filter(g -> g.id == this.selectedGroupId)
+            .findFirst()
+            .map(g -> g.children)
+            .orElse(new ArrayList<>());
+    }
+    
+    private BitwigTrack getTrackById(int id) {
+        return this.flatten(this.tracks)
             .stream()
             .filter(t -> t.id == id)
             .findFirst()
-            .map(t -> t.getPosition())
-            .orElse(-1);
-    }
-
-    private int trackPositionToId(int pos) {
-        return this.getGroups()
-            .stream()
-            .filter(t -> t.getPosition() == pos)
-            .findFirst()
-            .map(t -> t.id)
-            .orElse(-1);
-    }
-
-    private String trackPositionToName(int pos) {
-        return this.getGroups()
-            .stream()
-            .filter(t -> t.getPosition() == pos)
-            .findFirst()
-            .map(t -> t.name)
             .orElse(null);
     }
 
@@ -98,6 +90,15 @@ public class LaunchpadGroupCtl implements IEventBusSubscriber {
         return reversed.getOrDefault(pos, -1);
     }
 
+    private void clearQuadrant() {
+        for (int i = 1; i <= 16; i++) {
+            var pos = this.localToGlobalPosition(i);
+            if (pos == -1)
+                continue;
+            this.bus.send(new PaintPad(pos, 0));
+        }
+    }
+
     private int bwToLaunchpadColor(String bwColor) {
         return Colors.toLaunchpad(bwColor);
     }
@@ -105,31 +106,45 @@ public class LaunchpadGroupCtl implements IEventBusSubscriber {
     private void paint() {
         if (!this.pageActive)
             return;
-        for (var gt : this.getGroups()) {
-            var pos = this.localToGlobalPosition(gt.getPosition());
-            var color = this.bwToLaunchpadColor(gt.color);
+        this.clearQuadrant();
+        var inGroup = this.tracksInSelectedGroup();
+        for (var t : inGroup) {
+            var pos = this.localToGlobalPosition(t.getPosition());
+            var color = this.bwToLaunchpadColor(t.color);
             if (pos != -1 && color != -1)
                 this.bus.send(
-                    gt.id == this.selectedGroupId ?
+                    t.id == this.selectedTrackId ?
                           new BlinkPad(pos, color)
                         : new PaintPad(pos, color)
                 );
         }
     }
 
-    private BitwigTrack getTrackById(int id) {
-        return this.flatten(this.schema)
+    private int trackPositionToId(int pos) {
+        return this.tracksInSelectedGroup()
             .stream()
-            .filter(t -> t.id == id)
+            .filter(t -> t.getPosition() == pos)
             .findFirst()
+            .map(t -> t.id)
+            .orElse(-1);
+    }
+
+    private String trackPositionToName(int pos) {
+        return this.tracksInSelectedGroup()
+            .stream()
+            .filter(t -> t.getPosition() == pos)
+            .findFirst()
+            .map(t -> t.name)
             .orElse(null);
     }
 
     public void on(Event event) {
         switch (event) {
             case SchemaChanged(ArrayList<BitwigTrack> schema) -> {
-                this.schema = schema;
-                this.paint();
+                if (!this.tracks.equals(schema)) {
+                    this.tracks = schema;
+                    this.paint();
+                }
             }
             case PadClicked(int n) when this.pageActive -> {
                 var pos = this.globalToLocalPosition(n);
@@ -145,10 +160,11 @@ public class LaunchpadGroupCtl implements IEventBusSubscriber {
                         );
                 }
             }
-            case BitwigTrackSelected(int trackId) -> {
-                var track = getTrackById(trackId);
+            case BitwigTrackSelected(int id) -> {
+                this.selectedTrackId = id;
+                var track = this.getTrackById(id);
                 if (track != null && track.isGroup) {
-                    this.selectedGroupId = trackId;
+                    this.selectedGroupId = id;
                     this.paint();
                 }
             }

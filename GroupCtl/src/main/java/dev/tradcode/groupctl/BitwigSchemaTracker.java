@@ -11,10 +11,11 @@ import com.bitwig.extension.controller.api.TrackBank;
 
 import dev.tradcode.groupctl.events.SchemaChanged;
 import dev.tradcode.groupctl.events.BitwigTrack;
+import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.RequestSelectGroup;
+import dev.tradcode.groupctl.events.RequestSelectTrack;
 
 class TrackCache {
     boolean exists;
@@ -108,7 +109,9 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
                 rawCache[j].isSelectedInEditor = v;
                 cacheDirty = true;
             });
-            t.addIsSelectedInEditorObserver(v -> {
+            t.addIsSelectedInMixerObserver(v -> {
+                if (!rawCache[j].isSelectedInMixer && v)
+                    this.bus.send(new BitwigTrackSelected(rawCache[j].id));
                 rawCache[j].isSelectedInMixer = v;
                 cacheDirty = true;
             });
@@ -117,7 +120,7 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
-            case RequestSelectGroup(int trackId, String trackName) -> {
+            case RequestSelectTrack(int trackId, String trackName) -> {
                 var track = getTrack(trackId);
                 track.selectInMixer();
                 track.makeVisibleInMixer();

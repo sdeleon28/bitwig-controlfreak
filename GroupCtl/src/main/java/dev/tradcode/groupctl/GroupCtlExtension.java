@@ -22,7 +22,8 @@ public class GroupCtlExtension extends ControllerExtension
    TwisterInput twisterIn;
    TwisterOutput twisterOut;
    Growler growler;
-   LaunchpadGroupCtl groupCtl;
+   LaunchpadGroupCtl launchpadGroupCtl;
+   LaunchpadTrackCtl launchpadTrackCtl;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
    {
@@ -48,14 +49,14 @@ public class GroupCtlExtension extends ControllerExtension
       twisterIn = new TwisterInput(eventBus, host.getMidiInPort(1));
       twisterOut = new TwisterOutput(eventBus, host.getMidiOutPort(1));
       growler = new Growler(eventBus, host);
-      groupCtl = new LaunchpadGroupCtl(eventBus);
+      launchpadGroupCtl = new LaunchpadGroupCtl(eventBus);
+      launchpadTrackCtl = new LaunchpadTrackCtl(eventBus);
 
-      eventBus.send(new PaintPad(55, 60));
+      // testing
       eventBus.send(new PaintEncoder(5, 108));
       eventBus.send(new PaintEncoder(6, 108));
       eventBus.send(new PaintEncoder(7, 108));
       eventBus.send(new PaintEncoder(8, 108));
-
       eventBus.send(new SetEncoderValue(5, 10));
       eventBus.send(new SetEncoderValue(6, 50));
       eventBus.send(new SetEncoderValue(7, 80));
