@@ -17,7 +17,7 @@ import dev.tradcode.groupctl.events.PaintPad;
 import dev.tradcode.groupctl.events.RequestSelectGroup;
 import dev.tradcode.groupctl.events.SchemaChanged;
 
-public class GroupCtl implements IEventBusSubscriber {
+public class LaunchpadGroupCtl implements IEventBusSubscriber {
     IEventBus bus;
     ArrayList<BitwigTrack> schema;
     int selectedGroupId = -1;
@@ -37,7 +37,7 @@ public class GroupCtl implements IEventBusSubscriber {
         Map.entry(47, 15), Map.entry(48, 16)
     );
 
-    public GroupCtl(IEventBus bus) {
+    public LaunchpadGroupCtl(IEventBus bus) {
         this.bus = bus;
         this.bus.subscribe(this);
     }
