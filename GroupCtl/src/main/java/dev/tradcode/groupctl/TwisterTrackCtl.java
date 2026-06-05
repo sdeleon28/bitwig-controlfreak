@@ -52,6 +52,7 @@ public class TwisterTrackCtl extends TrackCtl {
                     .filter(t -> t.id == id)
                     .findFirst()
                     .ifPresent(t -> {
+                        t.volume = v;
                         this.bus.send(
                             new SetEncoderValue(
                                 t.getPosition(),
