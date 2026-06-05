@@ -8,6 +8,7 @@ import dev.tradcode.groupctl.events.VolumeUpdated;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
+import dev.tradcode.groupctl.events.SetTrackVolume;
 
 class TrackVolumeCache {
     boolean exists;
@@ -60,6 +61,9 @@ public class BitwigVolumeTracker implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
+            case SetTrackVolume(int id, double v) -> {
+                getTrack(id).volume().value().set(v);
+            }
             default -> { }
         }
     }
