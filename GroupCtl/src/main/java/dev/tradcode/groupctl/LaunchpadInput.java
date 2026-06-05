@@ -12,6 +12,8 @@ import com.bitwig.extension.controller.api.MidiIn;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PadLongPressed;
+import dev.tradcode.groupctl.events.SideButton;
+import dev.tradcode.groupctl.events.SideButtonClick;
 import dev.tradcode.groupctl.events.TopButton;
 import dev.tradcode.groupctl.events.TopButtonClick;
 
@@ -28,6 +30,9 @@ public class LaunchpadInput {
     );
     static List<Integer> TOP_BUTTONS = Arrays.asList(
         104, 105, 106, 107, 108, 109, 110, 111
+    );
+    static List<Integer> SIDE_BUTTONS = Arrays.asList(
+        89, 79, 69, 49, 39, 29, 19
     );
     long HOLD_THRESHOLD_MS = 500; // TODO: tune this
 
@@ -51,12 +56,16 @@ public class LaunchpadInput {
                     this.padUp(msg);
                 else
                     this.padDown(msg);
-
             if (TOP_BUTTONS.contains(msg))
                 if (vel == 0)
                     this.topButtonUp(msg);
                 else
                     this.topButtonDown(msg);
+            if (SIDE_BUTTONS.contains(msg))
+                if (vel == 0)
+                    this.sideButtonUp(msg);
+                else
+                    this.sideButtonDown(msg);
         });
     }
 
@@ -88,6 +97,37 @@ public class LaunchpadInput {
                 break;
             case 111:
                 this.bus.send(new TopButtonClick(TopButton.MIXER));
+                break;
+        }
+    }
+
+    private void sideButtonUp(int n) { }
+
+    private void sideButtonDown(int n) {
+        switch (n) {
+            case 89:
+                this.bus.send(new SideButtonClick(SideButton.VOLUME));
+                break;
+            case 79:
+                this.bus.send(new SideButtonClick(SideButton.PAN));
+                break;
+            case 69:
+                this.bus.send(new SideButtonClick(SideButton.SEND_A));
+                break;
+            case 59:
+                this.bus.send(new SideButtonClick(SideButton.SEND_B));
+                break;
+            case 49:
+                this.bus.send(new SideButtonClick(SideButton.STOP));
+                break;
+            case 39:
+                this.bus.send(new SideButtonClick(SideButton.MUTE));
+                break;
+            case 29:
+                this.bus.send(new SideButtonClick(SideButton.SOLO));
+                break;
+            case 19:
+                this.bus.send(new SideButtonClick(SideButton.RECORD_ARM));
                 break;
         }
     }

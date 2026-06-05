@@ -10,9 +10,10 @@ import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PaintPad;
+import dev.tradcode.groupctl.events.PaintSideButton;
 import dev.tradcode.groupctl.events.PaintTopButton;
+import dev.tradcode.groupctl.events.SideButton;
 import dev.tradcode.groupctl.events.TopButton;
-import dev.tradcode.groupctl.events.TopButtonClick;
 
 public class LaunchpadOutput implements IEventBusSubscriber {
     IEventBus bus;
@@ -46,6 +47,9 @@ public class LaunchpadOutput implements IEventBusSubscriber {
             case PaintTopButton(TopButton btn, int color) -> {
                 this.paintTopButton(btn.getValue(), color);
             }
+            case PaintSideButton(SideButton btn, int color) -> {
+                this.paintSideButton(btn.getValue(), color);
+            }
             default -> { }
         }
     }
@@ -62,6 +66,10 @@ public class LaunchpadOutput implements IEventBusSubscriber {
 
     public void paintTopButton(int cc, int color) {
         out.sendMidi(CC_BYTE, cc, color);
+    }
+
+    public void paintSideButton(int n, int color) {
+        this.paintPad(n, color);
     }
 
     public void clear() {

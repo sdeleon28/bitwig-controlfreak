@@ -8,6 +8,7 @@ import dev.tradcode.groupctl.events.VolumeUpdated;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
+import dev.tradcode.groupctl.events.PanUpdated;
 import dev.tradcode.groupctl.events.SetTrackVolume;
 
 class TrackVolumeCache {
@@ -16,10 +17,12 @@ class TrackVolumeCache {
     String name;
     int channelIndex;
     double volume;
-    boolean dirty;
+    double pan;
+    boolean volumeDirty;
+    boolean panDirty;
 }
 
-public class BitwigVolumeTracker implements IEventBusSubscriber {
+public class BitwigVolPanTracker implements IEventBusSubscriber {
     int TRACKS_COUNT = 64;
     int FX_TRACKS_COUNT = 8;
     // I'm not sure about this one
@@ -30,7 +33,7 @@ public class BitwigVolumeTracker implements IEventBusSubscriber {
     TrackBank mainTrackBank;
     TrackVolumeCache[] rawCache = new TrackVolumeCache[TRACKS_COUNT];
 
-    protected BitwigVolumeTracker(ControllerHost host, IEventBus bus) {
+    protected BitwigVolPanTracker(ControllerHost host, IEventBus bus) {
         this.host = host;
         this.bus = bus;
         this.bus.subscribe(this);
@@ -54,7 +57,11 @@ public class BitwigVolumeTracker implements IEventBusSubscriber {
             });
             t.volume().value().addValueObserver(v -> {
                 rawCache[j].volume = v;
-                rawCache[j].dirty = true;
+                rawCache[j].volumeDirty = true;
+            });
+            t.pan().value().addValueObserver(v -> {
+                rawCache[j].pan = v;
+                rawCache[j].panDirty = true;
             });
         }
     }
@@ -75,9 +82,13 @@ public class BitwigVolumeTracker implements IEventBusSubscriber {
     public void flush() {
         for (int i = 0; i < rawCache.length; i++) {
             var t = rawCache[i];
-            if (t.dirty) {
+            if (t.volumeDirty) {
                 this.bus.send(new VolumeUpdated(t.id, t.volume));
-                t.dirty = false;
+                t.volumeDirty = false;
+            }
+            if (t.panDirty) {
+                this.bus.send(new PanUpdated(t.id, t.pan));
+                t.panDirty = false;
             }
         }
     }

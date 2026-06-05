@@ -12,7 +12,7 @@ import dev.tradcode.groupctl.events.IEventBus;
 public class GroupCtlExtension extends ControllerExtension
 {
    BitwigSchemaTracker schemaTracker;
-   BitwigVolumeTracker volumeTracker;
+   BitwigVolPanTracker volumeTracker;
    IEventBus eventBus;
    Logger logger;
    LaunchpadInput launchpadIn;
@@ -24,6 +24,7 @@ public class GroupCtlExtension extends ControllerExtension
    LaunchpadTrackCtl launchpadTrackCtl;
    TwisterTrackCtl twisterTrackCtl;
    Pager pager;
+   VolPanCtl volPanCtl;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
    {
@@ -44,7 +45,7 @@ public class GroupCtlExtension extends ControllerExtension
       eventBus = new EventBus();
       logger = new Logger(eventBus, host);
       schemaTracker = new BitwigSchemaTracker(host, eventBus);
-      volumeTracker = new BitwigVolumeTracker(host, eventBus);
+      volumeTracker = new BitwigVolPanTracker(host, eventBus);
       launchpadIn = new LaunchpadInput(eventBus, host.getMidiInPort(0));
       launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
       twisterIn = new TwisterInput(eventBus, host.getMidiInPort(1));
@@ -54,6 +55,7 @@ public class GroupCtlExtension extends ControllerExtension
       launchpadTrackCtl = new LaunchpadTrackCtl(eventBus);
       twisterTrackCtl = new TwisterTrackCtl(eventBus);
       pager = new Pager(eventBus);
+      volPanCtl = new VolPanCtl(eventBus);
 
       host.showPopupNotification("GroupCtl Initialized");
    }
