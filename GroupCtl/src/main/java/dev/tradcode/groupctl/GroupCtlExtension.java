@@ -12,6 +12,7 @@ import dev.tradcode.groupctl.events.IEventBus;
 public class GroupCtlExtension extends ControllerExtension
 {
    BitwigSchemaTracker schemaTracker;
+   BitwigVolumeTracker volumeTracker;
    IEventBus eventBus;
    Logger logger;
    LaunchpadInput launchpadIn;
@@ -42,6 +43,7 @@ public class GroupCtlExtension extends ControllerExtension
       eventBus = new EventBus();
       logger = new Logger(eventBus, host);
       schemaTracker = new BitwigSchemaTracker(host, eventBus);
+      volumeTracker = new BitwigVolumeTracker(host, eventBus);
       launchpadIn = new LaunchpadInput(eventBus, host.getMidiInPort(0));
       launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
       twisterIn = new TwisterInput(eventBus, host.getMidiInPort(1));
@@ -66,6 +68,7 @@ public class GroupCtlExtension extends ControllerExtension
    public void flush()
    {
        schemaTracker.flush();
+       volumeTracker.flush();
    }
 
    /** Called when we receive short MIDI message on port 0. */

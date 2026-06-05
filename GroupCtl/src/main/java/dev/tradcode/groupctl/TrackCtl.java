@@ -58,6 +58,8 @@ public abstract class TrackCtl implements IEventBusSubscriber {
 
     protected abstract void paint();
 
+    protected void groupUpdated() { }
+
     public void on(Event event) {
         switch (event) {
             case SchemaChanged(ArrayList<BitwigTrack> schema) -> {
@@ -72,6 +74,7 @@ public abstract class TrackCtl implements IEventBusSubscriber {
                 if (track != null && track.isGroup) {
                     this.selectedGroupId = id;
                     this.paint();
+                    this.groupUpdated();
                 }
             }
             default -> { }

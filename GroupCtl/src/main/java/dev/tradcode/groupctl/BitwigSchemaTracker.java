@@ -31,6 +31,7 @@ class TrackCache {
     boolean isSelectedInEditor;
     boolean isSelectedInMixer;
     int position;
+    double volume;
 }
 
 public class BitwigSchemaTracker implements IEventBusSubscriber {
@@ -44,9 +45,7 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
     TrackBank mainTrackBank;
     TrackCache[] rawCache = new TrackCache[TRACKS_COUNT];
     ArrayList<BitwigTrack> flatTracks = new ArrayList<BitwigTrack>();
-    ArrayList<Integer> trackDepths;
     boolean cacheDirty = false;
-    CursorTrack cursorTrack;
 
     protected BitwigSchemaTracker(ControllerHost host, IEventBus bus) {
         this.host = host;
@@ -114,6 +113,10 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
                     this.bus.send(new BitwigTrackSelected(rawCache[j].id));
                 rawCache[j].isSelectedInMixer = v;
                 cacheDirty = true;
+            });
+            t.volume().value().addValueObserver(v -> {
+                // store the volume but don't publish a full schema over it
+                rawCache[j].volume = v;
             });
         }
     }
@@ -199,6 +202,7 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
         bt.color = t.color;
         bt.isSelectedInEditor = t.isSelectedInEditor;
         bt.isSelectedInMixer = t.isSelectedInMixer;
+        bt.volume = t.volume;
         bt.depth = 0; // TODO
         bt.children = new ArrayList<BitwigTrack>(); // TODO
         return bt;

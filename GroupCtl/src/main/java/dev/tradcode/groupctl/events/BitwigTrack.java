@@ -17,6 +17,8 @@ public class BitwigTrack {
     public String color;
     public boolean isSelectedInEditor;
     public boolean isSelectedInMixer;
+    // for init only
+    public double volume;
 
     @Override
     public boolean equals(Object other) {
@@ -36,6 +38,7 @@ public class BitwigTrack {
             && this.color == o.color
             && this.isSelectedInEditor == o.isSelectedInEditor
             && this.isSelectedInMixer == o.isSelectedInMixer
+            // purposefully exclude volume here
         );
     }
 
