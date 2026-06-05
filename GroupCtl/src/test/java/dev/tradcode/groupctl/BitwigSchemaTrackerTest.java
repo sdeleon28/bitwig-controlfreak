@@ -19,10 +19,12 @@ class FakeEventBus implements IEventBus {
         this.subs.add(sub);
     }
 
-    public void send(Event event) {
-        this.events.add(event);
-        for (IEventBusSubscriber sub : this.subs) {
-            sub.on(event);
+    public void send(Event... events) {
+        for (var event : events) {
+            this.events.add(event);
+            for (IEventBusSubscriber sub : this.subs) {
+                sub.on(event);
+            }
         }
     }
 }

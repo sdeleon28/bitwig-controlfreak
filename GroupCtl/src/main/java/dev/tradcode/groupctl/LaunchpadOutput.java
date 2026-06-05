@@ -10,6 +10,9 @@ import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PaintPad;
+import dev.tradcode.groupctl.events.PaintTopButton;
+import dev.tradcode.groupctl.events.TopButton;
+import dev.tradcode.groupctl.events.TopButtonClick;
 
 public class LaunchpadOutput implements IEventBusSubscriber {
     IEventBus bus;
@@ -28,6 +31,7 @@ public class LaunchpadOutput implements IEventBusSubscriber {
     static int CH_STATIC = 0x90;
     static int CH_FLASH = 0x91;
     static int CH_PULSE = 0x92;
+    static int CC_BYTE = 0xB0;
 
     public LaunchpadOutput(IEventBus bus, MidiOut out) {
         this.bus = bus;
@@ -39,6 +43,9 @@ public class LaunchpadOutput implements IEventBusSubscriber {
         switch (event) {
             case PaintPad(int n, int color) -> this.paintPad(n, color);
             case BlinkPad(int n, int color) -> this.blinkPad(n, color);
+            case PaintTopButton(TopButton btn, int color) -> {
+                this.paintTopButton(btn.getValue(), color);
+            }
             default -> { }
         }
     }
@@ -51,6 +58,10 @@ public class LaunchpadOutput implements IEventBusSubscriber {
     public void blinkPad(int n, int color) {
         out.sendMidi(CH_STATIC, n, 0);
         out.sendMidi(CH_FLASH, n, color);
+    }
+
+    public void paintTopButton(int cc, int color) {
+        out.sendMidi(CC_BYTE, cc, color);
     }
 
     public void clear() {

@@ -11,8 +11,9 @@ public class EventBus implements IEventBus {
       subs.add(sub);
     }
 
-    public void send(Event event) {
-      for (IEventBusSubscriber sub : subs)
-          sub.on(event);
+    public void send(Event... events) {
+        for (var event : events)
+            for (IEventBusSubscriber sub : subs)
+                sub.on(event);
     }
 }

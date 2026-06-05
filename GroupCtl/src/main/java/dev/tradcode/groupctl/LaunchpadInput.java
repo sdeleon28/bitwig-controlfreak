@@ -12,6 +12,8 @@ import com.bitwig.extension.controller.api.MidiIn;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PadLongPressed;
+import dev.tradcode.groupctl.events.TopButton;
+import dev.tradcode.groupctl.events.TopButtonClick;
 
 public class LaunchpadInput {
     static List<Integer> PADS = Arrays.asList(
@@ -23,6 +25,9 @@ public class LaunchpadInput {
         61, 62, 63, 64, 65, 66, 67, 68,
         71, 72, 73, 74, 75, 76, 77, 78,
         81, 82, 83, 84, 85, 86, 87, 88
+    );
+    static List<Integer> TOP_BUTTONS = Arrays.asList(
+        104, 105, 106, 107, 108, 109, 110, 111
     );
     long HOLD_THRESHOLD_MS = 500; // TODO: tune this
 
@@ -46,7 +51,45 @@ public class LaunchpadInput {
                     this.padUp(msg);
                 else
                     this.padDown(msg);
+
+            if (TOP_BUTTONS.contains(msg))
+                if (vel == 0)
+                    this.topButtonUp(msg);
+                else
+                    this.topButtonDown(msg);
         });
+    }
+
+    private void topButtonUp(int n) {
+    }
+    
+    private void topButtonDown(int n) {
+        switch (n) {
+            case 104:
+                this.bus.send(new TopButtonClick(TopButton.UP));
+                break;
+            case 105:
+                this.bus.send(new TopButtonClick(TopButton.DOWN));
+                break;
+            case 106:
+                this.bus.send(new TopButtonClick(TopButton.LEFT));
+                break;
+            case 107:
+                this.bus.send(new TopButtonClick(TopButton.RIGHT));
+                break;
+            case 108:
+                this.bus.send(new TopButtonClick(TopButton.SESSION));
+                break;
+            case 109:
+                this.bus.send(new TopButtonClick(TopButton.USER_1));
+                break;
+            case 110:
+                this.bus.send(new TopButtonClick(TopButton.USER_2));
+                break;
+            case 111:
+                this.bus.send(new TopButtonClick(TopButton.MIXER));
+                break;
+        }
     }
 
     private void padDown(int n) {

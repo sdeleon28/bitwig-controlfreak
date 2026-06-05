@@ -23,6 +23,7 @@ public class GroupCtlExtension extends ControllerExtension
    LaunchpadGroupCtl launchpadGroupCtl;
    LaunchpadTrackCtl launchpadTrackCtl;
    TwisterTrackCtl twisterTrackCtl;
+   Pager pager;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
    {
@@ -52,6 +53,7 @@ public class GroupCtlExtension extends ControllerExtension
       launchpadGroupCtl = new LaunchpadGroupCtl(eventBus);
       launchpadTrackCtl = new LaunchpadTrackCtl(eventBus);
       twisterTrackCtl = new TwisterTrackCtl(eventBus);
+      pager = new Pager(eventBus);
 
       host.showPopupNotification("GroupCtl Initialized");
    }
