@@ -30,8 +30,8 @@ public class TwisterOutput implements IEventBusSubscriber {
     }
 
     private void off(int n) {
-        var cc = this.encoderToCC(n);
-        this.out.sendMidi(0xB2, cc, 17);
+        this.paint(n, 0);
+        this.ring(n, 0);
     }
 
     private int encoderToCC(int n) {
