@@ -9,6 +9,7 @@ import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PanUpdated;
+import dev.tradcode.groupctl.events.SetTrackPan;
 import dev.tradcode.groupctl.events.SetTrackVolume;
 
 class TrackVolumeCache {
@@ -70,6 +71,9 @@ public class BitwigVolPanTracker implements IEventBusSubscriber {
         switch (event) {
             case SetTrackVolume(int id, double v) -> {
                 getTrack(id).volume().value().set(v);
+            }
+            case SetTrackPan(int id, double v) -> {
+                getTrack(id).pan().value().set(v);
             }
             default -> { }
         }

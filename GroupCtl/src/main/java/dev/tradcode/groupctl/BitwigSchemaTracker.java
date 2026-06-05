@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.bitwig.extension.controller.api.ControllerHost;
-import com.bitwig.extension.controller.api.CursorTrack;
 import com.bitwig.extension.controller.api.Track;
 import com.bitwig.extension.controller.api.TrackBank;
 
@@ -32,6 +31,7 @@ class TrackCache {
     boolean isSelectedInMixer;
     int position;
     double volume;
+    double pan;
 }
 
 public class BitwigSchemaTracker implements IEventBusSubscriber {
@@ -118,6 +118,10 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
                 // store the volume but don't publish a full schema over it
                 rawCache[j].volume = v;
             });
+            t.pan().value().addValueObserver(v -> {
+                // store the pan but don't publish a full schema over it
+                rawCache[j].pan = v;
+            });
         }
     }
 
@@ -203,6 +207,7 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
         bt.isSelectedInEditor = t.isSelectedInEditor;
         bt.isSelectedInMixer = t.isSelectedInMixer;
         bt.volume = t.volume;
+        bt.pan = t.pan;
         bt.depth = 0; // TODO
         bt.children = new ArrayList<BitwigTrack>(); // TODO
         return bt;

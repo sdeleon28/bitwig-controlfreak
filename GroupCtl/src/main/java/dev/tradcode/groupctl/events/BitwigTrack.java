@@ -19,6 +19,7 @@ public class BitwigTrack {
     public boolean isSelectedInMixer;
     // for init only
     public double volume;
+    public double pan;
 
     @Override
     public boolean equals(Object other) {

@@ -10,12 +10,12 @@ import dev.tradcode.groupctl.events.SideButton;
 import dev.tradcode.groupctl.events.SideButtonClick;
 import dev.tradcode.groupctl.events.VolModeSelected;
 
-enum Mode { VOL, PAN };
+enum VolPanMode { VOL, PAN };
 
 public class VolPanCtl implements IEventBusSubscriber {
     IEventBus bus;
     boolean pageActive = true;
-    Mode mode = Mode.VOL;
+    VolPanMode mode = VolPanMode.VOL;
     int VOL_COLOR = 69;
     int PAN_COLOR = 69;
 
@@ -31,11 +31,11 @@ public class VolPanCtl implements IEventBusSubscriber {
         this.bus.send(
             new PaintSideButton(
                 SideButton.VOLUME,
-                this.mode == Mode.VOL ? VOL_COLOR : 0
+                this.mode == VolPanMode.VOL ? VOL_COLOR : 0
             ),
             new PaintSideButton(
                 SideButton.PAN,
-                this.mode == Mode.PAN ? PAN_COLOR : 0
+                this.mode == VolPanMode.PAN ? PAN_COLOR : 0
             )
         );
     }
@@ -43,12 +43,12 @@ public class VolPanCtl implements IEventBusSubscriber {
     public void on(Event event) {
         switch (event) {
             case SideButtonClick(var btn) when btn == SideButton.VOLUME -> {
-                this.mode = Mode.VOL;
+                this.mode = VolPanMode.VOL;
                 this.bus.send(new VolModeSelected());
                 this.paint();
             }
             case SideButtonClick(var btn) when btn == SideButton.PAN -> {
-                this.mode = Mode.PAN;
+                this.mode = VolPanMode.PAN;
                 this.bus.send(new PanModeSelected());
                 this.paint();
             }
