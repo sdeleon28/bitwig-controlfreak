@@ -47,6 +47,10 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
     ArrayList<BitwigTrack> flatTracks = new ArrayList<BitwigTrack>();
     boolean cacheDirty = false;
 
+    public TrackBank getTrackBank() {
+        return this.mainTrackBank;
+    }
+
     protected BitwigSchemaTracker(ControllerHost host, IEventBus bus) {
         this.host = host;
         this.bus = bus;
@@ -146,7 +150,7 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
         this.cacheDirty = true;
     }
 
-    private Track getTrack(int id) {
+    public Track getTrack(int id) {
         return mainTrackBank.getItemAt(id);
     }
 
