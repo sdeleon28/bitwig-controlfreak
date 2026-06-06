@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import com.bitwig.extension.controller.api.CursorDevice;
 import com.bitwig.extension.controller.api.Device;
 import com.bitwig.extension.controller.api.DeviceBank;
 import com.bitwig.extension.controller.api.RemoteControlsPage;
@@ -41,7 +42,8 @@ public class BitwigDevicesTracker implements IEventBusSubscriber {
     int trackId;
     int selectedTrackId;
     ArrayList<DeviceBank> deviceBanks = new ArrayList<>();
-    ArrayList<RemoteControlsPage> remoteControls = new ArrayList<>();
+    ArrayList<ArrayList<RemoteControlsPage>> rcBanks = new ArrayList<>();
+    ArrayList<CursorDevice> cursorDevices = new ArrayList<>();
 
     public BitwigDevicesTracker(
         IEventBus bus,
@@ -55,6 +57,7 @@ public class BitwigDevicesTracker implements IEventBusSubscriber {
             var rawCache = new DeviceCache[DEVICE_COUNT];
             var devices = this.mainTrackBank.getItemAt(trackI)
                 .createDeviceBank(DEVICE_COUNT);
+            var rcBank = new ArrayList<RemoteControlsPage>();
             deviceBanks.add(devices);
             for (int deviceI = 0; deviceI < DEVICE_COUNT; deviceI++) {
                 rawCache[deviceI] = new DeviceCache();
@@ -89,11 +92,12 @@ public class BitwigDevicesTracker implements IEventBusSubscriber {
                     rawCache[j].isPlugin = v;
                     cacheDirty = true;
                 });
-                remoteControls.add(
+                rcBank.add(
                     d.createCursorRemoteControlsPage(
                         "RemoteControls", RC_COUNT, "")
                 );
             }
+            rcBanks.add(rcBank);
             trackDeviceCaches.add(rawCache);
         }
     }
