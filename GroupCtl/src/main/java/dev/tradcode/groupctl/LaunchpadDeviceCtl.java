@@ -5,17 +5,22 @@ import java.util.List;
 import java.util.Map;
 
 import dev.tradcode.groupctl.events.BitwigDevice;
+import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.BlinkPad;
 import dev.tradcode.groupctl.events.DevicesSchemaChanged;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
+import dev.tradcode.groupctl.events.PadClicked;
+import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
+import dev.tradcode.groupctl.events.RequestSelectDevice;
 
 class LaunchpadDeviceCtl implements IEventBusSubscriber {
     IEventBus bus;
     List<BitwigDevice> devices;
     boolean pageActive = true;
+    int selectedDeviceId = -1;
 
     Map<Integer, Integer> GLOBAL_TO_LOCAL = Map.ofEntries(
         // row 1
@@ -63,23 +68,43 @@ class LaunchpadDeviceCtl implements IEventBusSubscriber {
             return;
         this.clearQuadrant();
         this.devices.stream()
-            .filter(t -> t.exists)
-            .forEach(t -> {
-                var pos = this.localToGlobalPosition(t.getPosition());
+            .filter(d -> d.exists)
+            .forEach(d -> {
+                var pos = this.localToGlobalPosition(d.getPosition());
                 var color = 69;
-                if (pos != 01 && color != -1)
+                if (pos != -1 && color != -1)
                     this.bus.send(
-                        t.isSelected
+                        d.id == this.selectedDeviceId
                             ? new BlinkPad(pos, color)
                             : new PaintPad(pos, color)
                     );
             });
     }
+
+    private int devicePositionToId(int pos) {
+        return pos - 1;
+    }
     
     public void on(Event event) {
         switch (event) {
+            case PadClicked(int n) when this.pageActive -> {
+                var pos = this.globalToLocalPosition(n);
+                if (pos != -1) {
+                    var id = this.devicePositionToId(pos);
+                    if (id == -1) return;
+                    this.bus.send(
+                        new RequestSelectDevice(id)
+                    );
+                    this.selectedDeviceId = id;
+                }
+            }
+            case BitwigTrackSelected(int n) -> this.selectedDeviceId = -1;
             case DevicesSchemaChanged(List<BitwigDevice> devices) -> {
                 this.devices = devices;
+                this.paint();
+            }
+            case PageSelected(int n) -> {
+                this.pageActive = n == 0;
                 this.paint();
             }
             default -> { }

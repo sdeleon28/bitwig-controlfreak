@@ -12,8 +12,15 @@ import dev.tradcode.groupctl.events.SetTrackVolume;
 import dev.tradcode.groupctl.events.VolModeSelected;
 import dev.tradcode.groupctl.events.VolumeUpdated;
 
+enum TwisterMode {
+    TRACK,
+    RC
+}
+
 public class TwisterTrackCtl extends TrackCtl {
-    VolPanMode mode = VolPanMode.VOL;
+    VolPanMode volPanMode = VolPanMode.VOL;
+    // TODO
+    TwisterMode twisterMode = TwisterMode.TRACK;
 
     public TwisterTrackCtl(IEventBus bus) {
         super(bus);
@@ -65,7 +72,7 @@ public class TwisterTrackCtl extends TrackCtl {
                 new SetEncoderValue(
                     t.getPosition(),
                     (int) Math.round(
-                        ((this.mode == VolPanMode.VOL)
+                        ((this.volPanMode == VolPanMode.VOL)
                             ? t.volume
                             : t.pan
                         ) * 127
@@ -85,7 +92,7 @@ public class TwisterTrackCtl extends TrackCtl {
                     .findFirst()
                     .ifPresent(t -> {
                         t.volume = v;
-                        if (this.mode != VolPanMode.VOL) return;
+                        if (this.volPanMode != VolPanMode.VOL) return;
                         this.bus.send(
                             new SetEncoderValue(
                                 t.getPosition(),
@@ -101,7 +108,7 @@ public class TwisterTrackCtl extends TrackCtl {
                     .findFirst()
                     .ifPresent(t -> {
                         t.pan = v;
-                        if (this.mode != VolPanMode.PAN) return;
+                        if (this.volPanMode != VolPanMode.PAN) return;
                         this.bus.send(
                             new SetEncoderValue(
                                 t.getPosition(),
@@ -117,7 +124,7 @@ public class TwisterTrackCtl extends TrackCtl {
                     .findFirst()
                     .ifPresent(t -> {
                         this.bus.send(
-                            (this.mode == VolPanMode.VOL)
+                            (this.volPanMode == VolPanMode.VOL)
                                 ? new SetTrackVolume(
                                     t.id,
                                     ((double) v) / 127.0)
@@ -128,11 +135,11 @@ public class TwisterTrackCtl extends TrackCtl {
                     });
             }
             case VolModeSelected() -> {
-                this.mode = VolPanMode.VOL;
+                this.volPanMode = VolPanMode.VOL;
                 this.paintRings();
             }
             case PanModeSelected() -> {
-                this.mode = VolPanMode.PAN;
+                this.volPanMode = VolPanMode.PAN;
                 this.paintRings();
             }
             default -> { }
