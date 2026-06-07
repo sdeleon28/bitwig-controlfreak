@@ -48,7 +48,7 @@ public class GroupCtlExtension extends ControllerExtension
 
       logger = new Logger(eventBus, host);
       schemaTracker = new BitwigSchemaTracker(host, eventBus);
-      devicesTracker = new BitwigDevicesTracker(eventBus, schemaTracker);
+      devicesTracker = new BitwigDevicesTracker(eventBus, host);
       volumeTracker = new BitwigVolPanTracker(host, eventBus);
       launchpadIn = new LaunchpadInput(eventBus, host.getMidiInPort(0));
       launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));

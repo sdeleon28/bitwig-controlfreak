@@ -68,7 +68,6 @@ class LaunchpadDeviceCtl implements IEventBusSubscriber {
             return;
         this.clearQuadrant();
         this.devices.stream()
-            .filter(d -> d.exists)
             .forEach(d -> {
                 var pos = this.localToGlobalPosition(d.getPosition());
                 var color = 69;
