@@ -93,9 +93,19 @@ public class BitwigDevicesTracker implements IEventBusSubscriber {
                 this.selectedTrackId = id;
             }
             case RequestSelectDevice(int id) -> {
-                var cursorBankDevice = this.cursorDeviceBank.getDevice(id);
-                this.cursorDevice.selectDevice(cursorBankDevice);
-                cursorBankDevice.selectInEditor();
+                for (int i = 0; i < DEVICE_COUNT; i++) {
+                    var d = this.cursorDeviceBank.getDevice(i);
+                    if (i != id) {
+                        d.isRemoteControlsSectionVisible().set(false);
+                        d.isExpanded().set(false);
+                    } else {
+                        d.isRemoteControlsSectionVisible().set(true);
+                        d.isExpanded().set(true);
+                    }
+                }
+                this.cursorDevice.selectDevice(
+                    this.cursorDeviceBank.getDevice(id)
+                );
             }
             default -> { }
         }
