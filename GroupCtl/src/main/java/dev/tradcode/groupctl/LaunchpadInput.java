@@ -32,7 +32,7 @@ public class LaunchpadInput {
         104, 105, 106, 107, 108, 109, 110, 111
     );
     static List<Integer> SIDE_BUTTONS = Arrays.asList(
-        89, 79, 69, 49, 39, 29, 19
+        89, 79, 69, 59, 49, 39, 29, 19
     );
     long HOLD_THRESHOLD_MS = 500; // TODO: tune this
 

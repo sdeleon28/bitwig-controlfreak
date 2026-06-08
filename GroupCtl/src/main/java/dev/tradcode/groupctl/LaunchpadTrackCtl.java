@@ -7,12 +7,21 @@ import dev.tradcode.groupctl.events.BlinkPad;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PadClicked;
+import dev.tradcode.groupctl.events.PadMode;
+import dev.tradcode.groupctl.events.PadModeUpdated;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
+import dev.tradcode.groupctl.events.RequestToggleMute;
+import dev.tradcode.groupctl.events.RequestToggleRec;
+import dev.tradcode.groupctl.events.RequestToggleSolo;
 
 class LaunchpadTrackCtl extends TrackCtl {
     boolean pageActive = true;
+    PadMode mode = PadMode.SELECT;
+    int MUTE_COLOR = 108; // sober orange
+    int SOLO_COLOR = 109; // yellow
+    int REC_COLOR = 99; // light orange
 
     Map<Integer, Integer> GLOBAL_TO_LOCAL = Map.ofEntries(
         // row 1
@@ -67,6 +76,12 @@ class LaunchpadTrackCtl extends TrackCtl {
         for (var t : inGroup) {
             var pos = this.localToGlobalPosition(t.getPosition());
             var color = this.bwToLaunchpadColor(t.color);
+            if (this.mode == PadMode.MUTE && t.mute)
+                color = MUTE_COLOR;
+            if (this.mode == PadMode.SOLO && t.solo)
+                color = SOLO_COLOR;
+            if (this.mode == PadMode.REC && t.rec)
+                color = REC_COLOR;
             if (pos != -1 && color != -1)
                 this.bus.send(
                     t.id == this.selectedTrackId ?
@@ -93,23 +108,37 @@ class LaunchpadTrackCtl extends TrackCtl {
             .map(t -> t.name)
             .orElse(null);
     }
+    
+    public void performTrackAction(int id, String name) {
+        switch (mode) {
+            case PadMode.MUTE:
+                this.bus.send(new RequestToggleMute(id, name));
+                break;
+            case PadMode.SOLO:
+                this.bus.send(new RequestToggleSolo(id, name));
+                break;
+            case PadMode.REC:
+                this.bus.send(new RequestToggleRec(id, name));
+                break;
+            default:
+                this.bus.send(new RequestSelectTrack(id, name));
+        }
+    }
 
     public void on(Event event) {
         super.on(event);
         switch (event) {
             case PadClicked(int n) when this.pageActive -> {
                 var pos = this.globalToLocalPosition(n);
-                if (pos != -1) {
-                    var trackId = this.trackPositionToId(pos);
-                    var trackName = this.trackPositionToName(pos);
-                    if (trackId != -1 && trackName != null)
-                        this.bus.send(
-                            new RequestSelectTrack(
-                                trackId,
-                                trackName
-                            )
-                        );
-                }
+                if (pos == -1) return;
+                var trackId = this.trackPositionToId(pos);
+                var trackName = this.trackPositionToName(pos);
+                if (trackId != -1 && trackName != null)
+                    this.performTrackAction(trackId, trackName);
+            }
+            case PadModeUpdated(var mode) -> {
+                this.mode = mode;
+                this.paint();
             }
             case PageSelected(int n) -> {
                 this.pageActive = n == 0;

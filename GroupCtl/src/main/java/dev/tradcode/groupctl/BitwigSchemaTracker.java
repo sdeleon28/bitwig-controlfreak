@@ -15,6 +15,9 @@ import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
+import dev.tradcode.groupctl.events.RequestToggleMute;
+import dev.tradcode.groupctl.events.RequestToggleRec;
+import dev.tradcode.groupctl.events.RequestToggleSolo;
 
 class TrackCache {
     boolean exists;
@@ -131,6 +134,12 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
+            case RequestToggleMute(int id, String trackName) ->
+                getTrack(id).mute().toggle();
+            case RequestToggleSolo(int id, String trackName) ->
+                getTrack(id).solo().toggle();
+            case RequestToggleRec(int id, String trackName) ->
+                getTrack(id).arm().toggle();
             case RequestSelectTrack(int trackId, String trackName) -> {
                 var track = getTrack(trackId);
                 track.selectInMixer();
