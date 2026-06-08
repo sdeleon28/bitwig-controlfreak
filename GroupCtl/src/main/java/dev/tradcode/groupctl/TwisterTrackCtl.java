@@ -1,26 +1,22 @@
 package dev.tradcode.groupctl;
 
+import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.PanModeSelected;
 import dev.tradcode.groupctl.events.PanUpdated;
+import dev.tradcode.groupctl.events.RequestSelectDevice;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.events.SetTrackPan;
 import dev.tradcode.groupctl.events.SetTrackVolume;
 import dev.tradcode.groupctl.events.VolModeSelected;
 import dev.tradcode.groupctl.events.VolumeUpdated;
 
-enum TwisterMode {
-    TRACK,
-    RC
-}
-
 public class TwisterTrackCtl extends TrackCtl {
     VolPanMode volPanMode = VolPanMode.VOL;
-    // TODO
-    TwisterMode twisterMode = TwisterMode.TRACK;
+    boolean active = true;
 
     public TwisterTrackCtl(IEventBus bus) {
         super(bus);
@@ -48,6 +44,7 @@ public class TwisterTrackCtl extends TrackCtl {
      */
     @Override
     protected void paint() {
+        if (!active) return;
         this.clearLeds();
         for (var t : this.tracksInSelectedGroup()) {
             var pos = t.getPosition();
@@ -65,6 +62,7 @@ public class TwisterTrackCtl extends TrackCtl {
     }
 
     protected void paintRings() {
+        if (!active) return;
         this.clearRings();
         this.tracksInSelectedGroup()
             .stream()
@@ -85,6 +83,14 @@ public class TwisterTrackCtl extends TrackCtl {
     public void on(Event event) {
         super.on(event);
         switch (event) {
+            case BitwigTrackSelected(int n) -> {
+                this.active = true;
+                this.paint();
+                this.paintRings();
+            }
+            // state source of truth is on our end for device selection, so we
+            // match on the request instead of the response from bw
+            case RequestSelectDevice(int n) -> this.active = false;
             case VolumeUpdated(int id, double v) -> {
                 this.tracksInSelectedGroup()
                     .stream()

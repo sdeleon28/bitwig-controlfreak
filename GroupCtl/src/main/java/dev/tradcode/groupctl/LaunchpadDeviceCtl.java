@@ -1,26 +1,18 @@
 package dev.tradcode.groupctl;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import dev.tradcode.groupctl.events.BitwigDevice;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.BlinkPad;
-import dev.tradcode.groupctl.events.DevicesSchemaChanged;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
-import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
 import dev.tradcode.groupctl.events.RequestSelectDevice;
 
-class LaunchpadDeviceCtl implements IEventBusSubscriber {
-    IEventBus bus;
-    List<BitwigDevice> devices;
+class LaunchpadDeviceCtl extends DeviceCtl {
     boolean pageActive = true;
-    int selectedDeviceId = -1;
 
     Map<Integer, Integer> GLOBAL_TO_LOCAL = Map.ofEntries(
         // row 1
@@ -38,8 +30,7 @@ class LaunchpadDeviceCtl implements IEventBusSubscriber {
     );
 
     public LaunchpadDeviceCtl(IEventBus bus) {
-        this.bus = bus;
-        this.bus.subscribe(this);
+        super(bus);
     }
 
     public int globalToLocalPosition(int gpos) {
@@ -85,6 +76,7 @@ class LaunchpadDeviceCtl implements IEventBusSubscriber {
     }
     
     public void on(Event event) {
+        super.on(event);
         switch (event) {
             case PadClicked(int n) when this.pageActive -> {
                 var pos = this.globalToLocalPosition(n);
@@ -96,11 +88,6 @@ class LaunchpadDeviceCtl implements IEventBusSubscriber {
                     );
                     this.selectedDeviceId = id;
                 }
-            }
-            case BitwigTrackSelected(int n) -> this.selectedDeviceId = -1;
-            case DevicesSchemaChanged(List<BitwigDevice> devices) -> {
-                this.devices = devices;
-                this.paint();
             }
             case PageSelected(int n) -> {
                 this.pageActive = n == 0;
