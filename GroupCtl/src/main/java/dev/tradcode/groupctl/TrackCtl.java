@@ -7,6 +7,8 @@ import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.SchemaChanged;
+import dev.tradcode.groupctl.events.TrackMode;
+import dev.tradcode.groupctl.events.BitwigFxTrackSelected;
 import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.BitwigTrackSelected;
 
@@ -16,6 +18,7 @@ public abstract class TrackCtl implements IEventBusSubscriber {
     ArrayList<BitwigTrack> tracks = new ArrayList<>();
     int selectedTrackId = -1;
     int selectedGroupId = -1;
+    TrackMode trackMode = TrackMode.NORMAL;
 
     public TrackCtl(IEventBus bus) {
         this.bus = bus;
@@ -68,8 +71,12 @@ public abstract class TrackCtl implements IEventBusSubscriber {
                     this.paint();
                 }
             }
+            case BitwigFxTrackSelected(int id) -> {
+                this.trackMode = TrackMode.FX;
+            }
             case BitwigTrackSelected(int id) -> {
                 this.selectedTrackId = id;
+                this.trackMode = TrackMode.NORMAL;
                 var track = this.getTrackById(id);
                 if (track != null && track.isGroup) {
                     this.selectedGroupId = id;

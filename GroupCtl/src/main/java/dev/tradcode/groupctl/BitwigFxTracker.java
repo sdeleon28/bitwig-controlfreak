@@ -12,7 +12,6 @@ import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.FxSchemaChanged;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestFxToggleMute;
 import dev.tradcode.groupctl.events.RequestFxToggleRec;
 import dev.tradcode.groupctl.events.RequestFxToggleSolo;
@@ -141,13 +140,6 @@ public class BitwigFxTracker implements IEventBusSubscriber {
                 getTrack(id).solo().toggle();
             case RequestFxToggleRec(int id, String trackName) ->
                 getTrack(id).arm().toggle();
-            case RequestFxSelectTrack(int trackId, String trackName) -> {
-                var track = getTrack(trackId);
-                track.selectInMixer();
-                track.makeVisibleInMixer();
-                track.selectInEditor();
-                track.makeVisibleInArranger();
-            }
             default -> { }
         }
     }

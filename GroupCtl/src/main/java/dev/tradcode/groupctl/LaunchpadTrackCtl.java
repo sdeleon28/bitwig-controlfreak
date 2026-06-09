@@ -18,7 +18,7 @@ import dev.tradcode.groupctl.events.RequestToggleSolo;
 
 class LaunchpadTrackCtl extends TrackCtl {
     boolean pageActive = true;
-    PadMode mode = PadMode.SELECT;
+    PadMode padMode = PadMode.SELECT;
     // TODO: make dry
     int MUTE_COLOR = 108; // sober orange
     int SOLO_COLOR = 109; // yellow
@@ -26,17 +26,25 @@ class LaunchpadTrackCtl extends TrackCtl {
 
     Map<Integer, Integer> GLOBAL_TO_LOCAL = Map.ofEntries(
         // row 1
-        Map.entry(11, 1),  Map.entry(12, 2),
-        Map.entry(13, 3),  Map.entry(14, 4),
+        Map.entry(11, 1),
+        Map.entry(12, 2),
+        Map.entry(13, 3),
+        Map.entry(14, 4),
         // row 2
-        Map.entry(21, 5),  Map.entry(22, 6),
-        Map.entry(23, 7),  Map.entry(24, 8),
+        Map.entry(21, 5),
+        Map.entry(22, 6),
+        Map.entry(23, 7),
+        Map.entry(24, 8),
         // row 3
-        Map.entry(31, 9),  Map.entry(32, 10),
-        Map.entry(33, 11), Map.entry(34, 12),
+        Map.entry(31, 9),
+        Map.entry(32, 10),
+        Map.entry(33, 11),
+        Map.entry(34, 12),
         // row 4
-        Map.entry(41, 13), Map.entry(42, 14),
-        Map.entry(43, 15), Map.entry(44, 16)
+        Map.entry(41, 13),
+        Map.entry(42, 14),
+        Map.entry(43, 15),
+        Map.entry(44, 16)
     );
 
     public LaunchpadTrackCtl(IEventBus bus) {
@@ -70,18 +78,17 @@ class LaunchpadTrackCtl extends TrackCtl {
 
     @Override
     protected void paint() {
-        if (!this.pageActive)
-            return;
+        if (!this.pageActive) return;
         this.clearQuadrant();
         var inGroup = this.tracksInSelectedGroup();
         for (var t : inGroup) {
             var pos = this.localToGlobalPosition(t.getPosition());
             var color = this.bwToLaunchpadColor(t.color);
-            if (this.mode == PadMode.MUTE && t.mute)
+            if (this.padMode == PadMode.MUTE && t.mute)
                 color = MUTE_COLOR;
-            if (this.mode == PadMode.SOLO && t.solo)
+            if (this.padMode == PadMode.SOLO && t.solo)
                 color = SOLO_COLOR;
-            if (this.mode == PadMode.REC && t.rec)
+            if (this.padMode == PadMode.REC && t.rec)
                 color = REC_COLOR;
             if (pos != -1 && color != -1)
                 this.bus.send(
@@ -111,7 +118,7 @@ class LaunchpadTrackCtl extends TrackCtl {
     }
     
     public void performTrackAction(int id, String name) {
-        switch (mode) {
+        switch (padMode) {
             case PadMode.MUTE:
                 this.bus.send(new RequestToggleMute(id, name));
                 break;
@@ -137,8 +144,8 @@ class LaunchpadTrackCtl extends TrackCtl {
                 if (trackId != -1 && trackName != null)
                     this.performTrackAction(trackId, trackName);
             }
-            case PadModeUpdated(var mode) -> {
-                this.mode = mode;
+            case PadModeUpdated(var padMode) -> {
+                this.padMode = padMode;
                 this.paint();
             }
             case PageSelected(int n) -> {

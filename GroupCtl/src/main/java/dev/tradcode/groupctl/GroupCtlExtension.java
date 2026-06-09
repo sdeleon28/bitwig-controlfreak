@@ -15,6 +15,7 @@ public class GroupCtlExtension extends ControllerExtension
    BitwigDevicesTracker devicesTracker;
    BitwigFxTracker fxTracker;
    BitwigVolPanTracker volumeTracker;
+   BitwigSendsTracker sendsTracker;
    IEventBus eventBus;
    Logger logger;
    LaunchpadInput launchpadIn;
@@ -55,6 +56,7 @@ public class GroupCtlExtension extends ControllerExtension
       devicesTracker = new BitwigDevicesTracker(eventBus, host);
       fxTracker = new BitwigFxTracker(eventBus, host);
       volumeTracker = new BitwigVolPanTracker(host, eventBus);
+      sendsTracker = new BitwigSendsTracker(eventBus, host);
       launchpadIn = new LaunchpadInput(eventBus, host.getMidiInPort(0));
       launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
       twisterIn = new TwisterInput(eventBus, host.getMidiInPort(1));
@@ -88,6 +90,7 @@ public class GroupCtlExtension extends ControllerExtension
        volumeTracker.flush();
        devicesTracker.flush();
        fxTracker.flush();
+       sendsTracker.flush();
    }
 
    /** Called when we receive short MIDI message on port 0. */

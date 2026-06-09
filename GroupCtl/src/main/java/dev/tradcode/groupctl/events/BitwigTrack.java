@@ -39,7 +39,7 @@ public class BitwigTrack {
             && this.color == o.color
             && this.isSelectedInEditor == o.isSelectedInEditor
             && this.isSelectedInMixer == o.isSelectedInMixer
-            // purposefully exclude volume here
+            // purposefully exclude volume / pan here
         );
     }
 
