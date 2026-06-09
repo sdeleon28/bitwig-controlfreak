@@ -13,6 +13,7 @@ public class GroupCtlExtension extends ControllerExtension
 {
    BitwigSchemaTracker schemaTracker;
    BitwigDevicesTracker devicesTracker;
+   BitwigFxTracker fxTracker;
    BitwigVolPanTracker volumeTracker;
    IEventBus eventBus;
    Logger logger;
@@ -24,6 +25,7 @@ public class GroupCtlExtension extends ControllerExtension
    LaunchpadGroupCtl launchpadGroupCtl;
    LaunchpadTrackCtl launchpadTrackCtl;
    LaunchpadDeviceCtl launchpadDeviceCtl;
+   LaunchpadFxCtl launchpadFxCtl;
    TwisterDeviceCtl twisterDeviceCtl;
    TwisterTrackCtl twisterTrackCtl;
    Pager pager;
@@ -51,6 +53,7 @@ public class GroupCtlExtension extends ControllerExtension
       logger = new Logger(eventBus, host);
       schemaTracker = new BitwigSchemaTracker(host, eventBus);
       devicesTracker = new BitwigDevicesTracker(eventBus, host);
+      fxTracker = new BitwigFxTracker(eventBus, host);
       volumeTracker = new BitwigVolPanTracker(host, eventBus);
       launchpadIn = new LaunchpadInput(eventBus, host.getMidiInPort(0));
       launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
@@ -60,6 +63,7 @@ public class GroupCtlExtension extends ControllerExtension
       launchpadGroupCtl = new LaunchpadGroupCtl(eventBus);
       launchpadTrackCtl = new LaunchpadTrackCtl(eventBus);
       launchpadDeviceCtl = new LaunchpadDeviceCtl(eventBus);
+      launchpadFxCtl = new LaunchpadFxCtl(eventBus);
       twisterDeviceCtl = new TwisterDeviceCtl(eventBus);
       twisterTrackCtl = new TwisterTrackCtl(eventBus);
       pager = new Pager(eventBus);
@@ -83,6 +87,7 @@ public class GroupCtlExtension extends ControllerExtension
        schemaTracker.flush();
        volumeTracker.flush();
        devicesTracker.flush();
+       fxTracker.flush();
    }
 
    /** Called when we receive short MIDI message on port 0. */

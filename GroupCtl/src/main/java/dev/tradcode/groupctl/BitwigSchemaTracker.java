@@ -39,6 +39,7 @@ class TrackCache {
 
 public class BitwigSchemaTracker implements IEventBusSubscriber {
     int TRACKS_COUNT = 64;
+    // this probably needs to be 0
     int FX_TRACKS_COUNT = 8;
     // I'm not sure about this one
     int SCENES_COUNT = 0; 
@@ -207,6 +208,7 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
         return res;
     }
 
+    // if you touch this, you probably wanna do the same in BitwigFxTracker
     private BitwigTrack cacheToTrackDef(TrackCache t) {
         BitwigTrack bt = new BitwigTrack();
         bt.id = t.id;
