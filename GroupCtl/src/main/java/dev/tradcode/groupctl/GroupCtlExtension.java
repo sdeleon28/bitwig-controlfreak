@@ -28,7 +28,8 @@ public class GroupCtlExtension extends ControllerExtension
    LaunchpadDeviceCtl launchpadDeviceCtl;
    LaunchpadFxCtl launchpadFxCtl;
    TwisterDeviceCtl twisterDeviceCtl;
-   TwisterTrackCtl twisterTrackCtl;
+   TwisterVolPanCtl twisterVolPanCtl;
+   TwisterSendTracksToFxCtl twisterSendTracksToFxCtl;
    Pager pager;
    VolPanCtl volPanCtl;
    PadModeCtl padModeCtl;
@@ -67,7 +68,8 @@ public class GroupCtlExtension extends ControllerExtension
       launchpadDeviceCtl = new LaunchpadDeviceCtl(eventBus);
       launchpadFxCtl = new LaunchpadFxCtl(eventBus);
       twisterDeviceCtl = new TwisterDeviceCtl(eventBus);
-      twisterTrackCtl = new TwisterTrackCtl(eventBus);
+      twisterVolPanCtl = new TwisterVolPanCtl(eventBus);
+      twisterSendTracksToFxCtl = new TwisterSendTracksToFxCtl(eventBus);
       pager = new Pager(eventBus);
       volPanCtl = new VolPanCtl(eventBus);
       padModeCtl = new PadModeCtl(eventBus);
