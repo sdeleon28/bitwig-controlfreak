@@ -30,6 +30,7 @@ public class GroupCtlExtension extends ControllerExtension
    TwisterDeviceCtl twisterDeviceCtl;
    TwisterVolPanCtl twisterVolPanCtl;
    TwisterSendTracksToFxCtl twisterSendTracksToFxCtl;
+   TwisterSendTrackToAllFxCtl twisterSendTrackToAllFxCtl;
    Pager pager;
    VolPanCtl volPanCtl;
    PadModeCtl padModeCtl;
@@ -70,6 +71,7 @@ public class GroupCtlExtension extends ControllerExtension
       twisterDeviceCtl = new TwisterDeviceCtl(eventBus);
       twisterVolPanCtl = new TwisterVolPanCtl(eventBus);
       twisterSendTracksToFxCtl = new TwisterSendTracksToFxCtl(eventBus);
+      twisterSendTrackToAllFxCtl = new TwisterSendTrackToAllFxCtl(eventBus);
       pager = new Pager(eventBus);
       volPanCtl = new VolPanCtl(eventBus);
       padModeCtl = new PadModeCtl(eventBus);

@@ -58,6 +58,13 @@ public class TwisterSendTracksToFxCtl extends TwisterTrackCtl {
                 this.selectedFx = -1;
             }
             case RequestFxSelectTrack(int id, String name) -> {
+                // Group context only: the active selection is the group itself.
+                // When a child track is selected (selectedTrackId differs from
+                // the group), TwisterSendTrackToAllFxCtl owns the encoders.
+                if (this.selectedTrackId != this.selectedGroupId) {
+                    this.active = false;
+                    return;
+                }
                 this.active = true;
                 this.selectedFx = id;
                 this.refresh();

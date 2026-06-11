@@ -93,6 +93,25 @@ class TwisterSendTracksToFxCtlTest {
     }
 
     @Test
+    void doesNotActivateInTrackContext() {
+        FakeEventBus bus = new FakeEventBus();
+        var ctl = new TwisterSendTracksToFxCtl(bus);
+        bus.send(new SchemaChanged(schema()));
+        bus.send(new BitwigTrackSelected(GROUP_ID)); // group context
+        bus.send(new BitwigTrackSelected(DI_ID));    // -> track context
+        bus.send(new SendsChanged(sends()));
+        bus.events.clear();
+
+        bus.send(new RequestFxSelectTrack(FX, "verb"));
+
+        // A child track is selected, so TwisterSendTrackToAllFxCtl owns the
+        // encoders; this program must stay silent.
+        assertNull(ringAt(bus, 1));
+        bus.send(new EncoderTurned(1, 127));
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof SetSelectedTrackSend));
+    }
+
+    @Test
     void selectingFxPaintsSendRings() {
         FakeEventBus bus = new FakeEventBus();
         pendingFx(bus);

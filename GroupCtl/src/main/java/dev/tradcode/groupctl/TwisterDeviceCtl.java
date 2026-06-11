@@ -9,8 +9,10 @@ import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.RcValueChanged;
+import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestInitRcs;
 import dev.tradcode.groupctl.events.RequestSelectDevice;
+import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.events.SetRcValue;
 
@@ -65,6 +67,10 @@ public class TwisterDeviceCtl extends DeviceCtl {
         super.on(event);
         switch (event) {
             case BitwigTrackSelected(int n) -> this.active = false;
+            case RequestSelectTrack(int trackId, String name) ->
+                this.active = false;
+            case RequestFxSelectTrack(int id, String name) ->
+                this.active = false;
             // state source of truth is on our end for device selection, so we
             // match on the request instead of the response from bw
             case RequestSelectDevice(int n) -> {
@@ -83,6 +89,7 @@ public class TwisterDeviceCtl extends DeviceCtl {
                 );
             }
             case EncoderTurned(int n, int v) -> {
+                if (!this.active) return;
                 this.bus.send(
                     new SetRcValue(
                         this.positionToId(n),

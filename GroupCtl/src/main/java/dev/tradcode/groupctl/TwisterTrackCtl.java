@@ -1,41 +1,17 @@
 package dev.tradcode.groupctl;
 
 import dev.tradcode.groupctl.events.BitwigTrack;
-import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PaintEncoder;
-import dev.tradcode.groupctl.events.RequestSelectDevice;
-import dev.tradcode.groupctl.events.SetEncoderValue;
 
 /**
- * Shared base for the Twister programs that drive the 16 encoders from the
- * tracks in the selected group (vol/pan, sends-to-fx, …).
- *
- * <p>Each concrete subclass owns one program and decides — purely from the
- * events flowing through the bus — when it is the {@link #active} owner of the
- * encoders. Only the active program paints or reacts to encoder turns, so the
- * programs never fight over the hardware. Grabbing a device releases every
- * program; that transition is shared and lives here.
+ * Base for the Twister programs that lay the tracks of the selected group out
+ * across the encoders (vol/pan, sends-to-fx). Each track's color LED is painted
+ * at its 1..16 position; the ring value is delegated to {@link #paintRing}.
  */
-public abstract class TwisterTrackCtl extends TrackCtl {
-    boolean active = false;
-
+public abstract class TwisterTrackCtl extends TwisterTrackEncoderCtl {
     public TwisterTrackCtl(IEventBus bus) {
         super(bus);
-    }
-
-    protected int bwToTwisterColor(String bwColor) {
-        return Colors.toTwister(bwColor);
-    }
-
-    protected void clearLeds() {
-        for (int i = 1; i <= 16; i++)
-            this.bus.send(new PaintEncoder(i, 0));
-    }
-
-    protected void clearRings() {
-        for (int i = 1; i <= 16; i++)
-            this.bus.send(new SetEncoderValue(i, 0));
     }
 
     /**
@@ -66,26 +42,10 @@ public abstract class TwisterTrackCtl extends TrackCtl {
     /** Paints one track's ring value; defines what this program displays. */
     protected abstract void paintRing(BitwigTrack t);
 
+    @Override
     protected void paintRings() {
         if (!active) return;
         this.clearRings();
         this.tracksInSelectedGroup().forEach(this::paintRing);
-    }
-
-    /** Repaint everything this program owns; used on (de)activation. */
-    protected void refresh() {
-        this.paint();
-        this.paintRings();
-    }
-
-    @Override
-    public void on(Event event) {
-        super.on(event);
-        switch (event) {
-            // state source of truth is on our end for device selection, so we
-            // match on the request instead of the response from bw
-            case RequestSelectDevice(int n) -> this.active = false;
-            default -> { }
-        }
     }
 }

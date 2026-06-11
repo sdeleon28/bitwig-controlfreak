@@ -9,12 +9,16 @@ import com.bitwig.extension.controller.api.TrackBank;
 import dev.tradcode.groupctl.events.BitwigFxTrackSelected;
 import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.Event;
+import dev.tradcode.groupctl.events.FxPanUpdated;
 import dev.tradcode.groupctl.events.FxSchemaChanged;
+import dev.tradcode.groupctl.events.FxVolumeUpdated;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.RequestFxToggleMute;
 import dev.tradcode.groupctl.events.RequestFxToggleRec;
 import dev.tradcode.groupctl.events.RequestFxToggleSolo;
+import dev.tradcode.groupctl.events.SetFxTrackPan;
+import dev.tradcode.groupctl.events.SetFxTrackVolume;
 
 class FxCache {
     boolean exists;
@@ -28,6 +32,8 @@ class FxCache {
     boolean isSelectedInMixer;
     double volume;
     double pan;
+    boolean volumeDirty;
+    boolean panDirty;
 }
 
 public class BitwigFxTracker implements IEventBusSubscriber {
@@ -92,12 +98,16 @@ public class BitwigFxTracker implements IEventBusSubscriber {
                 cacheDirty = true;
             });
             t.volume().value().addValueObserver(v -> {
-                // store the volume but don't publish a full schema over it
+                // store the volume but don't publish a full schema over it;
+                // a granular FxVolumeUpdated is emitted on flush instead
                 rawCache[j].volume = v;
+                rawCache[j].volumeDirty = true;
             });
             t.pan().value().addValueObserver(v -> {
-                // store the pan but don't publish a full schema over it
+                // store the pan but don't publish a full schema over it;
+                // a granular FxPanUpdated is emitted on flush instead
                 rawCache[j].pan = v;
+                rawCache[j].panDirty = true;
             });
         }
     }
@@ -125,11 +135,26 @@ public class BitwigFxTracker implements IEventBusSubscriber {
     }
 
     public void flush() {
-        if (!this.cacheDirty) return;
-        var defs = new ArrayList<BitwigTrack>();
-        for (int i = 0; i < FX_TRACKS_COUNT; i++) if (rawCache[i].exists)
-            defs.add(cacheToTrackDef(rawCache[i]));
-        this.bus.send(new FxSchemaChanged(defs));
+        if (this.cacheDirty) {
+            var defs = new ArrayList<BitwigTrack>();
+            for (int i = 0; i < FX_TRACKS_COUNT; i++) if (rawCache[i].exists)
+                defs.add(cacheToTrackDef(rawCache[i]));
+            this.bus.send(new FxSchemaChanged(defs));
+            this.cacheDirty = false;
+        }
+        for (int i = 0; i < FX_TRACKS_COUNT; i++) {
+            var t = rawCache[i];
+            if (t.volumeDirty) {
+                if (t.exists)
+                    this.bus.send(new FxVolumeUpdated(t.id, t.volume));
+                t.volumeDirty = false;
+            }
+            if (t.panDirty) {
+                if (t.exists)
+                    this.bus.send(new FxPanUpdated(t.id, t.pan));
+                t.panDirty = false;
+            }
+        }
     }
 
     public void on(Event event) {
@@ -140,6 +165,10 @@ public class BitwigFxTracker implements IEventBusSubscriber {
                 getTrack(id).solo().toggle();
             case RequestFxToggleRec(int id, String trackName) ->
                 getTrack(id).arm().toggle();
+            case SetFxTrackVolume(int id, double v) ->
+                getTrack(id).volume().value().set(v);
+            case SetFxTrackPan(int id, double v) ->
+                getTrack(id).pan().value().set(v);
             default -> { }
         }
     }
