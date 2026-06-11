@@ -6,6 +6,7 @@ import java.util.Map;
 
 import dev.tradcode.groupctl.events.BitwigFxTrackSelected;
 import dev.tradcode.groupctl.events.BitwigTrack;
+import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.BlinkPad;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.FxSchemaChanged;
@@ -20,6 +21,7 @@ import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestFxToggleMute;
 import dev.tradcode.groupctl.events.RequestFxToggleRec;
 import dev.tradcode.groupctl.events.RequestFxToggleSolo;
+import dev.tradcode.groupctl.events.RequestSelectTrack;
 
 public class LaunchpadFxCtl implements IEventBusSubscriber {
     static int FX_TRACKS_COUNT = 8;
@@ -38,7 +40,7 @@ public class LaunchpadFxCtl implements IEventBusSubscriber {
     );
     PadMode mode = PadMode.SELECT;
     boolean pageActive = true;
-    int selectedFxTrackId;
+    int selectedFxTrackId = -1;
     // TODO: make dry
     int MUTE_COLOR = 108; // sober orange
     int SOLO_COLOR = 109; // yellow
@@ -130,6 +132,18 @@ public class LaunchpadFxCtl implements IEventBusSubscriber {
             }
             case BitwigFxTrackSelected(int id) -> {
                 this.selectedFxTrackId = id;
+                this.paint();
+            }
+            case RequestFxSelectTrack(int id, String name) -> {
+                this.selectedFxTrackId = id;
+                this.paint();
+            }
+            case BitwigTrackSelected(int id) -> {
+                this.selectedFxTrackId = -1;
+                this.paint();
+            }
+            case RequestSelectTrack(int trackId, String name) -> {
+                this.selectedFxTrackId = -1;
                 this.paint();
             }
             case PadClicked(int n) when this.pageActive -> {

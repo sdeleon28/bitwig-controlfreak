@@ -11,4 +11,5 @@
         [X] paint corresponding send value to ring
         [ ] turning encoder should set send value
         [ ] all buttons solo selected fx
-[ ] allow re-selecting group (allows you to switch back to track mode)
+[X] allow re-selecting group (allows you to switch back to track mode)
+[ ] growls

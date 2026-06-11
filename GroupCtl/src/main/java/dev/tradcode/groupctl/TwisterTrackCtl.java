@@ -13,6 +13,7 @@ import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.PanModeSelected;
 import dev.tradcode.groupctl.events.PanUpdated;
 import dev.tradcode.groupctl.events.RequestSelectDevice;
+import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.events.SendValueUpdated;
 import dev.tradcode.groupctl.events.SendsChanged;
 import dev.tradcode.groupctl.events.SetEncoderValue;
@@ -114,6 +115,15 @@ public class TwisterTrackCtl extends TrackCtl {
             case BitwigTrackSelected(int n) -> {
                 this.active = true;
                 this.trackMode = TrackMode.NORMAL;
+                this.selectedFx = -1;
+                this.paint();
+                this.paintRings();
+            }
+            case RequestSelectTrack(int trackId, String name) -> {
+                if (trackId != this.selectedGroupId) return;
+                this.active = true;
+                this.trackMode = TrackMode.NORMAL;
+                this.selectedFx = -1;
                 this.paint();
                 this.paintRings();
             }
