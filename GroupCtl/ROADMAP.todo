@@ -10,6 +10,55 @@
         [X] disable vol / pan ring
         [X] paint corresponding send value to ring
         [ ] turning encoder should set send value
-        [ ] all buttons solo selected fx
+        [-] all buttons solo selected fx
+            [X] will need to break TwisterTrackCtl into more responsibilities
+                [X] TwisterVolPanCtl
+                [X] TwisterSendTracksToFxCtl
+                ->  pulling this out unlocks the pattern where one class
+                    controls all the encoders and knows how to activate or
+                    de-activate itself depending on the events that happen in
+                    the system
+                ->  this lays the pattern for:
+                [ ] TwisterSendTrackToAllFxCtl
+                    [ ] 4 encoders at the top control FX track volumes / pans
+                        (re-use VolPan pattern from TwisterTrackCtl)
+                    [ ] 4 encoders at the bottom send selected track to all 8 FX
 [X] allow re-selecting group (allows you to switch back to track mode)
 [ ] growls
+    [ ] remove all existing
+    [ ] may need to thread through names into existing events
+    [ ] group selected
+    [ ] track selected
+    [ ] device selected
+    [ ] fx selected
+
+## mode selection
+
+[ ] Update LaunchpadTrackCtl to have mode-aware behaviors
+    [ ] select (current)
+    [ ] mute
+    [ ] solo
+    [ ] rec
+
+## sends pad mode sidequest
+
+[-] do we need it? i think we should remove it
+
+## colors
+
+[ ] mode selector colors
+    [ ] sends color
+
+## page 2
+
+[ ] BitwigMarkersTracker.java
+    [ ] start with one pad per bar
+    [ ] collapse markers into a data structure that has the calculated amount
+        of pads that each region should fill up in the launchpad
+[ ] ExplorerPager (mirror Pager)
+[ ] ExplorerResolution (mirror ExplorerPager)
+[ ] quantized playback
+[ ] colors
+[ ] visualization of playback
+[ ] range selection
+[ ] select useful default resolution
