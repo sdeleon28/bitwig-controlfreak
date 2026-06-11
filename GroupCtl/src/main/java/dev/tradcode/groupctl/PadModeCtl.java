@@ -11,7 +11,6 @@ import dev.tradcode.groupctl.events.PadMode;
 import dev.tradcode.groupctl.events.PadModeUpdated;
 
 public class PadModeCtl implements IEventBusSubscriber {
-    static int SENDS_COLOR = 69;
     static int SELECT_COLOR = 69;
     static int MUTE_COLOR = 69;
     static int SOLO_COLOR = 69;
@@ -40,9 +39,6 @@ public class PadModeCtl implements IEventBusSubscriber {
         if (!this.pageActive) return;
         this.clear();
         switch (this.mode) {
-            case PadMode.SENDS:
-                this.bus.send(new PaintSideButton(SideButton.SEND_B, SENDS_COLOR));
-                break;
             case PadMode.SELECT:
                 this.bus.send(new PaintSideButton(SideButton.STOP, SELECT_COLOR));
                 break;
@@ -67,10 +63,6 @@ public class PadModeCtl implements IEventBusSubscriber {
         switch (event) {
             case SideButtonClick(var btn) -> {
                 switch (btn) {
-                    case SideButton.SEND_B:
-                        this.setMode(PadMode.SENDS);
-                        this.paint();
-                        break;
                     case SideButton.STOP:
                         this.setMode(PadMode.SELECT);
                         this.paint();
