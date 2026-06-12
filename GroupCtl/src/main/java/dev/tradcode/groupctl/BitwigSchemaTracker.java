@@ -15,6 +15,7 @@ import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
+import dev.tradcode.groupctl.events.RequestSetSolo;
 import dev.tradcode.groupctl.events.RequestToggleMute;
 import dev.tradcode.groupctl.events.RequestToggleRec;
 import dev.tradcode.groupctl.events.RequestToggleSolo;
@@ -139,6 +140,8 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
                 getTrack(id).mute().toggle();
             case RequestToggleSolo(int id, String trackName) ->
                 getTrack(id).solo().toggle();
+            case RequestSetSolo(int id, String trackName, boolean solo) ->
+                getTrack(id).solo().set(solo);
             case RequestToggleRec(int id, String trackName) ->
                 getTrack(id).arm().toggle();
             case RequestSelectTrack(int trackId, String trackName) -> {

@@ -7,12 +7,15 @@ import java.util.ArrayList;
 
 import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.events.EncoderButtonPressed;
+import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.PanModeSelected;
 import dev.tradcode.groupctl.events.PanUpdated;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestSelectDevice;
+import dev.tradcode.groupctl.events.RequestSetSolo;
 import dev.tradcode.groupctl.events.SchemaChanged;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.events.SetTrackPan;
@@ -147,6 +150,52 @@ class TwisterVolPanCtlTest {
         bus.send(new EncoderTurned(1, 127));
 
         assertTrue(bus.events.stream().noneMatch(e -> e instanceof SetTrackVolume));
+    }
+
+    private static RequestSetSolo soloCmd(FakeEventBus bus) {
+        return bus.events.stream()
+            .filter(e -> e instanceof RequestSetSolo)
+            .map(e -> (RequestSetSolo) e)
+            .findFirst()
+            .orElse(null);
+    }
+
+    @Test
+    void holdingEncoderButtonSolosTrack() {
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new EncoderButtonPressed(2));
+
+        var cmd = soloCmd(bus);
+        assertNotNull(cmd);
+        assertEquals(LO_ID, cmd.trackId());
+        assertTrue(cmd.solo());
+    }
+
+    @Test
+    void releasingEncoderButtonUnsolosTrack() {
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new EncoderButtonReleased(1));
+
+        var cmd = soloCmd(bus);
+        assertNotNull(cmd);
+        assertEquals(DI_ID, cmd.trackId());
+        assertFalse(cmd.solo());
+    }
+
+    @Test
+    void encoderButtonDoesNotSoloWhileInactive() {
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new RequestFxSelectTrack(0, "verb"));
+        bus.events.clear();
+        bus.send(new EncoderButtonPressed(1));
+
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof RequestSetSolo));
     }
 
     @Test

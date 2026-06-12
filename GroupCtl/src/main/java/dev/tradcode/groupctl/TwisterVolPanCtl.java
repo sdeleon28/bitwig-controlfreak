@@ -2,6 +2,8 @@ package dev.tradcode.groupctl;
 
 import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.events.EncoderButtonPressed;
+import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
@@ -9,6 +11,7 @@ import dev.tradcode.groupctl.events.PanModeSelected;
 import dev.tradcode.groupctl.events.PanUpdated;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
+import dev.tradcode.groupctl.events.RequestSetSolo;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.events.SetTrackPan;
 import dev.tradcode.groupctl.events.SetTrackVolume;
@@ -41,6 +44,15 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
                 )
             )
         );
+    }
+
+    private void setSoloAt(int n, boolean solo) {
+        if (!active) return;
+        this.tracksInSelectedGroup()
+            .stream()
+            .filter(t -> t.getPosition() == n)
+            .findFirst()
+            .ifPresent(t -> this.bus.send(new RequestSetSolo(t.id, t.name, solo)));
     }
 
     @Override
@@ -91,6 +103,8 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
                             : new SetTrackPan(t.id, ((double) v) / 127.0)
                     ));
             }
+            case EncoderButtonPressed(int n) -> this.setSoloAt(n, true);
+            case EncoderButtonReleased(int n) -> this.setSoloAt(n, false);
             case VolModeSelected() -> {
                 this.volPanMode = VolPanMode.VOL;
                 this.paintRings();

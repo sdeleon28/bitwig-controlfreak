@@ -10,23 +10,33 @@
         [X] disable vol / pan ring
         [X] paint corresponding send value to ring
         [X] turning encoder should set send value
-        [-] all buttons solo selected fx
-            [X] will need to break TwisterTrackCtl into more responsibilities
-                [X] TwisterVolPanCtl
-                [X] TwisterSendTracksToFxCtl
-                ->  pulling this out unlocks the pattern where one class
-                    controls all the encoders and knows how to activate or
-                    de-activate itself depending on the events that happen in
-                    the system
-                ->  this lays the pattern for:
-                [X] TwisterSendTrackToAllFxCtl
-                    [X] top 8 encoders control FX track volumes / pans
-                        (re-use VolPan mode selector + patterns from TwisterTrackCtl)
-                    [X] bottom 8 encoders send selected track to all 8 FX
-                    -> this program gets activated after selecting a track, then
-                       an FX. this is in contrast to selecting an FX when you
-                       just selected a group, which activates
-                       TwisterSendTracksToFxCtl instead.
+        [X] will need to break TwisterTrackCtl into more responsibilities
+            [X] TwisterVolPanCtl
+            [X] TwisterSendTracksToFxCtl
+            ->  pulling this out unlocks the pattern where one class
+                controls all the encoders and knows how to activate or
+                de-activate itself depending on the events that happen in
+                the system
+            ->  this lays the pattern for:
+            [X] TwisterSendTrackToAllFxCtl
+                [X] top 8 encoders control FX track volumes / pans
+                    (re-use VolPan mode selector + patterns from TwisterTrackCtl)
+                [X] bottom 8 encoders send selected track to all 8 FX
+                -> this program gets activated after selecting a track, then
+                   an FX. this is in contrast to selecting an FX when you
+                   just selected a group, which activates
+                   TwisterSendTracksToFxCtl instead.
+[ ] BUG: why does encoder 7 light up for group 2?
+[-] solo behavior
+    [X] TwisterVolPanCtl
+        [X] encoder button hold should solo the corresponding track
+        [X] release should unsolo
+        [ ] set the LED to yellow when track is soloed (mirror trackctl in solo mode)
+    [ ] TwisterSendTrackToAllFxCtl
+        [ ] bottom encoder buttons should solo corresponding FX
+        [ ] top encoder buttons should solo the FX tracks they represent
+    [ ] TwisterSendTracksToFxCtl
+        [ ] all encoder buttons should solo currently selected FX track
 [X] allow re-selecting group (allows you to switch back to track mode)
 [ ] growls
     [ ] remove all existing
