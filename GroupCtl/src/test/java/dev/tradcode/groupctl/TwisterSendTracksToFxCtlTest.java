@@ -9,8 +9,11 @@ import java.util.List;
 import dev.tradcode.groupctl.events.BitwigSend;
 import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.events.EncoderButtonPressed;
+import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
+import dev.tradcode.groupctl.events.RequestFxSetSolo;
 import dev.tradcode.groupctl.events.RequestSelectDevice;
 import dev.tradcode.groupctl.events.SchemaChanged;
 import dev.tradcode.groupctl.events.SendValueUpdated;
@@ -192,5 +195,67 @@ class TwisterSendTracksToFxCtlTest {
         bus.send(new EncoderTurned(1, 127));
 
         assertTrue(bus.events.stream().noneMatch(e -> e instanceof SetSelectedTrackSend));
+    }
+
+    private static RequestFxSetSolo soloCmd(FakeEventBus bus) {
+        return bus.events.stream()
+            .filter(e -> e instanceof RequestFxSetSolo)
+            .map(e -> (RequestFxSetSolo) e)
+            .findFirst()
+            .orElse(null);
+    }
+
+    @Test
+    void holdingAnyEncoderButtonSolosSelectedFx() {
+        FakeEventBus bus = new FakeEventBus();
+        pendingFx(bus);
+        bus.send(new RequestFxSelectTrack(FX, "verb"));
+        bus.events.clear();
+
+        bus.send(new EncoderButtonPressed(2)); // any button -> the selected FX
+
+        var cmd = soloCmd(bus);
+        assertNotNull(cmd);
+        assertEquals(FX, cmd.trackId());
+        assertEquals("verb", cmd.trackName());
+        assertTrue(cmd.solo());
+    }
+
+    @Test
+    void releasingEncoderButtonUnsolosSelectedFx() {
+        FakeEventBus bus = new FakeEventBus();
+        pendingFx(bus);
+        bus.send(new RequestFxSelectTrack(FX, "verb"));
+        bus.events.clear();
+
+        bus.send(new EncoderButtonReleased(1));
+
+        var cmd = soloCmd(bus);
+        assertNotNull(cmd);
+        assertEquals(FX, cmd.trackId());
+        assertFalse(cmd.solo());
+    }
+
+    @Test
+    void encoderButtonDoesNotSoloBeforeFxSelected() {
+        FakeEventBus bus = new FakeEventBus();
+        pendingFx(bus); // group selected, but no FX picked yet -> inactive
+
+        bus.send(new EncoderButtonPressed(1));
+
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof RequestFxSetSolo));
+    }
+
+    @Test
+    void encoderButtonDoesNotSoloAfterReleasingEncoders() {
+        FakeEventBus bus = new FakeEventBus();
+        pendingFx(bus);
+        bus.send(new RequestFxSelectTrack(FX, "verb"));
+        bus.send(new BitwigTrackSelected(GROUP_ID)); // releases encoders
+        bus.events.clear();
+
+        bus.send(new EncoderButtonPressed(1));
+
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof RequestFxSetSolo));
     }
 }

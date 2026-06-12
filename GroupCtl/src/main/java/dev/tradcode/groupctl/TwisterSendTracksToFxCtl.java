@@ -6,10 +6,13 @@ import java.util.List;
 import dev.tradcode.groupctl.events.BitwigSend;
 import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.events.EncoderButtonPressed;
+import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
+import dev.tradcode.groupctl.events.RequestFxSetSolo;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.events.SendValueUpdated;
 import dev.tradcode.groupctl.events.SendsChanged;
@@ -23,10 +26,16 @@ import dev.tradcode.groupctl.events.SetSelectedTrackSend;
  */
 public class TwisterSendTracksToFxCtl extends TwisterTrackCtl {
     int selectedFx = -1;
+    String selectedFxName = "";
     List<BitwigSend> sends = new ArrayList<>();
 
     public TwisterSendTracksToFxCtl(IEventBus bus) {
         super(bus);
+    }
+
+    private void setSolo(boolean solo) {
+        if (!active || this.selectedFx == -1) return;
+        this.bus.send(new RequestFxSetSolo(this.selectedFx, this.selectedFxName, solo));
     }
 
     @Override
@@ -67,8 +76,11 @@ public class TwisterSendTracksToFxCtl extends TwisterTrackCtl {
                 }
                 this.active = true;
                 this.selectedFx = id;
+                this.selectedFxName = name;
                 this.refresh();
             }
+            case EncoderButtonPressed(int n) -> this.setSolo(true);
+            case EncoderButtonReleased(int n) -> this.setSolo(false);
             case EncoderTurned(int n, int v) -> {
                 if (!active) return;
                 this.tracksInSelectedGroup()

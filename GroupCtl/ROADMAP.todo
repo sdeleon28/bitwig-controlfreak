@@ -27,7 +27,7 @@
                    just selected a group, which activates
                    TwisterSendTracksToFxCtl instead.
 [ ] BUG: why does encoder 7 light up for group 2?
-[-] solo behavior
+[X] solo behavior
     [X] TwisterVolPanCtl
         [X] encoder button hold should solo the corresponding track
         [X] release should unsolo
@@ -36,9 +36,10 @@
     [X] TwisterSendTrackToAllFxCtl
         [X] bottom encoder buttons should solo corresponding FX
         [X] top encoder buttons should solo the FX tracks they represent
-    [ ] TwisterSendTracksToFxCtl
-        [ ] all encoder buttons should solo currently selected FX track
+    [X] TwisterSendTracksToFxCtl
+        [X] all encoder buttons should solo currently selected FX track
 [X] allow re-selecting group (allows you to switch back to track mode)
+[ ] make fx pads visible / interactive only when applicable
 [ ] growls
     [ ] remove all existing
     [ ] may need to thread through names into existing events
