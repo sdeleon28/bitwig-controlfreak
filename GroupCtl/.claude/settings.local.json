@@ -1,0 +1,53 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/santi/.vim/**)",
+      "Read(//Users/santi/dotfiles/nvim/configs/**)",
+      "Read(//Users/santi/.config/coc/extensions/node_modules/coc-java/**)",
+      "Read(//Users/santi/.local/share/nvim/site/**)",
+      "Read(//Users/santi/.local/share/nvim/**)",
+      "Read(//Users/santi/js-projects/bitwig-controlfreak/**)",
+      "Read(//Users/santi/.config/nvim/**)",
+      "Bash(/usr/libexec/PlistBuddy -c Print '/Applications/Bitwig Studio.app/Contents/MacOS/Bitwig Audio Engine ARM64-NEON.app/Contents/Info.plist')",
+      "Bash(grep -iA3 'vmop\\\\|java\\\\|jvm\\\\|env')",
+      "Bash(\"/Applications/Bitwig Studio.app/Contents/PlugIns/JavaVM-arm64.bundle/Contents/Home/bin/java\" -version)",
+      "Bash(ps -o pid,lstart,command -ax)",
+      "Read(//private/tmp/**)",
+      "Bash(lsof -nP -iTCP:5005)",
+      "Bash(java -version)",
+      "Bash(mvn -q test)",
+      "Bash(mvn test *)",
+      "Bash(just test-qf *)",
+      "Bash(echo \"[exit=$?]\")",
+      "Bash(cat)",
+      "Bash(nvim --headless -u NONE -N -S /tmp/teleport_test.vim +qa)",
+      "Bash(rm -rf /tmp/gctl)",
+      "Bash(nvim --headless -u NONE -N -S /tmp/run2.vim +qa)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); f=$(printf '%s' \"$in\" | jq -r '.tool_input.file_path // empty'); case \"$f\" in *.java) id=$(printf '%s' \"$in\" | jq -r '.session_id // \"nosession\"'); : > \"/tmp/.claude-just-pending-$id\";; esac"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "id=$(jq -r '.session_id // \"nosession\"'); f=\"/tmp/.claude-just-pending-$id\"; [ -f \"$f\" ] || exit 0; rm -f \"$f\"; out=$(just 2>&1); code=$?; if [ \"$code\" -ne 0 ]; then printf '%s' \"$out\" | tail -150 | jq -Rs '{decision:\"block\", reason:(\"`just` failed (exit '\"$code\"') — fix the build/tests before finishing:\\n\\n```\\n\" + . + \"\\n```\")}'; fi",
+            "statusMessage": "Running just (compile + deploy)…",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}
