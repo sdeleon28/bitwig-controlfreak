@@ -13,7 +13,7 @@ import dev.tradcode.groupctl.events.PadModeUpdated;
 public class PadModeCtl implements IEventBusSubscriber {
     static int SELECT_COLOR = 69;
     static int MUTE_COLOR = 69;
-    static int SOLO_COLOR = 69;
+    static int SOLO_COLOR = 109; // yellow
     static int REC_COLOR = 69;
 
     IEventBus bus;
