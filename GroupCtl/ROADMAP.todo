@@ -5,8 +5,8 @@
 [X] make it so fx pads don't select in bw
     [X] use internal selection instead
 [X] create a send banks for each track
-[-] TwisterTrackCtl
-    [-] when in send mode
+[X] TwisterTrackCtl
+    [X] when in send mode
         [X] disable vol / pan ring
         [X] paint corresponding send value to ring
         [X] turning encoder should set send value
@@ -33,9 +33,9 @@
         [X] release should unsolo
         [X] set the LED to yellow when track is soloed (mirror trackctl in solo mode)
     [X] launchpad: make the solo mode selector button yellow
-    [ ] TwisterSendTrackToAllFxCtl
-        [ ] bottom encoder buttons should solo corresponding FX
-        [ ] top encoder buttons should solo the FX tracks they represent
+    [X] TwisterSendTrackToAllFxCtl
+        [X] bottom encoder buttons should solo corresponding FX
+        [X] top encoder buttons should solo the FX tracks they represent
     [ ] TwisterSendTracksToFxCtl
         [ ] all encoder buttons should solo currently selected FX track
 [X] allow re-selecting group (allows you to switch back to track mode)

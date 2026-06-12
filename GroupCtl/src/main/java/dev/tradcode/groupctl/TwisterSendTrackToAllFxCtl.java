@@ -6,6 +6,8 @@ import java.util.List;
 import dev.tradcode.groupctl.events.BitwigSend;
 import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.events.EncoderButtonPressed;
+import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.FxPanUpdated;
@@ -15,6 +17,7 @@ import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.PanModeSelected;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
+import dev.tradcode.groupctl.events.RequestFxSetSolo;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.events.SendValueUpdated;
 import dev.tradcode.groupctl.events.SendsChanged;
@@ -39,6 +42,7 @@ import dev.tradcode.groupctl.events.VolModeSelected;
  */
 public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
     static int FX_COUNT = 8;
+    int SOLO_COLOR = 66; // twister yellow, mirrors TwisterTrackCtl
 
     VolPanMode volPanMode = VolPanMode.VOL;
     List<BitwigTrack> fxTracks = new ArrayList<>();
@@ -48,14 +52,28 @@ public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
         super(bus);
     }
 
-    /** Encoder position (1..8) showing the send to FX {@code i}. */
     private int sendPos(int fxIndex) {
         return fxIndex + 1;
     }
 
-    /** Encoder position (9..16) showing FX {@code i}'s vol/pan. */
     private int volPanPos(int fxIndex) {
         return fxIndex + 9;
+    }
+
+    private int fxIndexForButton(int n) {
+        if (n >= 1 && n <= FX_COUNT) return n - 1;
+        if (n >= 9 && n <= 8 + FX_COUNT) return n - 9;
+        return -1;
+    }
+
+    private void setSoloAt(int n, boolean solo) {
+        if (!active) return;
+        int fxIndex = this.fxIndexForButton(n);
+        if (fxIndex < 0) return;
+        this.fxTracks.stream()
+            .filter(fx -> fx.id == fxIndex)
+            .findFirst()
+            .ifPresent(fx -> this.bus.send(new RequestFxSetSolo(fx.id, fx.name, solo)));
     }
 
     @Override
@@ -64,7 +82,7 @@ public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
         this.clearLeds();
         for (var fx : this.fxTracks) {
             if (fx.id < 0 || fx.id >= FX_COUNT) continue;
-            var color = this.bwToTwisterColor(fx.color);
+            var color = fx.solo ? SOLO_COLOR : this.bwToTwisterColor(fx.color);
             this.bus.send(new PaintEncoder(this.sendPos(fx.id), color));
             this.bus.send(new PaintEncoder(this.volPanPos(fx.id), color));
         }
@@ -177,6 +195,8 @@ public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
                     );
                 }
             }
+            case EncoderButtonPressed(int n) -> this.setSoloAt(n, true);
+            case EncoderButtonReleased(int n) -> this.setSoloAt(n, false);
             case VolModeSelected() -> {
                 this.volPanMode = VolPanMode.VOL;
                 this.paintRings();

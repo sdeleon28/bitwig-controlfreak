@@ -15,6 +15,7 @@ import dev.tradcode.groupctl.events.FxVolumeUpdated;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.RequestFxToggleMute;
+import dev.tradcode.groupctl.events.RequestFxSetSolo;
 import dev.tradcode.groupctl.events.RequestFxToggleRec;
 import dev.tradcode.groupctl.events.RequestFxToggleSolo;
 import dev.tradcode.groupctl.events.SetFxTrackPan;
@@ -163,6 +164,8 @@ public class BitwigFxTracker implements IEventBusSubscriber {
                 getTrack(id).mute().toggle();
             case RequestFxToggleSolo(int id, String trackName) ->
                 getTrack(id).solo().toggle();
+            case RequestFxSetSolo(int id, String trackName, boolean solo) ->
+                getTrack(id).solo().set(solo);
             case RequestFxToggleRec(int id, String trackName) ->
                 getTrack(id).arm().toggle();
             case SetFxTrackVolume(int id, double v) ->

@@ -9,12 +9,16 @@ import java.util.List;
 import dev.tradcode.groupctl.events.BitwigSend;
 import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.events.EncoderButtonPressed;
+import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.FxPanUpdated;
 import dev.tradcode.groupctl.events.FxSchemaChanged;
 import dev.tradcode.groupctl.events.FxVolumeUpdated;
+import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.PanModeSelected;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
+import dev.tradcode.groupctl.events.RequestFxSetSolo;
 import dev.tradcode.groupctl.events.RequestSelectDevice;
 import dev.tradcode.groupctl.events.SchemaChanged;
 import dev.tradcode.groupctl.events.SendValueUpdated;
@@ -91,6 +95,21 @@ class TwisterSendTrackToAllFxCtlTest {
         for (var e : bus.events)
             if (e instanceof SetEncoderValue sev && sev.n() == n) last = sev.v();
         return last;
+    }
+
+    private static Integer ledAt(FakeEventBus bus, int n) {
+        Integer last = null;
+        for (var e : bus.events)
+            if (e instanceof PaintEncoder pe && pe.n() == n) last = pe.color();
+        return last;
+    }
+
+    private static RequestFxSetSolo soloCmd(FakeEventBus bus) {
+        return bus.events.stream()
+            .filter(e -> e instanceof RequestFxSetSolo)
+            .map(e -> (RequestFxSetSolo) e)
+            .findFirst()
+            .orElse(null);
     }
 
     /** Selected group + child track (track context) + fx/sends known. */
@@ -270,5 +289,78 @@ class TwisterSendTrackToAllFxCtlTest {
         bus.send(new EncoderTurned(9, 127));
 
         assertTrue(bus.events.stream().noneMatch(e -> e instanceof SetFxTrackVolume));
+    }
+
+    @Test
+    void holdingBottomEncoderButtonSolosCorrespondingFx() {
+        FakeEventBus bus = new FakeEventBus();
+        trackContext(bus);
+        bus.send(new RequestFxSelectTrack(FX0, "fx0"));
+        bus.events.clear();
+
+        bus.send(new EncoderButtonPressed(2)); // bottom block pos 2 -> FX1
+
+        var cmd = soloCmd(bus);
+        assertNotNull(cmd);
+        assertEquals(FX1, cmd.trackId());
+        assertTrue(cmd.solo());
+    }
+
+    @Test
+    void holdingTopEncoderButtonSolosRepresentedFx() {
+        FakeEventBus bus = new FakeEventBus();
+        trackContext(bus);
+        bus.send(new RequestFxSelectTrack(FX0, "fx0"));
+        bus.events.clear();
+
+        bus.send(new EncoderButtonPressed(9)); // top block pos 9 -> FX0
+
+        var cmd = soloCmd(bus);
+        assertNotNull(cmd);
+        assertEquals(FX0, cmd.trackId());
+        assertTrue(cmd.solo());
+    }
+
+    @Test
+    void releasingEncoderButtonUnsolosFx() {
+        FakeEventBus bus = new FakeEventBus();
+        trackContext(bus);
+        bus.send(new RequestFxSelectTrack(FX0, "fx0"));
+        bus.events.clear();
+
+        bus.send(new EncoderButtonReleased(10)); // top block pos 10 -> FX1
+
+        var cmd = soloCmd(bus);
+        assertNotNull(cmd);
+        assertEquals(FX1, cmd.trackId());
+        assertFalse(cmd.solo());
+    }
+
+    @Test
+    void encoderButtonDoesNotSoloWhileInactive() {
+        FakeEventBus bus = new FakeEventBus();
+        var ctl = new TwisterSendTrackToAllFxCtl(bus);
+        bus.send(new SchemaChanged(schema()));
+        bus.send(new FxSchemaChanged(fxSchema()));
+        bus.send(new SendsChanged(sends()));
+        bus.send(new BitwigTrackSelected(GROUP_ID)); // group context: inactive
+        bus.events.clear();
+
+        bus.send(new EncoderButtonPressed(1));
+
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof RequestFxSetSolo));
+    }
+
+    @Test
+    void soloedFxPaintsBothEncodersYellow() {
+        FakeEventBus bus = new FakeEventBus();
+        trackContext(bus);
+        var fx = fxSchema();
+        fx.get(FX0).solo = true; // FX0 soloed
+        bus.send(new FxSchemaChanged(fx));
+        bus.send(new RequestFxSelectTrack(FX0, "fx0"));
+
+        assertEquals(66, ledAt(bus, 1)); // bottom block: soloed -> yellow
+        assertEquals(66, ledAt(bus, 9)); // top block: soloed -> yellow
     }
 }
