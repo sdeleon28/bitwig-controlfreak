@@ -10,6 +10,8 @@ import dev.tradcode.groupctl.events.PaintEncoder;
  * at its 1..16 position; the ring value is delegated to {@link #paintRing}.
  */
 public abstract class TwisterTrackCtl extends TwisterTrackEncoderCtl {
+    int SOLO_COLOR = 66;
+
     public TwisterTrackCtl(IEventBus bus) {
         super(bus);
     }
@@ -28,9 +30,8 @@ public abstract class TwisterTrackCtl extends TwisterTrackEncoderCtl {
             var pos = t.getPosition();
             if (pos == -1)
                 continue;
-            this.bus.send(
-                new PaintEncoder(pos, this.bwToTwisterColor(t.color)
-            ));
+            var color = t.solo ? SOLO_COLOR : this.bwToTwisterColor(t.color);
+            this.bus.send(new PaintEncoder(pos, color));
         }
     }
 

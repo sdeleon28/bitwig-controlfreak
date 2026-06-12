@@ -86,6 +86,19 @@ class TwisterVolPanCtlTest {
     }
 
     @Test
+    void soloedTrackPaintsEncoderYellow() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterVolPanCtl(bus);
+        var s = schema();
+        s.get(0).children.get(0).solo = true; // di (1) soloed
+        bus.send(new SchemaChanged(s));
+        bus.send(new BitwigTrackSelected(GROUP_ID));
+
+        assertEquals(66, ledAt(bus, 1));  // soloed -> twister yellow
+        assertEquals(123, ledAt(bus, 2)); // not soloed -> track color (blue)
+    }
+
+    @Test
     void volumeUpdatePaintsRingAtTrackPosition() {
         FakeEventBus bus = new FakeEventBus();
         selectedGroup(bus);

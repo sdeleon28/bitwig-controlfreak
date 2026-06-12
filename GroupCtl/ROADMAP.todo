@@ -31,7 +31,8 @@
     [X] TwisterVolPanCtl
         [X] encoder button hold should solo the corresponding track
         [X] release should unsolo
-        [ ] set the LED to yellow when track is soloed (mirror trackctl in solo mode)
+        [X] set the LED to yellow when track is soloed (mirror trackctl in solo mode)
+    [ ] make the solo mode selector button yellow
     [ ] TwisterSendTrackToAllFxCtl
         [ ] bottom encoder buttons should solo corresponding FX
         [ ] top encoder buttons should solo the FX tracks they represent
