@@ -39,7 +39,7 @@
     [X] TwisterSendTracksToFxCtl
         [X] all encoder buttons should solo currently selected FX track
 [X] allow re-selecting group (allows you to switch back to track mode)
-[ ] make fx pads visible / interactive only when applicable
+[X] make fx pads visible / interactive only when applicable
 [ ] growls
     [ ] remove all existing
     [ ] may need to thread through names into existing events
@@ -50,11 +50,11 @@
 
 ## top right quadrant
 
-[ ] fx pads should be enabled only when applicable
-    [ ] group selected (TwisterSendTracksToFxCtl)
-    [ ] track in group selected (TwisterSendTrackToAllFxCtl)
-    [ ] fxctl should be inactive when user selects a device
-        [ ] this should make space in the top right quadrant for device pad
+[X] fx pads should be enabled only when applicable
+    [X] group selected (TwisterSendTracksToFxCtl)
+    [X] track in group selected (TwisterSendTrackToAllFxCtl)
+    [X] fxctl should be inactive when user selects a device
+        [X] this should make space in the top right quadrant for device pad
             controls, especially for custom device mappers, like for frequalizer
 
 ## frequalizer custom mapper

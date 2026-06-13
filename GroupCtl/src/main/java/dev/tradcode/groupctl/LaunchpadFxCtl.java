@@ -21,6 +21,7 @@ import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestFxToggleMute;
 import dev.tradcode.groupctl.events.RequestFxToggleRec;
 import dev.tradcode.groupctl.events.RequestFxToggleSolo;
+import dev.tradcode.groupctl.events.RequestSelectDevice;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 
 public class LaunchpadFxCtl implements IEventBusSubscriber {
@@ -40,6 +41,7 @@ public class LaunchpadFxCtl implements IEventBusSubscriber {
     );
     PadMode mode = PadMode.SELECT;
     boolean pageActive = true;
+    boolean applicable = false;
     int selectedFxTrackId = -1;
     // TODO: make dry
     int MUTE_COLOR = 108; // sober orange
@@ -78,8 +80,9 @@ public class LaunchpadFxCtl implements IEventBusSubscriber {
     }
 
     protected void paint() {
-        if (!this.pageActive || this.fxTracks.size() == 0) return;
+        if (!this.pageActive) return;
         this.clear();
+        if (!this.applicable || this.fxTracks.size() == 0) return;
         for (int i = 0; i < this.fxTracks.size(); i++) {
             var t = this.fxTracks.get(i);
             var pos = this.localToGlobalPosition(t.id);
@@ -140,13 +143,19 @@ public class LaunchpadFxCtl implements IEventBusSubscriber {
             }
             case BitwigTrackSelected(int id) -> {
                 this.selectedFxTrackId = -1;
+                this.applicable = true;
                 this.paint();
             }
             case RequestSelectTrack(int trackId, String name) -> {
                 this.selectedFxTrackId = -1;
+                this.applicable = true;
                 this.paint();
             }
-            case PadClicked(int n) when this.pageActive -> {
+            case RequestSelectDevice(int n) -> {
+                this.applicable = false;
+                this.paint();
+            }
+            case PadClicked(int n) when this.pageActive && this.applicable -> {
                 var id = this.globalToLocalPosition(n);
                 if (id == -1) return;
                 var trackName = this.fxTracks.get(id).name;
