@@ -15,6 +15,7 @@ import dev.tradcode.groupctl.events.RequestSetSolo;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.events.SetTrackPan;
 import dev.tradcode.groupctl.events.SetTrackVolume;
+import dev.tradcode.groupctl.events.TrackEncoderPressed;
 import dev.tradcode.groupctl.events.VolModeSelected;
 import dev.tradcode.groupctl.events.VolumeUpdated;
 
@@ -53,6 +54,15 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
             .filter(t -> t.getPosition() == n)
             .findFirst()
             .ifPresent(t -> this.bus.send(new RequestSetSolo(t.id, t.name, solo)));
+    }
+
+    private void announcePress(int n) {
+        if (!active) return;
+        this.tracksInSelectedGroup()
+            .stream()
+            .filter(t -> t.getPosition() == n)
+            .findFirst()
+            .ifPresent(t -> this.bus.send(new TrackEncoderPressed(t.name)));
     }
 
     @Override
@@ -103,7 +113,10 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
                             : new SetTrackPan(t.id, ((double) v) / 127.0)
                     ));
             }
-            case EncoderButtonPressed(int n) -> this.setSoloAt(n, true);
+            case EncoderButtonPressed(int n) -> {
+                this.setSoloAt(n, true);
+                this.announcePress(n);
+            }
             case EncoderButtonReleased(int n) -> this.setSoloAt(n, false);
             case VolModeSelected() -> {
                 this.volPanMode = VolPanMode.VOL;

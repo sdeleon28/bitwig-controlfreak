@@ -74,7 +74,16 @@ class LaunchpadDeviceCtl extends DeviceCtl {
     private int devicePositionToId(int pos) {
         return pos - 1;
     }
-    
+
+    private String deviceName(int id) {
+        if (this.devices == null) return null;
+        return this.devices.stream()
+            .filter(d -> d.id == id)
+            .findFirst()
+            .map(d -> d.name)
+            .orElse(null);
+    }
+
     public void on(Event event) {
         super.on(event);
         switch (event) {
@@ -84,7 +93,7 @@ class LaunchpadDeviceCtl extends DeviceCtl {
                     var id = this.devicePositionToId(pos);
                     if (id == -1) return;
                     this.bus.send(
-                        new RequestSelectDevice(id)
+                        new RequestSelectDevice(id, this.deviceName(id))
                     );
                     this.selectedDeviceId = id;
                 }

@@ -40,13 +40,19 @@
         [X] all encoder buttons should solo currently selected FX track
 [X] allow re-selecting group (allows you to switch back to track mode)
 [X] make fx pads visible / interactive only when applicable
-[ ] growls
-    [ ] remove all existing
-    [ ] may need to thread through names into existing events
-    [ ] group selected
-    [ ] track selected
-    [ ] device selected
-    [ ] fx selected
+[X] growls
+    [X] remove all existing
+    [X] may need to thread through names into existing events
+    [X] group selected
+    [X] track selected
+    [X] device selected
+    [X] fx selected
+    [X] pad mode selected
+    [X] vol / pan selected
+    [X] changed to page n
+    [X] growl track name when pressing encoder buttons on track ctl
+    [X] growl "trackname -> send -> fxname" for send encoder presses
+    [X] growl FX name on encoder press for FX tracks
 
 ## top right quadrant
 

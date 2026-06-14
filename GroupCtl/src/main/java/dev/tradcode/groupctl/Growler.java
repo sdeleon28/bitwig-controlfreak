@@ -2,13 +2,19 @@ package dev.tradcode.groupctl;
 
 import com.bitwig.extension.controller.api.ControllerHost;
 
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.events.EncoderButtonPressed;
-import dev.tradcode.groupctl.events.EncoderButtonReleased;
-import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
+import dev.tradcode.groupctl.events.FxEncoderPressed;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
+import dev.tradcode.groupctl.events.PadModeUpdated;
+import dev.tradcode.groupctl.events.PageSelected;
+import dev.tradcode.groupctl.events.PanModeSelected;
+import dev.tradcode.groupctl.events.RequestFxSelectTrack;
+import dev.tradcode.groupctl.events.RequestSelectDevice;
+import dev.tradcode.groupctl.events.RequestSelectTrack;
+import dev.tradcode.groupctl.events.SendEncoderPressed;
+import dev.tradcode.groupctl.events.TrackEncoderPressed;
+import dev.tradcode.groupctl.events.VolModeSelected;
 
 public class Growler implements IEventBusSubscriber {
     IEventBus bus;
@@ -20,16 +26,26 @@ public class Growler implements IEventBusSubscriber {
         this.host = host;
     }
 
-    private void growl(Object o) {
+    protected void growl(Object o) {
         this.host.showPopupNotification(o.toString());
     }
 
     public void on(Event event) {
         switch (event) {
-            case BitwigTrackSelected(int id) -> this.growl(event);
-            case EncoderTurned(int msg, int val) -> this.growl(event);
-            case EncoderButtonPressed(int n) -> this.growl(event);
-            case EncoderButtonReleased(int n) -> this.growl(event);
+            // selections
+            case RequestSelectTrack e -> this.growl(e);
+            case RequestSelectDevice e -> this.growl(e);
+            case RequestFxSelectTrack e -> this.growl(e);
+            // modes
+            case PadModeUpdated e -> this.growl(e);
+            case VolModeSelected e -> this.growl(e);
+            case PanModeSelected e -> this.growl(e);
+            // pages
+            case PageSelected e -> this.growl(e);
+            // encoder presses
+            case TrackEncoderPressed e -> this.growl(e);
+            case SendEncoderPressed e -> this.growl(e);
+            case FxEncoderPressed e -> this.growl(e);
             default -> { }
         }
     }

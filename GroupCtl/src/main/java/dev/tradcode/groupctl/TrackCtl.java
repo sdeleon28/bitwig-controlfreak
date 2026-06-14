@@ -59,6 +59,11 @@ public abstract class TrackCtl implements IEventBusSubscriber {
             .orElse(null);
     }
 
+    protected String trackNameById(int id) {
+        var t = this.getTrackById(id);
+        return t == null ? null : t.name;
+    }
+
     protected abstract void paint();
 
     protected void groupUpdated() { }

@@ -10,6 +10,7 @@ import dev.tradcode.groupctl.events.EncoderButtonPressed;
 import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
+import dev.tradcode.groupctl.events.FxEncoderPressed;
 import dev.tradcode.groupctl.events.FxPanUpdated;
 import dev.tradcode.groupctl.events.FxSchemaChanged;
 import dev.tradcode.groupctl.events.FxVolumeUpdated;
@@ -19,6 +20,7 @@ import dev.tradcode.groupctl.events.PanModeSelected;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestFxSetSolo;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
+import dev.tradcode.groupctl.events.SendEncoderPressed;
 import dev.tradcode.groupctl.events.SendValueUpdated;
 import dev.tradcode.groupctl.events.SendsChanged;
 import dev.tradcode.groupctl.events.SetEncoderValue;
@@ -74,6 +76,29 @@ public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
             .filter(fx -> fx.id == fxIndex)
             .findFirst()
             .ifPresent(fx -> this.bus.send(new RequestFxSetSolo(fx.id, fx.name, solo)));
+    }
+
+    private void announcePress(int n) {
+        if (!active) return;
+        if (n >= 1 && n <= FX_COUNT) {
+            // bottom block: selected track's send to this FX
+            int fxIndex = n - 1;
+            var trackName = this.trackNameById(this.selectedTrackId);
+            if (trackName == null) return;
+            this.fxTracks.stream()
+                .filter(fx -> fx.id == fxIndex)
+                .findFirst()
+                .ifPresent(fx -> this.bus.send(
+                    new SendEncoderPressed(trackName, fx.name)
+                ));
+        } else if (n >= 9 && n <= 8 + FX_COUNT) {
+            // top block: the FX track itself
+            int fxIndex = n - 9;
+            this.fxTracks.stream()
+                .filter(fx -> fx.id == fxIndex)
+                .findFirst()
+                .ifPresent(fx -> this.bus.send(new FxEncoderPressed(fx.name)));
+        }
     }
 
     @Override
@@ -195,7 +220,10 @@ public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
                     );
                 }
             }
-            case EncoderButtonPressed(int n) -> this.setSoloAt(n, true);
+            case EncoderButtonPressed(int n) -> {
+                this.setSoloAt(n, true);
+                this.announcePress(n);
+            }
             case EncoderButtonReleased(int n) -> this.setSoloAt(n, false);
             case VolModeSelected() -> {
                 this.volPanMode = VolPanMode.VOL;

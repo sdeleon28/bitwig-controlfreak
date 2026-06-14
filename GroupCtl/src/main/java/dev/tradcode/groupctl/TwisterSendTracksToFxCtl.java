@@ -14,6 +14,7 @@ import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestFxSetSolo;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
+import dev.tradcode.groupctl.events.SendEncoderPressed;
 import dev.tradcode.groupctl.events.SendValueUpdated;
 import dev.tradcode.groupctl.events.SendsChanged;
 import dev.tradcode.groupctl.events.SetEncoderValue;
@@ -36,6 +37,17 @@ public class TwisterSendTracksToFxCtl extends TwisterTrackCtl {
     private void setSolo(boolean solo) {
         if (!active || this.selectedFx == -1) return;
         this.bus.send(new RequestFxSetSolo(this.selectedFx, this.selectedFxName, solo));
+    }
+
+    private void announcePress(int n) {
+        if (!active || this.selectedFx == -1) return;
+        this.tracksInSelectedGroup()
+            .stream()
+            .filter(t -> t.getPosition() == n)
+            .findFirst()
+            .ifPresent(t -> this.bus.send(
+                new SendEncoderPressed(t.name, this.selectedFxName)
+            ));
     }
 
     @Override
@@ -79,7 +91,10 @@ public class TwisterSendTracksToFxCtl extends TwisterTrackCtl {
                 this.selectedFxName = name;
                 this.refresh();
             }
-            case EncoderButtonPressed(int n) -> this.setSolo(true);
+            case EncoderButtonPressed(int n) -> {
+                this.setSolo(true);
+                this.announcePress(n);
+            }
             case EncoderButtonReleased(int n) -> this.setSolo(false);
             case EncoderTurned(int n, int v) -> {
                 if (!active) return;

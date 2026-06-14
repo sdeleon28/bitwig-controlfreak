@@ -103,7 +103,7 @@ public class BitwigDevicesTracker implements IEventBusSubscriber {
             case BitwigTrackSelected(int id) -> {
                 this.selectedTrackId = id;
             }
-            case RequestSelectDevice(int id) -> {
+            case RequestSelectDevice(int id, String name) -> {
                 for (int i = 0; i < DEVICE_COUNT; i++) {
                     var d = this.cursorDeviceBank.getDevice(i);
                     if (i != id) {
