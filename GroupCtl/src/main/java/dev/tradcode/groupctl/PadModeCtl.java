@@ -11,11 +11,6 @@ import dev.tradcode.groupctl.events.PadMode;
 import dev.tradcode.groupctl.events.PadModeUpdated;
 
 public class PadModeCtl implements IEventBusSubscriber {
-    static int SELECT_COLOR = 69;
-    static int MUTE_COLOR = 69;
-    static int SOLO_COLOR = 109; // yellow
-    static int REC_COLOR = 69;
-
     IEventBus bus;
     PadMode mode = PadMode.SELECT;
     boolean pageActive = true;
@@ -40,16 +35,16 @@ public class PadModeCtl implements IEventBusSubscriber {
         this.clear();
         switch (this.mode) {
             case PadMode.SELECT:
-                this.bus.send(new PaintSideButton(SideButton.STOP, SELECT_COLOR));
+                this.bus.send(new PaintSideButton(SideButton.STOP, Colors.SELECT_COLOR));
                 break;
             case PadMode.MUTE:
-                this.bus.send(new PaintSideButton(SideButton.MUTE, MUTE_COLOR));
+                this.bus.send(new PaintSideButton(SideButton.MUTE, Colors.MUTE_COLOR));
                 break;
             case PadMode.SOLO:
-                this.bus.send(new PaintSideButton(SideButton.SOLO, SOLO_COLOR));
+                this.bus.send(new PaintSideButton(SideButton.SOLO, Colors.SOLO_COLOR));
                 break;
             case PadMode.REC:
-                this.bus.send(new PaintSideButton(SideButton.RECORD_ARM, REC_COLOR));
+                this.bus.send(new PaintSideButton(SideButton.RECORD_ARM, Colors.REC_COLOR));
                 break;
         }
     }

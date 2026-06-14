@@ -43,10 +43,6 @@ public class LaunchpadFxCtl implements IEventBusSubscriber {
     boolean pageActive = true;
     boolean applicable = false;
     int selectedFxTrackId = -1;
-    // TODO: make dry
-    int MUTE_COLOR = 108; // sober orange
-    int SOLO_COLOR = 109; // yellow
-    int REC_COLOR = 99; // light orange
 
     public LaunchpadFxCtl(IEventBus bus) {
         this.bus = bus;
@@ -88,11 +84,11 @@ public class LaunchpadFxCtl implements IEventBusSubscriber {
             var pos = this.localToGlobalPosition(t.id);
             var color = this.bwToLaunchpadColor(t.color);
             if (this.mode == PadMode.MUTE && t.mute)
-                color = MUTE_COLOR;
+                color = Colors.MUTE_COLOR;
             if (this.mode == PadMode.SOLO && t.solo)
-                color = SOLO_COLOR;
+                color = Colors.SOLO_COLOR;
             if (this.mode == PadMode.REC && t.rec)
-                color = REC_COLOR;
+                color = Colors.REC_COLOR;
             if (pos != -1 && color != -1)
                 this.bus.send(
                     t.id == this.selectedFxTrackId ?

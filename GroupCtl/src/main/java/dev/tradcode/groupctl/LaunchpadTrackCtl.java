@@ -19,10 +19,6 @@ import dev.tradcode.groupctl.events.RequestToggleSolo;
 class LaunchpadTrackCtl extends TrackCtl {
     boolean pageActive = true;
     PadMode padMode = PadMode.SELECT;
-    // TODO: make dry
-    int MUTE_COLOR = 108; // sober orange
-    int SOLO_COLOR = 109; // yellow
-    int REC_COLOR = 99; // light orange
 
     Map<Integer, Integer> GLOBAL_TO_LOCAL = Map.ofEntries(
         // row 1
@@ -85,11 +81,11 @@ class LaunchpadTrackCtl extends TrackCtl {
             var pos = this.localToGlobalPosition(t.getPosition());
             var color = this.bwToLaunchpadColor(t.color);
             if (this.padMode == PadMode.MUTE && t.mute)
-                color = MUTE_COLOR;
+                color = Colors.MUTE_COLOR;
             if (this.padMode == PadMode.SOLO && t.solo)
-                color = SOLO_COLOR;
+                color = Colors.SOLO_COLOR;
             if (this.padMode == PadMode.REC && t.rec)
-                color = REC_COLOR;
+                color = Colors.REC_COLOR;
             if (pos != -1 && color != -1)
                 this.bus.send(
                     t.id == this.selectedTrackId ?

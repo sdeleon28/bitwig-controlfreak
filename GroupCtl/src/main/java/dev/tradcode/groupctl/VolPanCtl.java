@@ -16,8 +16,6 @@ public class VolPanCtl implements IEventBusSubscriber {
     IEventBus bus;
     boolean pageActive = true;
     VolPanMode mode = VolPanMode.VOL;
-    int VOL_COLOR = 69;
-    int PAN_COLOR = 69;
 
     public VolPanCtl(IEventBus bus) {
         this.bus = bus;
@@ -31,11 +29,11 @@ public class VolPanCtl implements IEventBusSubscriber {
         this.bus.send(
             new PaintSideButton(
                 SideButton.VOLUME,
-                this.mode == VolPanMode.VOL ? VOL_COLOR : 0
+                this.mode == VolPanMode.VOL ? Colors.VOL_COLOR : 0
             ),
             new PaintSideButton(
                 SideButton.PAN,
-                this.mode == VolPanMode.PAN ? PAN_COLOR : 0
+                this.mode == VolPanMode.PAN ? Colors.PAN_COLOR : 0
             )
         );
     }
