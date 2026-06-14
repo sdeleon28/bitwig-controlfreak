@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import dev.tradcode.groupctl.events.BlinkPad;
+import dev.tradcode.groupctl.events.DeviceSelected;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PadClicked;
@@ -93,7 +94,8 @@ class LaunchpadDeviceCtl extends DeviceCtl {
                     var id = this.devicePositionToId(pos);
                     if (id == -1) return;
                     this.bus.send(
-                        new RequestSelectDevice(id, this.deviceName(id))
+                        new RequestSelectDevice(id),
+                        new DeviceSelected(this.deviceName(id))
                     );
                     this.selectedDeviceId = id;
                 }

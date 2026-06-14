@@ -57,7 +57,7 @@ public abstract class TwisterTrackEncoderCtl extends TrackCtl {
         switch (event) {
             // state source of truth is on our end for device selection, so we
             // match on the request instead of the response from bw
-            case RequestSelectDevice(int n, String name) -> this.active = false;
+            case RequestSelectDevice(int n) -> this.active = false;
             default -> { }
         }
     }

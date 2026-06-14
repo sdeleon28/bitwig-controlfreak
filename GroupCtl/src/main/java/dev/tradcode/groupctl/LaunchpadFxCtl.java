@@ -151,7 +151,7 @@ public class LaunchpadFxCtl implements IEventBusSubscriber {
                 this.applicable = true;
                 this.paint();
             }
-            case RequestSelectDevice(int n, String name) -> {
+            case RequestSelectDevice(int n) -> {
                 this.applicable = false;
                 this.paint();
             }

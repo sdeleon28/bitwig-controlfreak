@@ -73,7 +73,7 @@ public class TwisterDeviceCtl extends DeviceCtl {
                 this.active = false;
             // state source of truth is on our end for device selection, so we
             // match on the request instead of the response from bw
-            case RequestSelectDevice(int n, String name) -> {
+            case RequestSelectDevice(int n) -> {
                 this.active = true;
                 this.clearRings();
                 this.paint();

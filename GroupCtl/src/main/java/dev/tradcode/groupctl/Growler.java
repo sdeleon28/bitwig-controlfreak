@@ -2,6 +2,7 @@ package dev.tradcode.groupctl;
 
 import com.bitwig.extension.controller.api.ControllerHost;
 
+import dev.tradcode.groupctl.events.DeviceSelected;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.FxEncoderPressed;
 import dev.tradcode.groupctl.events.IEventBus;
@@ -10,8 +11,13 @@ import dev.tradcode.groupctl.events.PadModeUpdated;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PanModeSelected;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
-import dev.tradcode.groupctl.events.RequestSelectDevice;
+import dev.tradcode.groupctl.events.RequestFxToggleMute;
+import dev.tradcode.groupctl.events.RequestFxToggleRec;
+import dev.tradcode.groupctl.events.RequestFxToggleSolo;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
+import dev.tradcode.groupctl.events.RequestToggleMute;
+import dev.tradcode.groupctl.events.RequestToggleRec;
+import dev.tradcode.groupctl.events.RequestToggleSolo;
 import dev.tradcode.groupctl.events.SendEncoderPressed;
 import dev.tradcode.groupctl.events.TrackEncoderPressed;
 import dev.tradcode.groupctl.events.VolModeSelected;
@@ -34,7 +40,7 @@ public class Growler implements IEventBusSubscriber {
         switch (event) {
             // selections
             case RequestSelectTrack e -> this.growl(e);
-            case RequestSelectDevice e -> this.growl(e);
+            case DeviceSelected e -> this.growl(e);
             case RequestFxSelectTrack e -> this.growl(e);
             // modes
             case PadModeUpdated e -> this.growl(e);
@@ -46,6 +52,13 @@ public class Growler implements IEventBusSubscriber {
             case TrackEncoderPressed e -> this.growl(e);
             case SendEncoderPressed e -> this.growl(e);
             case FxEncoderPressed e -> this.growl(e);
+            // mute / solo / rec actions
+            case RequestToggleMute e -> this.growl(e);
+            case RequestToggleSolo e -> this.growl(e);
+            case RequestToggleRec e -> this.growl(e);
+            case RequestFxToggleMute e -> this.growl(e);
+            case RequestFxToggleSolo e -> this.growl(e);
+            case RequestFxToggleRec e -> this.growl(e);
             default -> { }
         }
     }
