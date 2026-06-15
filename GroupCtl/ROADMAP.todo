@@ -69,11 +69,11 @@
 
 ## mode selection
 
-[ ] Update LaunchpadTrackCtl to have mode-aware behaviors
-    [ ] select (current)
-    [ ] mute
-    [ ] solo
-    [ ] rec
+[X] Update LaunchpadTrackCtl to have mode-aware behaviors
+    [X] select (current)
+    [X] mute
+    [X] solo
+    [X] rec
 
 ## sends pad mode sidequest
 
@@ -81,8 +81,8 @@
 
 ## colors
 
-[ ] mode selector colors
-    [ ] sends color
+[-] mode selector colors
+[ ] vol / pan mode selector colors (vol -> green, pan -> red)
 
 ## page 2
 
@@ -97,3 +97,26 @@
 [ ] visualization of playback
 [ ] range selection
 [ ] select useful default resolution
+
+
+pseudo-python:
+
+```
+class ExplorerCtl:
+    def __init__(self):
+        self.bars_calculator = BarsCalculator()
+        self.resolution_calculator = ResolutionCalculator()
+        self.page_filter = PageFilter()
+
+    def paint(self):
+        return markers
+            | self.bars_calculator.apply
+            | self.resolution_calculator.apply
+            | self.page_filter.apply
+
+    def on(event):
+        match event:
+            case MarkersUpdated(markers=markers):
+                self.markers = markers
+                self.paint()
+```

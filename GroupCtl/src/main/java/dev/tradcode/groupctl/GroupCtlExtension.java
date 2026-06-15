@@ -11,11 +11,6 @@ import dev.tradcode.groupctl.events.IEventBus;
 
 public class GroupCtlExtension extends ControllerExtension
 {
-   BitwigSchemaTracker schemaTracker;
-   BitwigDevicesTracker devicesTracker;
-   BitwigFxTracker fxTracker;
-   BitwigVolPanTracker volumeTracker;
-   BitwigSendsTracker sendsTracker;
    IEventBus eventBus;
    Logger logger;
    LaunchpadInput launchpadIn;
@@ -23,17 +18,8 @@ public class GroupCtlExtension extends ControllerExtension
    TwisterInput twisterIn;
    TwisterOutput twisterOut;
    Growler growler;
-   LaunchpadGroupCtl launchpadGroupCtl;
-   LaunchpadTrackCtl launchpadTrackCtl;
-   LaunchpadDeviceCtl launchpadDeviceCtl;
-   LaunchpadFxCtl launchpadFxCtl;
-   TwisterDeviceCtl twisterDeviceCtl;
-   TwisterVolPanCtl twisterVolPanCtl;
-   TwisterSendTracksToFxCtl twisterSendTracksToFxCtl;
-   TwisterSendTrackToAllFxCtl twisterSendTrackToAllFxCtl;
    Pager pager;
-   VolPanCtl volPanCtl;
-   PadModeCtl padModeCtl;
+   MixMachine mixMachine;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
    {
@@ -52,29 +38,14 @@ public class GroupCtlExtension extends ControllerExtension
       host.getMidiInPort(1).setSysexCallback((String data) -> onSysex1(data));
 
       eventBus = new EventBus();
-
       logger = new Logger(eventBus, host);
-      schemaTracker = new BitwigSchemaTracker(host, eventBus);
-      devicesTracker = new BitwigDevicesTracker(eventBus, host);
-      fxTracker = new BitwigFxTracker(eventBus, host);
-      volumeTracker = new BitwigVolPanTracker(host, eventBus);
-      sendsTracker = new BitwigSendsTracker(eventBus, host);
-      launchpadIn = new LaunchpadInput(eventBus, host.getMidiInPort(0));
-      launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
       twisterIn = new TwisterInput(eventBus, host.getMidiInPort(1));
       twisterOut = new TwisterOutput(eventBus, host.getMidiOutPort(1));
       growler = new Growler(eventBus, host);
-      launchpadGroupCtl = new LaunchpadGroupCtl(eventBus);
-      launchpadTrackCtl = new LaunchpadTrackCtl(eventBus);
-      launchpadDeviceCtl = new LaunchpadDeviceCtl(eventBus);
-      launchpadFxCtl = new LaunchpadFxCtl(eventBus);
-      twisterDeviceCtl = new TwisterDeviceCtl(eventBus);
-      twisterVolPanCtl = new TwisterVolPanCtl(eventBus);
-      twisterSendTracksToFxCtl = new TwisterSendTracksToFxCtl(eventBus);
-      twisterSendTrackToAllFxCtl = new TwisterSendTrackToAllFxCtl(eventBus);
+      launchpadIn = new LaunchpadInput(eventBus, host.getMidiInPort(0));
+      launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
       pager = new Pager(eventBus);
-      volPanCtl = new VolPanCtl(eventBus);
-      padModeCtl = new PadModeCtl(eventBus);
+      mixMachine = new MixMachine(eventBus, host);
 
       host.showPopupNotification("GroupCtl Initialized");
    }
@@ -90,11 +61,7 @@ public class GroupCtlExtension extends ControllerExtension
    @Override
    public void flush()
    {
-       schemaTracker.flush();
-       volumeTracker.flush();
-       devicesTracker.flush();
-       fxTracker.flush();
-       sendsTracker.flush();
+       mixMachine.flush();
    }
 
    /** Called when we receive short MIDI message on port 0. */
