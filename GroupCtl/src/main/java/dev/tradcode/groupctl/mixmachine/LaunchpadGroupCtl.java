@@ -1,10 +1,11 @@
-package dev.tradcode.groupctl;
+package dev.tradcode.groupctl.mixmachine;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import dev.tradcode.groupctl.Colors;
 import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.BlinkPad;

@@ -1,4 +1,4 @@
-package dev.tradcode.groupctl;
+package dev.tradcode.groupctl.mixmachine;
 
 import java.util.List;
 
@@ -17,7 +17,7 @@ import java.util.List;
  *   tracker.flush();
  * }</pre>
  */
-class CompleteFixture {
+public class CompleteFixture {
 
     static final String CYAN = "68,200,254";
     static final String GOLD = "216,156,14";

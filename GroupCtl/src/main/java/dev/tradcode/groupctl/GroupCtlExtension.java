@@ -8,6 +8,7 @@ import com.bitwig.extension.controller.ControllerExtension;
 
 import dev.tradcode.groupctl.events.EventBus;
 import dev.tradcode.groupctl.events.IEventBus;
+import dev.tradcode.groupctl.mixmachine.MixMachine;
 
 public class GroupCtlExtension extends ControllerExtension
 {

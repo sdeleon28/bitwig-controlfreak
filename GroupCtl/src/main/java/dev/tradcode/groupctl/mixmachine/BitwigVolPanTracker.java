@@ -1,4 +1,4 @@
-package dev.tradcode.groupctl;
+package dev.tradcode.groupctl.mixmachine;
 
 import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Track;

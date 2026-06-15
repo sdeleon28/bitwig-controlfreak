@@ -1,4 +1,4 @@
-package dev.tradcode.groupctl;
+package dev.tradcode.groupctl.mixmachine;
 
 import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.BitwigTrackSelected;

@@ -1,4 +1,4 @@
-package dev.tradcode.groupctl;
+package dev.tradcode.groupctl.mixmachine;
 
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;

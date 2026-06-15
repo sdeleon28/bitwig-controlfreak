@@ -1,4 +1,4 @@
-package dev.tradcode.groupctl;
+package dev.tradcode.groupctl.mixmachine;
 
 import java.util.List;
 

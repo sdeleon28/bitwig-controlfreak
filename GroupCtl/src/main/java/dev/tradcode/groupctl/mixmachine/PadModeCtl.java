@@ -1,5 +1,6 @@
-package dev.tradcode.groupctl;
+package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.Colors;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;

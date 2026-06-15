@@ -1,8 +1,9 @@
-package dev.tradcode.groupctl;
+package dev.tradcode.groupctl.mixmachine;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import dev.tradcode.groupctl.Colors;
 import dev.tradcode.groupctl.events.BlinkPad;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
