@@ -35,6 +35,7 @@ class ColorsTest {
     @Test
     void coversAllTwentySevenSwatches() {
         assertEquals(27, Colors.BITWIG_TO_TWISTER.size());
-        assertEquals(27, Colors.BITWIG_TO_LAUNCHPAD.size());
+        // 27 swatches + 1 alias for green
+        assertEquals(28, Colors.BITWIG_TO_LAUNCHPAD.size());
     }
 }

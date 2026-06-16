@@ -64,7 +64,12 @@ public final class Colors {
         launchpad.put("254,86,4", 84);    // orange
         launchpad.put("216,156,14", 99);  // light orange
         launchpad.put("114,152,18", 101); // dark lime
-        launchpad.put("0,156,68", 87);    // green
+        // BEGIN: aliased entry for green
+        launchpad.put("0,156,68", 87);
+        // markers report blue=70 vs tracks' 68; & ~1 can't absorb the +2, so
+        // alias it
+        launchpad.put("0,156,70", 87);
+        // END
         launchpad.put("0,166,146", 34);   // dim aqua
         launchpad.put("0,152,214", 79);   // teal
         launchpad.put("188,118,240", 52); // light purple

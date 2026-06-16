@@ -96,7 +96,7 @@
 [X] rename ExplorerPads -> ExplorerConstants
 [ ] design smell: why are we emitting ExplorerPagesChanged inside paint?
 [ ] BUG: no feedback on selection start gesture
-[ ] BUG: green section doesn't light up
+[X] BUG: green section doesn't light up
 [ ] BUG: holding record arm doesn't clear selection
 [ ] Stop -> Stop
 [ ] move select gesture to the top of the launchpad
