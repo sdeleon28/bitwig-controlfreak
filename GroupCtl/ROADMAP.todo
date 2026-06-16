@@ -81,42 +81,27 @@
 
 ## colors
 
-[-] mode selector colors
-[ ] vol / pan mode selector colors (vol -> green, pan -> red)
+[X] mode selector colors
+[X] vol / pan mode selector colors (vol -> green, pan -> red)
 
-## page 2
+## project explorer
 
-[ ] BitwigMarkersTracker.java
-    [ ] start with one pad per bar
-    [ ] collapse markers into a data structure that has the calculated amount
-        of pads that each region should fill up in the launchpad
-[ ] ExplorerPager (mirror Pager)
-[ ] ExplorerResolution (mirror ExplorerPager)
-[ ] quantized playback
-[ ] colors
-[ ] visualization of playback
-[ ] range selection
-[ ] select useful default resolution
+[X] rough-in
+[ ] remove tight coupling of Colors.java with the other packages
+    [ ] MixMachineColors
+    [ ] ExplorerColors
+[ ] move mixmachine specific events into mixmachine
+[ ] move explorer specific events into explorer
+[ ] SelectionChanged -> BitwigSelectionChanged
+[ ] ExplorerPads -> ExplorerConstants
+[ ] design smell: why are we emitting ExplorerPagesChanged inside paint?
+[ ] BUG: no feedback on selection start gesture
+[ ] BUG: green section doesn't light up
+[ ] BUG: holding record arm doesn't clear selection
+[ ] Stop -> Stop
+[ ] move select gesture to the top of the launchpad
+[ ] use record arm button to enable recording
+[ ] Mute -> loop (cyan)
+[ ] Solo -> metronome (yellow)
+[ ] resolution buttons should paint like pager
 
-
-pseudo-python:
-
-```
-class ExplorerCtl:
-    def __init__(self):
-        self.bars_calculator = BarsCalculator()
-        self.resolution_calculator = ResolutionCalculator()
-        self.page_filter = PageFilter()
-
-    def paint(self):
-        return markers
-            | self.bars_calculator.apply
-            | self.resolution_calculator.apply
-            | self.page_filter.apply
-
-    def on(event):
-        match event:
-            case MarkersUpdated(markers=markers):
-                self.markers = markers
-                self.paint()
-```

@@ -8,6 +8,7 @@ import com.bitwig.extension.controller.ControllerExtension;
 
 import dev.tradcode.groupctl.events.EventBus;
 import dev.tradcode.groupctl.events.IEventBus;
+import dev.tradcode.groupctl.explorer.Explorer;
 import dev.tradcode.groupctl.mixmachine.MixMachine;
 
 public class GroupCtlExtension extends ControllerExtension
@@ -20,6 +21,7 @@ public class GroupCtlExtension extends ControllerExtension
    TwisterOutput twisterOut;
    Growler growler;
    Pager pager;
+   Explorer explorer;
    MixMachine mixMachine;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
@@ -46,6 +48,7 @@ public class GroupCtlExtension extends ControllerExtension
       launchpadIn = new LaunchpadInput(eventBus, host.getMidiInPort(0));
       launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
       pager = new Pager(eventBus);
+      explorer = new Explorer(eventBus, host);
       mixMachine = new MixMachine(eventBus, host);
 
       host.showPopupNotification("GroupCtl Initialized");
@@ -62,6 +65,7 @@ public class GroupCtlExtension extends ControllerExtension
    @Override
    public void flush()
    {
+       explorer.flush();
        mixMachine.flush();
    }
 

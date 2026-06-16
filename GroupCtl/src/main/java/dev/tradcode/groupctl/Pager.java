@@ -1,13 +1,11 @@
 package dev.tradcode.groupctl;
 
+import dev.tradcode.groupctl.events.ClearLaunchpad;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PageSelected;
-import dev.tradcode.groupctl.events.PaintPad;
-import dev.tradcode.groupctl.events.PaintSideButton;
 import dev.tradcode.groupctl.events.PaintTopButton;
-import dev.tradcode.groupctl.events.SideButton;
 import dev.tradcode.groupctl.events.TopButton;
 import dev.tradcode.groupctl.events.TopButtonClick;
 
@@ -38,6 +36,7 @@ public class Pager implements IEventBusSubscriber {
     public Pager(IEventBus bus) {
         this.bus = bus;
         this.bus.subscribe(this);
+        this.clear();
         this.paint();
     }
 
@@ -60,18 +59,7 @@ public class Pager implements IEventBusSubscriber {
     }
 
     private void clear() {
-        this.bus.send(
-            new PaintSideButton(SideButton.VOLUME, 0),
-            new PaintSideButton(SideButton.PAN, 0),
-            new PaintSideButton(SideButton.SEND_A, 0),
-            new PaintSideButton(SideButton.SEND_B, 0),
-            new PaintSideButton(SideButton.STOP, 0),
-            new PaintSideButton(SideButton.MUTE, 0),
-            new PaintSideButton(SideButton.SOLO, 0),
-            new PaintSideButton(SideButton.RECORD_ARM, 0)
-        );
-        for (int i = 1; i <= 64; i++)
-            this.bus.send(new PaintPad(i, 0));
+        this.bus.send(new ClearLaunchpad());
     }
 
     private void paint() {

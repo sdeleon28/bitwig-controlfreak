@@ -14,6 +14,7 @@ import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PadLongPressed;
 import dev.tradcode.groupctl.events.SideButton;
 import dev.tradcode.groupctl.events.SideButtonClick;
+import dev.tradcode.groupctl.events.SideButtonLongPressed;
 import dev.tradcode.groupctl.events.TopButton;
 import dev.tradcode.groupctl.events.TopButtonClick;
 
@@ -39,6 +40,7 @@ public class LaunchpadInput {
     IEventBus bus;
     MidiIn in;
     Set<HeldPad> heldPads = new HashSet<>();
+    Set<HeldPad> heldSideButtons = new HashSet<>();
 
     record HeldPad(int n, Date since) {
         @Override
@@ -101,35 +103,43 @@ public class LaunchpadInput {
         }
     }
 
-    private void sideButtonUp(int n) { }
+    private SideButton sideButtonFor(int n) {
+        return switch (n) {
+            case 89 -> SideButton.VOLUME;
+            case 79 -> SideButton.PAN;
+            case 69 -> SideButton.SEND_A;
+            case 59 -> SideButton.SEND_B;
+            case 49 -> SideButton.STOP;
+            case 39 -> SideButton.MUTE;
+            case 29 -> SideButton.SOLO;
+            case 19 -> SideButton.RECORD_ARM;
+            default -> null;
+        };
+    }
 
     private void sideButtonDown(int n) {
-        switch (n) {
-            case 89:
-                this.bus.send(new SideButtonClick(SideButton.VOLUME));
-                break;
-            case 79:
-                this.bus.send(new SideButtonClick(SideButton.PAN));
-                break;
-            case 69:
-                this.bus.send(new SideButtonClick(SideButton.SEND_A));
-                break;
-            case 59:
-                this.bus.send(new SideButtonClick(SideButton.SEND_B));
-                break;
-            case 49:
-                this.bus.send(new SideButtonClick(SideButton.STOP));
-                break;
-            case 39:
-                this.bus.send(new SideButtonClick(SideButton.MUTE));
-                break;
-            case 29:
-                this.bus.send(new SideButtonClick(SideButton.SOLO));
-                break;
-            case 19:
-                this.bus.send(new SideButtonClick(SideButton.RECORD_ARM));
-                break;
-        }
+        this.heldSideButtons.add(new HeldPad(n, new Date()));
+    }
+
+    private void sideButtonUp(int n) {
+        SideButton btn = this.sideButtonFor(n);
+        if (btn == null)
+            return;
+        heldSideButtons.stream()
+            .filter(h -> h.n == n)
+            .findFirst()
+            .ifPresent(h -> {
+                var now = new Date();
+                var diffMs = ChronoUnit.MILLIS.between(
+                    h.since.toInstant(),
+                    now.toInstant()
+                );
+                if (diffMs > HOLD_THRESHOLD_MS)
+                    this.bus.send(new SideButtonLongPressed(btn));
+                else
+                    this.bus.send(new SideButtonClick(btn));
+            });
+        heldSideButtons.removeIf(h -> h.n == n);
     }
 
     private void padDown(int n) {

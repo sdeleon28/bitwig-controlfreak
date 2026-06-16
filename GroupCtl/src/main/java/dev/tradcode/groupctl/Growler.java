@@ -15,6 +15,7 @@ import dev.tradcode.groupctl.events.RequestFxToggleMute;
 import dev.tradcode.groupctl.events.RequestFxToggleRec;
 import dev.tradcode.groupctl.events.RequestFxToggleSolo;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
+import dev.tradcode.groupctl.events.ResolutionChanged;
 import dev.tradcode.groupctl.events.RequestToggleMute;
 import dev.tradcode.groupctl.events.RequestToggleRec;
 import dev.tradcode.groupctl.events.RequestToggleSolo;
@@ -48,6 +49,8 @@ public class Growler implements IEventBusSubscriber {
             case PanModeSelected e -> this.growl(e);
             // pages
             case PageSelected e -> this.growl(e);
+            // explorer
+            case ResolutionChanged e -> this.growl(e);
             // encoder presses
             case TrackEncoderPressed e -> this.growl(e);
             case SendEncoderPressed e -> this.growl(e);

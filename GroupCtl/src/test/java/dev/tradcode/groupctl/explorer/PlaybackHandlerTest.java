@@ -1,0 +1,72 @@
+package dev.tradcode.groupctl.explorer;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+
+import dev.tradcode.groupctl.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.events.GridSlot;
+import dev.tradcode.groupctl.events.PadClicked;
+import dev.tradcode.groupctl.events.PageSelected;
+import dev.tradcode.groupctl.events.RequestSetPlaybackPosition;
+import dev.tradcode.groupctl.events.SelectionModeChanged;
+
+class PlaybackHandlerTest {
+
+    /** A grid where pad index i maps to beat i*4. */
+    private static List<GridSlot> grid() {
+        List<GridSlot> slots = new ArrayList<>();
+        for (int i = 0; i < ExplorerPads.PAGE_SIZE; i++)
+            slots.add(new GridSlot(false, i * 4.0, i * 4.0 + 4.0));
+        return slots;
+    }
+
+    @Test
+    void padPressSeeksToThePadBeat() {
+        FakeEventBus bus = new FakeEventBus();
+        new PlaybackHandler(bus);
+        bus.send(new PageSelected(1));
+        bus.send(new ExplorerGridChanged(grid()));
+
+        bus.send(new PadClicked(71)); // pad index 8 -> beat 32
+        assertEquals(32.0, bus.last(RequestSetPlaybackPosition.class).beat());
+    }
+
+    @Test
+    void doesNotSeekWhileSelecting() {
+        FakeEventBus bus = new FakeEventBus();
+        new PlaybackHandler(bus);
+        bus.send(new PageSelected(1));
+        bus.send(new ExplorerGridChanged(grid()));
+        bus.send(new SelectionModeChanged(true));
+
+        bus.send(new PadClicked(81));
+        assertNull(bus.last(RequestSetPlaybackPosition.class));
+    }
+
+    @Test
+    void doesNotSeekOnEmptySlot() {
+        FakeEventBus bus = new FakeEventBus();
+        new PlaybackHandler(bus);
+        bus.send(new PageSelected(1));
+        List<GridSlot> g = grid();
+        g.set(0, new GridSlot(true, 0, 0)); // pad 81 empty
+        bus.send(new ExplorerGridChanged(g));
+
+        bus.send(new PadClicked(81));
+        assertNull(bus.last(RequestSetPlaybackPosition.class));
+    }
+
+    @Test
+    void ignoresPadsWhenNotOnExplorerPage() {
+        FakeEventBus bus = new FakeEventBus();
+        new PlaybackHandler(bus);
+        bus.send(new ExplorerGridChanged(grid()));
+        bus.send(new PadClicked(81));
+        assertNull(bus.last(RequestSetPlaybackPosition.class));
+    }
+}

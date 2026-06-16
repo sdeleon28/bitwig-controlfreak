@@ -79,7 +79,10 @@ public class PadModeCtl implements IEventBusSubscriber {
                         break;
                 }
             }
-            case PageSelected(int n) -> this.pageActive = n == 0;
+            case PageSelected(int n) -> {
+                this.pageActive = n == 0;
+                this.paint();
+            }
             default -> { }
         }
     }
