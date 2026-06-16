@@ -1,20 +1,20 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.RcValueChanged;
+import dev.tradcode.groupctl.mixmachine.events.RequestInitRcs;
+import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.SetRcValue;
 import java.util.HashMap;
 import java.util.Map;
 
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PaintEncoder;
-import dev.tradcode.groupctl.events.RcValueChanged;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
-import dev.tradcode.groupctl.events.RequestInitRcs;
-import dev.tradcode.groupctl.events.RequestSelectDevice;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.events.SetEncoderValue;
-import dev.tradcode.groupctl.events.SetRcValue;
 
 public class TwisterDeviceCtl extends DeviceCtl {
     static int RC_COUNT = 8;

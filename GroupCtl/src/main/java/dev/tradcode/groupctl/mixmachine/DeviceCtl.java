@@ -1,10 +1,10 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigDevice;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.DevicesSchemaChanged;
 import java.util.List;
 
-import dev.tradcode.groupctl.events.BitwigDevice;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.events.DevicesSchemaChanged;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;

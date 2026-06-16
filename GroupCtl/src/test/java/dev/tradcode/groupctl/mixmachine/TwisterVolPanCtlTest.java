@@ -1,26 +1,26 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.PanUpdated;
+import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.RequestSetSolo;
+import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
+import dev.tradcode.groupctl.mixmachine.events.SetTrackPan;
+import dev.tradcode.groupctl.mixmachine.events.SetTrackVolume;
+import dev.tradcode.groupctl.mixmachine.events.VolumeUpdated;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 
-import dev.tradcode.groupctl.events.BitwigTrack;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.EncoderButtonPressed;
 import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.PanModeSelected;
-import dev.tradcode.groupctl.events.PanUpdated;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
-import dev.tradcode.groupctl.events.RequestSelectDevice;
-import dev.tradcode.groupctl.events.RequestSetSolo;
-import dev.tradcode.groupctl.events.SchemaChanged;
 import dev.tradcode.groupctl.events.SetEncoderValue;
-import dev.tradcode.groupctl.events.SetTrackPan;
-import dev.tradcode.groupctl.events.SetTrackVolume;
-import dev.tradcode.groupctl.events.VolumeUpdated;
 
 class TwisterVolPanCtlTest {
 

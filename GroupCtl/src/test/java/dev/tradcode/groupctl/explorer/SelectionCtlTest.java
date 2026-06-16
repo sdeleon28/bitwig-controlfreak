@@ -1,5 +1,10 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.explorer.events.GridSlot;
+import dev.tradcode.groupctl.explorer.events.RequestClearSelection;
+import dev.tradcode.groupctl.explorer.events.RequestSetSelection;
+import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,15 +14,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import dev.tradcode.groupctl.Colors;
-import dev.tradcode.groupctl.events.ExplorerGridChanged;
-import dev.tradcode.groupctl.events.GridSlot;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintSideButton;
-import dev.tradcode.groupctl.events.RequestClearSelection;
-import dev.tradcode.groupctl.events.RequestSetSelection;
-import dev.tradcode.groupctl.events.SelectionModeChanged;
 import dev.tradcode.groupctl.events.SideButton;
 import dev.tradcode.groupctl.events.SideButtonClick;
 import dev.tradcode.groupctl.events.SideButtonLongPressed;
@@ -26,7 +25,7 @@ class SelectionCtlTest {
 
     private static List<GridSlot> grid() {
         List<GridSlot> slots = new ArrayList<>();
-        for (int i = 0; i < ExplorerPads.PAGE_SIZE; i++)
+        for (int i = 0; i < ExplorerConstants.PAGE_SIZE; i++)
             slots.add(new GridSlot(false, i * 4.0, i * 4.0 + 4.0));
         return slots;
     }
@@ -46,7 +45,7 @@ class SelectionCtlTest {
         bus.send(new PageSelected(1));
         PaintSideButton p = bus.last(PaintSideButton.class);
         assertEquals(SideButton.RECORD_ARM, p.btn());
-        assertEquals(Colors.EXPLORER_SELECT_COLOR, p.color());
+        assertEquals(ExplorerColors.SELECT_COLOR, p.color());
     }
 
     @Test
@@ -54,7 +53,7 @@ class SelectionCtlTest {
         FakeEventBus bus = activeCtl();
         bus.send(new SideButtonClick(SideButton.RECORD_ARM));
         assertTrue(bus.last(SelectionModeChanged.class).active());
-        assertEquals(Colors.WHITE, bus.last(PaintSideButton.class).color());
+        assertEquals(ExplorerColors.WHITE, bus.last(PaintSideButton.class).color());
     }
 
     @Test

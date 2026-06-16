@@ -1,5 +1,9 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.RequestSetSolo;
+import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -8,14 +12,10 @@ import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Track;
 import com.bitwig.extension.controller.api.TrackBank;
 
-import dev.tradcode.groupctl.events.SchemaChanged;
-import dev.tradcode.groupctl.events.BitwigTrack;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
-import dev.tradcode.groupctl.events.RequestSetSolo;
 import dev.tradcode.groupctl.events.RequestToggleMute;
 import dev.tradcode.groupctl.events.RequestToggleRec;
 import dev.tradcode.groupctl.events.RequestToggleSolo;

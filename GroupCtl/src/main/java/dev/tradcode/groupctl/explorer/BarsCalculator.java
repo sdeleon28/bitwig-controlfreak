@@ -1,10 +1,10 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.Marker;
 import java.util.ArrayList;
 import java.util.List;
 
 import dev.tradcode.groupctl.Colors;
-import dev.tradcode.groupctl.events.Marker;
 
 /**
  * Turns marker metadata into the project's timeline as a list of one-bar blocks,
@@ -26,7 +26,7 @@ public class BarsCalculator {
 
         double first = sorted.get(0).position();
         double last = sorted.get(sorted.size() - 1).position();
-        double contentEnd = last + ExplorerPads.BEATS_PER_BAR;
+        double contentEnd = last + ExplorerConstants.BEATS_PER_BAR;
 
         double beat = first;
         int markerIdx = 0;
@@ -37,7 +37,7 @@ public class BarsCalculator {
                 markerIdx++;
             }
             int color = Colors.toLaunchpad(sorted.get(markerIdx).color());
-            double end = beat + ExplorerPads.BEATS_PER_BAR;
+            double end = beat + ExplorerConstants.BEATS_PER_BAR;
             blocks.add(Block.bar(color, beat, end));
             beat = end;
         }

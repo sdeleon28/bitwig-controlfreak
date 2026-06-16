@@ -87,13 +87,13 @@
 ## project explorer
 
 [X] rough-in
-[ ] remove tight coupling of Colors.java with the other packages
-    [ ] MixMachineColors
-    [ ] ExplorerColors
-[ ] move mixmachine specific events into mixmachine
-[ ] move explorer specific events into explorer
-[ ] SelectionChanged -> BitwigSelectionChanged
-[ ] ExplorerPads -> ExplorerConstants
+[X] remove tight coupling of Colors.java with the other packages
+    [X] MixMachineColors
+    [X] ExplorerColors
+[X] move mixmachine specific events into mixmachine
+[X] move explorer specific events into explorer
+[X] rename SelectionChanged -> BitwigSelectionChanged
+[X] rename ExplorerPads -> ExplorerConstants
 [ ] design smell: why are we emitting ExplorerPagesChanged inside paint?
 [ ] BUG: no feedback on selection start gesture
 [ ] BUG: green section doesn't light up

@@ -1,5 +1,12 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigDevice;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.DevicesSchemaChanged;
+import dev.tradcode.groupctl.mixmachine.events.RcValueChanged;
+import dev.tradcode.groupctl.mixmachine.events.RequestInitRcs;
+import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.SetRcValue;
 import java.util.ArrayList;
 
 import com.bitwig.extension.controller.api.ControllerHost;
@@ -8,16 +15,9 @@ import com.bitwig.extension.controller.api.CursorTrack;
 import com.bitwig.extension.controller.api.DeviceBank;
 import com.bitwig.extension.controller.api.RemoteControlsPage;
 
-import dev.tradcode.groupctl.events.BitwigDevice;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.events.DevicesSchemaChanged;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.RcValueChanged;
-import dev.tradcode.groupctl.events.RequestInitRcs;
-import dev.tradcode.groupctl.events.RequestSelectDevice;
-import dev.tradcode.groupctl.events.SetRcValue;
 
 class DeviceCache {
     int id;

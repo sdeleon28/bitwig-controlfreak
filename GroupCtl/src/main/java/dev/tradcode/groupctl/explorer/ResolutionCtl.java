@@ -1,13 +1,12 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.Marker;
+import dev.tradcode.groupctl.explorer.events.MarkersChanged;
 import java.util.List;
 
-import dev.tradcode.groupctl.Colors;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.Marker;
-import dev.tradcode.groupctl.events.MarkersChanged;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintTopButton;
 import dev.tradcode.groupctl.events.ResolutionChanged;
@@ -60,7 +59,7 @@ public class ResolutionCtl implements IEventBusSubscriber {
     /** Finest resolution whose page count fits in one launchpad page. */
     private static int fitResolution(int contentBars) {
         for (int bpp : RESOLUTIONS)
-            if (Math.ceil(contentBars / (double) bpp) <= ExplorerPads.PAGE_SIZE)
+            if (Math.ceil(contentBars / (double) bpp) <= ExplorerConstants.PAGE_SIZE)
                 return bpp;
         return MAX;
     }
@@ -86,11 +85,11 @@ public class ResolutionCtl implements IEventBusSubscriber {
             first = Math.min(first, m.position());
             last = Math.max(last, m.position());
         }
-        return (int) Math.ceil((last - first) / ExplorerPads.BEATS_PER_BAR) + 1;
+        return (int) Math.ceil((last - first) / ExplorerConstants.BEATS_PER_BAR) + 1;
     }
 
     private void paint() {
-        int color = this.pageActive ? Colors.EXPLORER_RESOLUTION_COLOR : 0;
+        int color = this.pageActive ? ExplorerColors.RESOLUTION_COLOR : 0;
         this.bus.send(
             new PaintTopButton(TopButton.SESSION, color),
             new PaintTopButton(TopButton.USER_1, color)

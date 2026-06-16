@@ -1,5 +1,10 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.explorer.events.ExplorerPagesChanged;
+import dev.tradcode.groupctl.explorer.events.Marker;
+import dev.tradcode.groupctl.explorer.events.MarkersChanged;
+import dev.tradcode.groupctl.explorer.events.RequestSetPlaybackPosition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,14 +14,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import dev.tradcode.groupctl.events.Event;
-import dev.tradcode.groupctl.events.ExplorerGridChanged;
-import dev.tradcode.groupctl.events.ExplorerPagesChanged;
-import dev.tradcode.groupctl.events.Marker;
-import dev.tradcode.groupctl.events.MarkersChanged;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
-import dev.tradcode.groupctl.events.RequestSetPlaybackPosition;
 import dev.tradcode.groupctl.events.ResolutionChanged;
 
 class ExplorerTest {

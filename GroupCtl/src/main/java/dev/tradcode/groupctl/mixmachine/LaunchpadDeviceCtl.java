@@ -1,5 +1,6 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -10,7 +11,6 @@ import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
-import dev.tradcode.groupctl.events.RequestSelectDevice;
 
 class LaunchpadDeviceCtl extends DeviceCtl {
     boolean pageActive = true;

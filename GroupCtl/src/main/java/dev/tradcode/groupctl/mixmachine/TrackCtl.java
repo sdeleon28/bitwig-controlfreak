@@ -1,16 +1,16 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigFxTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
+import dev.tradcode.groupctl.mixmachine.events.TrackMode;
 import java.util.ArrayList;
 import java.util.List;
 
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.SchemaChanged;
-import dev.tradcode.groupctl.events.TrackMode;
-import dev.tradcode.groupctl.events.BitwigFxTrackSelected;
-import dev.tradcode.groupctl.events.BitwigTrack;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
 
 
 public abstract class TrackCtl implements IEventBusSubscriber {

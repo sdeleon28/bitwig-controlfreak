@@ -1,23 +1,23 @@
 package dev.tradcode.groupctl.mixmachine;
 
-import dev.tradcode.groupctl.events.BitwigTrack;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.PanUpdated;
+import dev.tradcode.groupctl.mixmachine.events.RequestSetSolo;
+import dev.tradcode.groupctl.mixmachine.events.SetTrackPan;
+import dev.tradcode.groupctl.mixmachine.events.SetTrackVolume;
+import dev.tradcode.groupctl.mixmachine.events.VolumeUpdated;
 import dev.tradcode.groupctl.events.EncoderButtonPressed;
 import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PanModeSelected;
-import dev.tradcode.groupctl.events.PanUpdated;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
-import dev.tradcode.groupctl.events.RequestSetSolo;
 import dev.tradcode.groupctl.events.SetEncoderValue;
-import dev.tradcode.groupctl.events.SetTrackPan;
-import dev.tradcode.groupctl.events.SetTrackVolume;
 import dev.tradcode.groupctl.events.TrackEncoderPressed;
 import dev.tradcode.groupctl.events.VolModeSelected;
-import dev.tradcode.groupctl.events.VolumeUpdated;
 
 /**
  * Twister program: the 16 encoders show and edit the vol/pan of the tracks in

@@ -1,16 +1,17 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigFxTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.FxSchemaChanged;
+import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
 import dev.tradcode.groupctl.Colors;
-import dev.tradcode.groupctl.events.BitwigFxTrackSelected;
-import dev.tradcode.groupctl.events.BitwigTrack;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.BlinkPad;
 import dev.tradcode.groupctl.events.Event;
-import dev.tradcode.groupctl.events.FxSchemaChanged;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PadClicked;
@@ -22,7 +23,6 @@ import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestFxToggleMute;
 import dev.tradcode.groupctl.events.RequestFxToggleRec;
 import dev.tradcode.groupctl.events.RequestFxToggleSolo;
-import dev.tradcode.groupctl.events.RequestSelectDevice;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 
 public class LaunchpadFxCtl implements IEventBusSubscriber {
@@ -85,11 +85,11 @@ public class LaunchpadFxCtl implements IEventBusSubscriber {
             var pos = this.localToGlobalPosition(t.id);
             var color = this.bwToLaunchpadColor(t.color);
             if (this.mode == PadMode.MUTE && t.mute)
-                color = Colors.MUTE_COLOR;
+                color = MixMachineColors.MUTE_COLOR;
             if (this.mode == PadMode.SOLO && t.solo)
-                color = Colors.SOLO_COLOR;
+                color = MixMachineColors.SOLO_COLOR;
             if (this.mode == PadMode.REC && t.rec)
-                color = Colors.REC_COLOR;
+                color = MixMachineColors.REC_COLOR;
             if (pos != -1 && color != -1)
                 this.bus.send(
                     t.id == this.selectedFxTrackId ?

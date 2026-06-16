@@ -1,12 +1,12 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.PlaybackPositionChanged;
 import java.util.ArrayList;
 import java.util.List;
 
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.PlaybackPositionChanged;
 
 public class PlaybackHighlighter implements IEventBusSubscriber {
     double beat = 0;

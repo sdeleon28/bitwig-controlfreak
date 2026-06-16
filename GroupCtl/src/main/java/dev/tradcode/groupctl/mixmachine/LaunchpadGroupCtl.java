@@ -1,13 +1,14 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import dev.tradcode.groupctl.Colors;
-import dev.tradcode.groupctl.events.BitwigTrack;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.BlinkPad;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
@@ -16,7 +17,6 @@ import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
-import dev.tradcode.groupctl.events.SchemaChanged;
 
 public class LaunchpadGroupCtl implements IEventBusSubscriber {
     IEventBus bus;

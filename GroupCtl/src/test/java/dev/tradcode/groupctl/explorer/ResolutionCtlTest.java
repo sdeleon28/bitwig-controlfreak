@@ -1,5 +1,7 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.Marker;
+import dev.tradcode.groupctl.explorer.events.MarkersChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -7,8 +9,6 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import dev.tradcode.groupctl.events.Marker;
-import dev.tradcode.groupctl.events.MarkersChanged;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.ResolutionChanged;
 import dev.tradcode.groupctl.events.TopButton;

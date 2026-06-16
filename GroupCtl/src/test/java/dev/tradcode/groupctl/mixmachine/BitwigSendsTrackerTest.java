@@ -1,10 +1,10 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.SendValueUpdated;
+import dev.tradcode.groupctl.mixmachine.events.SendsChanged;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
-import dev.tradcode.groupctl.events.SendValueUpdated;
-import dev.tradcode.groupctl.events.SendsChanged;
 
 class BitwigSendsTrackerTest {
 

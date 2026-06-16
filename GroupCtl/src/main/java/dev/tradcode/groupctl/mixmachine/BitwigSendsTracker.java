@@ -1,5 +1,9 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigSend;
+import dev.tradcode.groupctl.mixmachine.events.SendValueUpdated;
+import dev.tradcode.groupctl.mixmachine.events.SendsChanged;
+import dev.tradcode.groupctl.mixmachine.events.SetSelectedTrackSend;
 import java.util.ArrayList;
 
 import com.bitwig.extension.controller.api.ControllerHost;
@@ -7,13 +11,9 @@ import com.bitwig.extension.controller.api.SendBank;
 import com.bitwig.extension.controller.api.Track;
 import com.bitwig.extension.controller.api.TrackBank;
 
-import dev.tradcode.groupctl.events.BitwigSend;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.SendValueUpdated;
-import dev.tradcode.groupctl.events.SendsChanged;
-import dev.tradcode.groupctl.events.SetSelectedTrackSend;
 
 class SendCache {
     boolean exists;

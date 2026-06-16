@@ -1,25 +1,25 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigFxTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
+import dev.tradcode.groupctl.mixmachine.events.FxPanUpdated;
+import dev.tradcode.groupctl.mixmachine.events.FxSchemaChanged;
+import dev.tradcode.groupctl.mixmachine.events.FxVolumeUpdated;
+import dev.tradcode.groupctl.mixmachine.events.RequestFxSetSolo;
+import dev.tradcode.groupctl.mixmachine.events.SetFxTrackPan;
+import dev.tradcode.groupctl.mixmachine.events.SetFxTrackVolume;
 import java.util.ArrayList;
 
 import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Track;
 import com.bitwig.extension.controller.api.TrackBank;
 
-import dev.tradcode.groupctl.events.BitwigFxTrackSelected;
-import dev.tradcode.groupctl.events.BitwigTrack;
 import dev.tradcode.groupctl.events.Event;
-import dev.tradcode.groupctl.events.FxPanUpdated;
-import dev.tradcode.groupctl.events.FxSchemaChanged;
-import dev.tradcode.groupctl.events.FxVolumeUpdated;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.RequestFxToggleMute;
-import dev.tradcode.groupctl.events.RequestFxSetSolo;
 import dev.tradcode.groupctl.events.RequestFxToggleRec;
 import dev.tradcode.groupctl.events.RequestFxToggleSolo;
-import dev.tradcode.groupctl.events.SetFxTrackPan;
-import dev.tradcode.groupctl.events.SetFxTrackVolume;
 
 class FxCache {
     boolean exists;

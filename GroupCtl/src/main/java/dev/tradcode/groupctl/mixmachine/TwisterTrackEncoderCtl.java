@@ -1,10 +1,10 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
 import dev.tradcode.groupctl.Colors;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PaintEncoder;
-import dev.tradcode.groupctl.events.RequestSelectDevice;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 
 /**

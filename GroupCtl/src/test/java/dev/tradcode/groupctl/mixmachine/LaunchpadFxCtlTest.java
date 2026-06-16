@@ -1,18 +1,18 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.FxSchemaChanged;
+import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 
-import dev.tradcode.groupctl.events.BitwigTrack;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.BlinkPad;
-import dev.tradcode.groupctl.events.FxSchemaChanged;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PaintPad;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
-import dev.tradcode.groupctl.events.RequestSelectDevice;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 
 class LaunchpadFxCtlTest {

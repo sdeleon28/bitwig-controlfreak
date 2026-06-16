@@ -1,18 +1,18 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.BitwigSelectionChanged;
+import dev.tradcode.groupctl.explorer.events.RequestClearSelection;
+import dev.tradcode.groupctl.explorer.events.RequestSetSelection;
 import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Transport;
 
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.RequestClearSelection;
-import dev.tradcode.groupctl.events.RequestSetSelection;
-import dev.tradcode.groupctl.events.SelectionChanged;
 
 /**
  * Owns the arranger time selection (expressed as the arranger loop range).
- * Handles set/clear requests and broadcasts {@link SelectionChanged} on the
+ * Handles set/clear requests and broadcasts {@link BitwigSelectionChanged} on the
  * flush cycle.
  */
 public class BitwigSelectionTracker implements IEventBusSubscriber {
@@ -60,7 +60,7 @@ public class BitwigSelectionTracker implements IEventBusSubscriber {
     public void flush() {
         if (!this.dirty)
             return;
-        this.bus.send(new SelectionChanged(this.start, this.duration));
+        this.bus.send(new BitwigSelectionChanged(this.start, this.duration));
         this.dirty = false;
     }
 }

@@ -1,5 +1,9 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.explorer.events.GridSlot;
+import dev.tradcode.groupctl.explorer.events.RequestSetPlaybackPosition;
+import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -8,19 +12,15 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import dev.tradcode.groupctl.events.ExplorerGridChanged;
-import dev.tradcode.groupctl.events.GridSlot;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
-import dev.tradcode.groupctl.events.RequestSetPlaybackPosition;
-import dev.tradcode.groupctl.events.SelectionModeChanged;
 
 class PlaybackHandlerTest {
 
     /** A grid where pad index i maps to beat i*4. */
     private static List<GridSlot> grid() {
         List<GridSlot> slots = new ArrayList<>();
-        for (int i = 0; i < ExplorerPads.PAGE_SIZE; i++)
+        for (int i = 0; i < ExplorerConstants.PAGE_SIZE; i++)
             slots.add(new GridSlot(false, i * 4.0, i * 4.0 + 4.0));
         return slots;
     }

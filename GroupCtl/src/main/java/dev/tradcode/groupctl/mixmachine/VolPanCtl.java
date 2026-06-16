@@ -1,6 +1,5 @@
 package dev.tradcode.groupctl.mixmachine;
 
-import dev.tradcode.groupctl.Colors;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -30,11 +29,11 @@ public class VolPanCtl implements IEventBusSubscriber {
         this.bus.send(
             new PaintSideButton(
                 SideButton.VOLUME,
-                this.mode == VolPanMode.VOL ? Colors.VOL_COLOR : 0
+                this.mode == VolPanMode.VOL ? MixMachineColors.VOL_COLOR : 0
             ),
             new PaintSideButton(
                 SideButton.PAN,
-                this.mode == VolPanMode.PAN ? Colors.PAN_COLOR : 0
+                this.mode == VolPanMode.PAN ? MixMachineColors.PAN_COLOR : 0
             )
         );
     }

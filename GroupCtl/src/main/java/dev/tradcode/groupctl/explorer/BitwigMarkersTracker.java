@@ -1,5 +1,7 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.Marker;
+import dev.tradcode.groupctl.explorer.events.MarkersChanged;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,8 +13,6 @@ import com.bitwig.extension.controller.api.CueMarkerBank;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.Marker;
-import dev.tradcode.groupctl.events.MarkersChanged;
 
 class MarkerCache {
     boolean exists;

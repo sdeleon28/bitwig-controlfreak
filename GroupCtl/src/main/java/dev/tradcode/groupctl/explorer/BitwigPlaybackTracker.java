@@ -1,13 +1,13 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.PlaybackPositionChanged;
+import dev.tradcode.groupctl.explorer.events.RequestSetPlaybackPosition;
 import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Transport;
 
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.PlaybackPositionChanged;
-import dev.tradcode.groupctl.events.RequestSetPlaybackPosition;
 
 /**
  * Owns playback position: handles {@link RequestSetPlaybackPosition} by jumping

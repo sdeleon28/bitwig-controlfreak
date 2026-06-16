@@ -1,5 +1,7 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.BitwigSelectionChanged;
+import dev.tradcode.groupctl.explorer.events.PlaybackPositionChanged;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -8,8 +10,6 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import dev.tradcode.groupctl.events.PlaybackPositionChanged;
-import dev.tradcode.groupctl.events.SelectionChanged;
 
 class HighlighterTest {
 
@@ -31,7 +31,7 @@ class HighlighterTest {
     void selectionFlagsOverlappingBars() {
         FakeEventBus bus = new FakeEventBus();
         SelectionHighlighter sh = new SelectionHighlighter(bus);
-        bus.send(new SelectionChanged(4, 8)); // [4, 12)
+        bus.send(new BitwigSelectionChanged(4, 8)); // [4, 12)
 
         List<Block> out = sh.apply(bars());
         assertFalse(out.get(0).selected); // [0,4)

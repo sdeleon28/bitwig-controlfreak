@@ -1,25 +1,25 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigSend;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.RequestFxSetSolo;
+import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
+import dev.tradcode.groupctl.mixmachine.events.SendValueUpdated;
+import dev.tradcode.groupctl.mixmachine.events.SendsChanged;
+import dev.tradcode.groupctl.mixmachine.events.SetSelectedTrackSend;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.tradcode.groupctl.events.BitwigSend;
-import dev.tradcode.groupctl.events.BitwigTrack;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.EncoderButtonPressed;
 import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
-import dev.tradcode.groupctl.events.RequestFxSetSolo;
-import dev.tradcode.groupctl.events.RequestSelectDevice;
-import dev.tradcode.groupctl.events.SchemaChanged;
-import dev.tradcode.groupctl.events.SendValueUpdated;
-import dev.tradcode.groupctl.events.SendsChanged;
 import dev.tradcode.groupctl.events.SetEncoderValue;
-import dev.tradcode.groupctl.events.SetSelectedTrackSend;
 
 class TwisterSendTracksToFxCtlTest {
 

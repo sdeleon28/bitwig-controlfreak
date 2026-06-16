@@ -1,20 +1,19 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.explorer.events.GridSlot;
+import dev.tradcode.groupctl.explorer.events.RequestClearSelection;
+import dev.tradcode.groupctl.explorer.events.RequestSetSelection;
+import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.tradcode.groupctl.Colors;
 import dev.tradcode.groupctl.events.Event;
-import dev.tradcode.groupctl.events.ExplorerGridChanged;
-import dev.tradcode.groupctl.events.GridSlot;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintSideButton;
-import dev.tradcode.groupctl.events.RequestClearSelection;
-import dev.tradcode.groupctl.events.RequestSetSelection;
-import dev.tradcode.groupctl.events.SelectionModeChanged;
 import dev.tradcode.groupctl.events.SideButton;
 import dev.tradcode.groupctl.events.SideButtonClick;
 import dev.tradcode.groupctl.events.SideButtonLongPressed;
@@ -42,14 +41,14 @@ public class SelectionCtl implements IEventBusSubscriber {
         if (!this.pageActive)
             color = 0;
         else if (this.selecting)
-            color = Colors.WHITE;
+            color = ExplorerColors.WHITE;
         else
-            color = Colors.EXPLORER_SELECT_COLOR;
+            color = ExplorerColors.SELECT_COLOR;
         this.bus.send(new PaintSideButton(SideButton.RECORD_ARM, color));
     }
 
     private void handlePad(int note) {
-        int idx = ExplorerPads.PADS.indexOf(note);
+        int idx = ExplorerConstants.PADS.indexOf(note);
         if (idx < 0 || idx >= this.grid.size())
             return;
         GridSlot slot = this.grid.get(idx);

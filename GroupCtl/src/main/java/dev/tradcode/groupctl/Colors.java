@@ -10,19 +10,6 @@ public final class Colors {
 
     public static final int OFF = 0;
 
-    public static final int SELECT_COLOR = 69;  // blue
-    public static final int MUTE_COLOR = 108;   // sober orange
-    public static final int SOLO_COLOR = 109;   // yellow
-    public static final int REC_COLOR = 99;     // light orange
-    public static final int VOL_COLOR = 87;     // green
-    public static final int PAN_COLOR = 72;     // red
-
-    // Project explorer — raw launchpad palette indices (not bitwig-mapped).
-    public static final int WHITE = 3;                    // selection / playhead highlight
-    public static final int EXPLORER_RESOLUTION_COLOR = 41; // cyan
-    public static final int EXPLORER_PAGE_COLOR = 49;       // purple
-    public static final int EXPLORER_SELECT_COLOR = 5;      // red (selection-mode idle)
-
     public static final Map<String, Integer> BITWIG_TO_TWISTER;
     public static final Map<String, Integer> BITWIG_TO_LAUNCHPAD;
 

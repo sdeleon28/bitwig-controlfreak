@@ -1,5 +1,6 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.ExplorerPageChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,7 +10,6 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import dev.tradcode.groupctl.events.ExplorerPageChanged;
 
 class PageFilterTest {
 

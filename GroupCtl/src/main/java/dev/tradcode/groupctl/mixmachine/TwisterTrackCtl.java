@@ -1,6 +1,6 @@
 package dev.tradcode.groupctl.mixmachine;
 
-import dev.tradcode.groupctl.events.BitwigTrack;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PaintEncoder;
 

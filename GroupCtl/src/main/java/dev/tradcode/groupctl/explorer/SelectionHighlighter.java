@@ -1,12 +1,12 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.BitwigSelectionChanged;
 import java.util.ArrayList;
 import java.util.List;
 
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.SelectionChanged;
 
 public class SelectionHighlighter implements IEventBusSubscriber {
     double start = 0;
@@ -32,7 +32,7 @@ public class SelectionHighlighter implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
-            case SelectionChanged(double s, double d) -> {
+            case BitwigSelectionChanged(double s, double d) -> {
                 this.start = s;
                 this.duration = d;
             }

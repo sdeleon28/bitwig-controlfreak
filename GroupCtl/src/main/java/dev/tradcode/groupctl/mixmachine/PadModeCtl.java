@@ -1,6 +1,5 @@
 package dev.tradcode.groupctl.mixmachine;
 
-import dev.tradcode.groupctl.Colors;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -36,16 +35,16 @@ public class PadModeCtl implements IEventBusSubscriber {
         this.clear();
         switch (this.mode) {
             case PadMode.SELECT:
-                this.bus.send(new PaintSideButton(SideButton.STOP, Colors.SELECT_COLOR));
+                this.bus.send(new PaintSideButton(SideButton.STOP, MixMachineColors.SELECT_COLOR));
                 break;
             case PadMode.MUTE:
-                this.bus.send(new PaintSideButton(SideButton.MUTE, Colors.MUTE_COLOR));
+                this.bus.send(new PaintSideButton(SideButton.MUTE, MixMachineColors.MUTE_COLOR));
                 break;
             case PadMode.SOLO:
-                this.bus.send(new PaintSideButton(SideButton.SOLO, Colors.SOLO_COLOR));
+                this.bus.send(new PaintSideButton(SideButton.SOLO, MixMachineColors.SOLO_COLOR));
                 break;
             case PadMode.REC:
-                this.bus.send(new PaintSideButton(SideButton.RECORD_ARM, Colors.REC_COLOR));
+                this.bus.send(new PaintSideButton(SideButton.RECORD_ARM, MixMachineColors.REC_COLOR));
                 break;
         }
     }

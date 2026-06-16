@@ -1,24 +1,24 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.BitwigSend;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.RequestFxSetSolo;
+import dev.tradcode.groupctl.mixmachine.events.SendValueUpdated;
+import dev.tradcode.groupctl.mixmachine.events.SendsChanged;
+import dev.tradcode.groupctl.mixmachine.events.SetSelectedTrackSend;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.tradcode.groupctl.events.BitwigSend;
-import dev.tradcode.groupctl.events.BitwigTrack;
-import dev.tradcode.groupctl.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.events.EncoderButtonPressed;
 import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
-import dev.tradcode.groupctl.events.RequestFxSetSolo;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.events.SendEncoderPressed;
-import dev.tradcode.groupctl.events.SendValueUpdated;
-import dev.tradcode.groupctl.events.SendsChanged;
 import dev.tradcode.groupctl.events.SetEncoderValue;
-import dev.tradcode.groupctl.events.SetSelectedTrackSend;
 
 /**
  * Twister program: one encoder per child track of the active group, each

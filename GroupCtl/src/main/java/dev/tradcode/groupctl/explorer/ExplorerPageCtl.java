@@ -1,9 +1,8 @@
 package dev.tradcode.groupctl.explorer;
 
-import dev.tradcode.groupctl.Colors;
+import dev.tradcode.groupctl.explorer.events.ExplorerPageChanged;
+import dev.tradcode.groupctl.explorer.events.ExplorerPagesChanged;
 import dev.tradcode.groupctl.events.Event;
-import dev.tradcode.groupctl.events.ExplorerPageChanged;
-import dev.tradcode.groupctl.events.ExplorerPagesChanged;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PageSelected;
@@ -49,12 +48,12 @@ public class ExplorerPageCtl implements IEventBusSubscriber {
         this.bus.send(
             new PaintTopButton(
                 TopButton.USER_2,
-                this.page > 0 ? Colors.EXPLORER_PAGE_COLOR : 0
+                this.page > 0 ? ExplorerColors.PAGE_COLOR : 0
             ),
             new PaintTopButton(
                 TopButton.MIXER,
                 this.page < this.totalPages - 1
-                    ? Colors.EXPLORER_PAGE_COLOR
+                    ? ExplorerColors.PAGE_COLOR
                     : 0
             )
         );

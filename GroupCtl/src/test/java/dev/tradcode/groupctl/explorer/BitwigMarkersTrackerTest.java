@@ -1,11 +1,11 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.MarkersChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.junit.jupiter.api.Test;
 
-import dev.tradcode.groupctl.events.MarkersChanged;
 
 class BitwigMarkersTrackerTest {
 

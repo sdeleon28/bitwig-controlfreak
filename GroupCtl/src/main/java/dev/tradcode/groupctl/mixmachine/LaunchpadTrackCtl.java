@@ -82,11 +82,11 @@ class LaunchpadTrackCtl extends TrackCtl {
             var pos = this.localToGlobalPosition(t.getPosition());
             var color = this.bwToLaunchpadColor(t.color);
             if (this.padMode == PadMode.MUTE && t.mute)
-                color = Colors.MUTE_COLOR;
+                color = MixMachineColors.MUTE_COLOR;
             if (this.padMode == PadMode.SOLO && t.solo)
-                color = Colors.SOLO_COLOR;
+                color = MixMachineColors.SOLO_COLOR;
             if (this.padMode == PadMode.REC && t.rec)
-                color = Colors.REC_COLOR;
+                color = MixMachineColors.REC_COLOR;
             if (pos != -1 && color != -1)
                 this.bus.send(
                     t.id == this.selectedTrackId ?

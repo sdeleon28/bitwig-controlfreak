@@ -1,16 +1,16 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.PanUpdated;
+import dev.tradcode.groupctl.mixmachine.events.SetTrackPan;
+import dev.tradcode.groupctl.mixmachine.events.SetTrackVolume;
+import dev.tradcode.groupctl.mixmachine.events.VolumeUpdated;
 import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Track;
 import com.bitwig.extension.controller.api.TrackBank;
 
-import dev.tradcode.groupctl.events.VolumeUpdated;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.PanUpdated;
-import dev.tradcode.groupctl.events.SetTrackPan;
-import dev.tradcode.groupctl.events.SetTrackVolume;
 
 class TrackVolumeCache {
     boolean exists;

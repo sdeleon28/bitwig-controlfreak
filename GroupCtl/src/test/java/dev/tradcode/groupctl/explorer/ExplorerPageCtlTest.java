@@ -1,12 +1,12 @@
 package dev.tradcode.groupctl.explorer;
 
+import dev.tradcode.groupctl.explorer.events.ExplorerPageChanged;
+import dev.tradcode.groupctl.explorer.events.ExplorerPagesChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.junit.jupiter.api.Test;
 
-import dev.tradcode.groupctl.events.ExplorerPageChanged;
-import dev.tradcode.groupctl.events.ExplorerPagesChanged;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.TopButton;
 import dev.tradcode.groupctl.events.TopButtonClick;
