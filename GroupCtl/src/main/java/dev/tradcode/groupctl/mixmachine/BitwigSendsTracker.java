@@ -78,7 +78,11 @@ public class BitwigSendsTracker implements IEventBusSubscriber {
     }
 
     /**
-     * For testing. Don't use this.
+     * ANTI-PATTERN — do not copy. This `_set*` hook punches a hole in the
+     * tracker's encapsulation purely to seed cache state from tests. It started
+     * as a one-off and is now creeping across the trackers; see CLAUDE.md
+     * ("Testing"). New code must not add hooks like this — leave the Bitwig
+     * boundary untested or introduce a real seam instead.
      */
     public void _setRawSendCache(int trackId, int sendId, SendCache s) {
         this.rawCache[trackId][sendId] = s;
@@ -86,7 +90,8 @@ public class BitwigSendsTracker implements IEventBusSubscriber {
     }
 
     /**
-     * For testing. Don't use this.
+     * ANTI-PATTERN — do not copy. See _setRawSendCache above and CLAUDE.md
+     * ("Testing").
      */
     public void _setRawSendValue(int trackId, int sendId, double value) {
         this.rawCache[trackId][sendId].value = value;

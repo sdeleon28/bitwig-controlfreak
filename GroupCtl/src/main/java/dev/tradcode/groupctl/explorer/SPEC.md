@@ -124,6 +124,18 @@ into `RequestStopPlayback` (also handled by `BitwigPlaybackTracker`).
 Handles selection mode, selection start and end gesture, and the record-arm side
 button LED. Talks to `BitwigSelectionTracker` via events.
 
+#### TransportTogglesCtl
+
+Owns the MUTE and SOLO side buttons while the explorer is on-screen and turns
+them into transport toggles: MUTE toggles the arranger loop (cyan), SOLO toggles
+the metronome (yellow). It caches the loop/metronome state from
+`TransportTogglesUpdate` only to light the LEDs (lit when on, dark when off) and
+turns a press into a `RequestSetLoop` / `RequestSetMetronome` carrying the
+desired new state. `BitwigPlaybackTracker` applies the request and re-broadcasts
+the confirmed state, so the LED always reflects Bitwig even when the loop /
+metronome are toggled from the UI. The `Growler` growls the request, surfacing
+"Loop on/off" / "Metronome on/off".
+
 #### ResolutionCtl
 
 Owns the bars-per-pad resolution (halve/double between 1 and 32) and auto-fits
@@ -138,7 +150,11 @@ their positions and colors every time marker metadata changes in the project.
 
 #### BitwigPlaybackTracker
 
-Handles `RequestSetPlaybackPosition` and broadcasts playback events.
+Handles `RequestSetPlaybackPosition` and broadcasts playback events. Also owns
+the loop / metronome transport toggles: it observes `isArrangerLoopEnabled()` and
+`isMetronomeEnabled()` (broadcasting `TransportTogglesUpdate` on flush) and
+applies `RequestSetLoop` / `RequestSetMetronome` via those same typed
+`SettableBooleanValue`s.
 
 #### BitwigSelectionTracker
 

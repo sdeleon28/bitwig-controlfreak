@@ -78,7 +78,11 @@ public class BitwigMarkersTracker implements IEventBusSubscriber {
     }
 
     /**
-     * For testing. Don't use this.
+     * ANTI-PATTERN — do not copy. This `_set*` hook punches a hole in the
+     * tracker's encapsulation purely to seed cache state from tests. It started
+     * as a one-off and is now creeping across the trackers; see CLAUDE.md
+     * ("Testing"). New code must not add hooks like this — leave the Bitwig
+     * boundary untested or introduce a real seam instead.
      */
     public void _setMarkerCache(int i, MarkerCache c) {
         this.rawCache[i] = c;

@@ -21,6 +21,7 @@ public class Explorer {
         new PlaybackHandler(bus);
         new SelectionCtl(bus);
         new ResolutionCtl(bus);
+        new TransportTogglesCtl(bus);
 
         // Bitwig trackers
         this.markersTracker = new BitwigMarkersTracker(bus, host);

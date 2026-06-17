@@ -47,3 +47,19 @@ Bitwig API or interacting directly with hardware devices.
 
 Assemble the dependency injection and bus interactions in a subsystem to make it
 easily pluggable into the extension.
+
+## Testing
+
+Test behaviour through the event bus, the same way the rest of the system talks
+to a class: construct it with a `FakeEventBus`, send the events it reacts to, and
+assert on the events it emits.
+
+Do NOT add `_setSomething` / `_getSomething` hooks to production classes to reach
+inside them from tests. A few trackers already have these (`_setMarkerCache`,
+`_setRawTrackCache`, `_setRawSendCache`); they are a hack we regret and are
+explicitly marked as an anti-pattern in those files — do not copy them or add new
+ones. If something can only be exercised by poking private state, that's a design
+signal, not a testing need: either it's the untestable Bitwig boundary (a tracker
+whose only real logic is wiring the API to events — leave it untested, the
+behaviour belongs to a `Ctl` or pure-logic class that you CAN drive over the bus),
+or it wants a real seam (extract the logic, or inject a fake collaborator).

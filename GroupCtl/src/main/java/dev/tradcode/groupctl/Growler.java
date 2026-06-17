@@ -22,6 +22,8 @@ import dev.tradcode.groupctl.events.RequestToggleSolo;
 import dev.tradcode.groupctl.events.SendEncoderPressed;
 import dev.tradcode.groupctl.events.TrackEncoderPressed;
 import dev.tradcode.groupctl.events.VolModeSelected;
+import dev.tradcode.groupctl.explorer.events.RequestSetLoop;
+import dev.tradcode.groupctl.explorer.events.RequestSetMetronome;
 
 public class Growler implements IEventBusSubscriber {
     IEventBus bus;
@@ -51,6 +53,8 @@ public class Growler implements IEventBusSubscriber {
             case PageSelected e -> this.growl(e);
             // explorer
             case ResolutionChanged e -> this.growl(e);
+            case RequestSetLoop e -> this.growl(e);
+            case RequestSetMetronome e -> this.growl(e);
             // encoder presses
             case TrackEncoderPressed e -> this.growl(e);
             case SendEncoderPressed e -> this.growl(e);

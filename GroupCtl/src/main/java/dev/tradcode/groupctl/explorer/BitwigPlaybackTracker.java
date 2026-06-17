@@ -1,8 +1,11 @@
 package dev.tradcode.groupctl.explorer;
 
 import dev.tradcode.groupctl.explorer.events.PlaybackUpdate;
+import dev.tradcode.groupctl.explorer.events.RequestSetLoop;
+import dev.tradcode.groupctl.explorer.events.RequestSetMetronome;
 import dev.tradcode.groupctl.explorer.events.RequestSetPlaybackPosition;
 import dev.tradcode.groupctl.explorer.events.RequestStopPlayback;
+import dev.tradcode.groupctl.explorer.events.TransportTogglesUpdate;
 import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Transport;
 
@@ -17,6 +20,9 @@ public class BitwigPlaybackTracker implements IEventBusSubscriber {
     double beat = 0;
     boolean isPlaying;
     boolean dirty = false;
+    boolean loopEnabled = false;
+    boolean metronomeEnabled = false;
+    boolean togglesDirty = false;
 
     protected BitwigPlaybackTracker(IEventBus bus, ControllerHost host) {
         this.bus = bus;
@@ -34,6 +40,14 @@ public class BitwigPlaybackTracker implements IEventBusSubscriber {
             this.beat = v;
             this.dirty = true;
         });
+        transport.isArrangerLoopEnabled().addValueObserver(v -> {
+            this.loopEnabled = v;
+            this.togglesDirty = true;
+        });
+        transport.isMetronomeEnabled().addValueObserver(v -> {
+            this.metronomeEnabled = v;
+            this.togglesDirty = true;
+        });
     }
 
     public void on(Event event) {
@@ -45,14 +59,22 @@ public class BitwigPlaybackTracker implements IEventBusSubscriber {
             }
             case RequestStopPlayback()
             when (transport != null) -> transport.stop();
+            case RequestSetLoop(boolean enabled)
+            when (transport != null) -> transport.isArrangerLoopEnabled().set(enabled);
+            case RequestSetMetronome(boolean enabled)
+            when (transport != null) -> transport.isMetronomeEnabled().set(enabled);
             default -> { }
         }
     }
 
     public void flush() {
-        if (!this.dirty)
-            return;
-        this.bus.send(new PlaybackUpdate(this.beat, this.isPlaying));
-        this.dirty = false;
+        if (this.dirty) {
+            this.bus.send(new PlaybackUpdate(this.beat, this.isPlaying));
+            this.dirty = false;
+        }
+        if (this.togglesDirty) {
+            this.bus.send(new TransportTogglesUpdate(this.loopEnabled, this.metronomeEnabled));
+            this.togglesDirty = false;
+        }
     }
 }

@@ -106,10 +106,10 @@
 [X] BUG: green section doesn't light up
 [X] Stop -> Stop
 [X] BUG: i can see mixmachine mode change growls when in explorer mode
+[X] Mute -> loop (cyan)
+[X] Solo -> metronome (yellow)
 [ ] move select gesture to the top of the launchpad
 [ ] use record arm button to enable recording
-[ ] Mute -> loop (cyan)
-[ ] Solo -> metronome (yellow)
 [ ] resolution buttons should paint like pager
 [ ] make Stop button blink instead of solid paint
 [ ] BUG: uncolored pads barely visible crawling flashes
