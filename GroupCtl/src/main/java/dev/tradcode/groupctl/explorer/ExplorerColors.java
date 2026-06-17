@@ -9,4 +9,5 @@ public final class ExplorerColors {
     public static final int RESOLUTION_COLOR = 41;     // cyan
     public static final int PAGE_COLOR = 49;           // purple
     public static final int SELECT_COLOR = 5;          // red (selection-mode idle)
+    public static final int STOP_COLOR = 7;            // dim red (stop side button)
 }

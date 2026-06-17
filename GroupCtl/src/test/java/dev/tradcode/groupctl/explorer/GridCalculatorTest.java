@@ -5,7 +5,7 @@ import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
 import dev.tradcode.groupctl.explorer.events.Marker;
 import dev.tradcode.groupctl.explorer.events.MarkersChanged;
 import dev.tradcode.groupctl.explorer.events.PendingSelectionChanged;
-import dev.tradcode.groupctl.explorer.events.PlaybackPositionChanged;
+import dev.tradcode.groupctl.explorer.events.PlaybackUpdate;
 import dev.tradcode.groupctl.explorer.events.RequestExplorerPage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -59,7 +59,7 @@ class GridCalculatorTest {
             new Marker(4, RED, "B")
         )));
         bus.send(new BitwigSelectionChanged(4, 4)); // [4, 8) -> bar 1
-        bus.send(new PlaybackPositionChanged(1));    // inside [0, 4) -> bar 0
+        bus.send(new PlaybackUpdate(1, true));    // inside [0, 4) -> bar 0
 
         ExplorerGridChanged grid = bus.last(ExplorerGridChanged.class);
         assertTrue(grid.slots().get(0).playing());

@@ -1,5 +1,13 @@
 # ROADMAP
 
+## mixmachine
+
+[ ] BUG: why does encoder 7 light up for group 2?
+[ ] longpress mute to clear mute
+    [ ] ignore ref tracks
+[ ] longrpress solo to clear solo
+[ ] longpress rec arm to clear arm
+
 ## send feature
 
 [X] make it so fx pads don't select in bw
@@ -26,7 +34,6 @@
                    an FX. this is in contrast to selecting an FX when you
                    just selected a group, which activates
                    TwisterSendTracksToFxCtl instead.
-[ ] BUG: why does encoder 7 light up for group 2?
 [X] solo behavior
     [X] TwisterVolPanCtl
         [X] encoder button hold should solo the corresponding track
@@ -97,11 +104,12 @@
 [X] design smell: why are we emitting ExplorerPagesChanged inside paint?
 [X] BUG: no feedback on selection start gesture
 [X] BUG: green section doesn't light up
-[ ] BUG: holding record arm doesn't clear selection
-[ ] BUG: uncolored pads barely visible crawling flashes
-[ ] Stop -> Stop
+[X] Stop -> Stop
+[ ] make Stop button blink instead of solid paint
+[ ] BUG: i can see mixmachine mode change growls when in explorer mode
 [ ] move select gesture to the top of the launchpad
 [ ] use record arm button to enable recording
 [ ] Mute -> loop (cyan)
 [ ] Solo -> metronome (yellow)
 [ ] resolution buttons should paint like pager
+[ ] BUG: uncolored pads barely visible crawling flashes

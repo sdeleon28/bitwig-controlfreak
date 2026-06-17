@@ -8,9 +8,8 @@ import java.util.List;
  */
 public class PlaybackHighlighter {
 
-    public List<Block> apply(List<Block> blocks, double beat, boolean has) {
-        if (!has)
-            return blocks;
+    public List<Block> apply(List<Block> blocks, double beat, boolean isPlaying) {
+        if (!isPlaying) return blocks;
         List<Block> out = new ArrayList<>(blocks.size());
         for (Block b : blocks) {
             if (!b.empty && beat >= b.startBeat && beat < b.endBeat)

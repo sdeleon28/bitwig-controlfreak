@@ -115,7 +115,9 @@ clamps.
 #### PlaybackHandler
 
 Handles pad presses and sends `RequestSetPlaybackPosition`, handled by
-`BitwigPlaybackTracker`. Reads pad→beat from the broadcast grid.
+`BitwigPlaybackTracker`. Reads pad→beat from the broadcast grid. Also owns the
+STOP side button: lights it while the explorer is on-screen and turns a press
+into `RequestStopPlayback` (also handled by `BitwigPlaybackTracker`).
 
 #### SelectionCtl
 
