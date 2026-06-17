@@ -5,6 +5,7 @@ import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
 import dev.tradcode.groupctl.explorer.events.GridSlot;
 import dev.tradcode.groupctl.explorer.events.Marker;
 import dev.tradcode.groupctl.explorer.events.MarkersChanged;
+import dev.tradcode.groupctl.explorer.events.PendingSelectionChanged;
 import dev.tradcode.groupctl.explorer.events.PlaybackPositionChanged;
 import dev.tradcode.groupctl.explorer.events.RequestExplorerPage;
 import java.util.ArrayList;
@@ -28,6 +29,8 @@ public class GridCalculator implements IEventBusSubscriber {
     List<Marker> markers = new ArrayList<>();
     double selectionStart = 0;
     double selectionDuration = 0;
+    double pendingStart = 0;
+    double pendingDuration = 0;
     double playbackBeat = 0;
     boolean hasPlayback = false;
     int barsPerPad = 1;
@@ -45,6 +48,7 @@ public class GridCalculator implements IEventBusSubscriber {
 
         List<Block> blocks = this.barsCalculator.apply(this.markers);
         blocks = this.selectionHighlighter.apply(blocks, this.selectionStart, this.selectionDuration);
+        blocks = this.selectionHighlighter.apply(blocks, this.pendingStart, this.pendingDuration);
         blocks = this.playbackHighlighter.apply(blocks, this.playbackBeat, this.hasPlayback);
         blocks = this.resolutionCalculator.apply(blocks, this.barsPerPad);
 
@@ -70,6 +74,11 @@ public class GridCalculator implements IEventBusSubscriber {
             case BitwigSelectionChanged(double start, double duration) -> {
                 this.selectionStart = start;
                 this.selectionDuration = duration;
+                this.recompute();
+            }
+            case PendingSelectionChanged(double start, double duration) -> {
+                this.pendingStart = start;
+                this.pendingDuration = duration;
                 this.recompute();
             }
             case PlaybackPositionChanged(double beat) -> {

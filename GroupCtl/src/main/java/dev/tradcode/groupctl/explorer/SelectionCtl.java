@@ -2,6 +2,7 @@ package dev.tradcode.groupctl.explorer;
 
 import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
 import dev.tradcode.groupctl.explorer.events.GridSlot;
+import dev.tradcode.groupctl.explorer.events.PendingSelectionChanged;
 import dev.tradcode.groupctl.explorer.events.RequestClearSelection;
 import dev.tradcode.groupctl.explorer.events.RequestSetSelection;
 import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
@@ -47,6 +48,13 @@ public class SelectionCtl implements IEventBusSubscriber {
         this.bus.send(new PaintSideButton(SideButton.RECORD_ARM, color));
     }
 
+    private void clearGesture() {
+        if (this.first == null)
+            return;
+        this.first = null;
+        this.bus.send(new PendingSelectionChanged(0, 0));
+    }
+
     private void handlePad(int note) {
         int idx = ExplorerConstants.PADS.indexOf(note);
         if (idx < 0 || idx >= this.grid.size())
@@ -57,12 +65,15 @@ public class SelectionCtl implements IEventBusSubscriber {
 
         if (this.first == null) {
             this.first = slot;
+            // Light the anchor pad so the user sees the gesture has begun.
+            this.bus.send(new PendingSelectionChanged(
+                slot.startBeat(), slot.endBeat() - slot.startBeat()));
             return;
         }
         double startBeat = Math.min(this.first.startBeat(), slot.startBeat());
         double endBeat = Math.max(this.first.endBeat(), slot.endBeat());
+        this.clearGesture();
         this.bus.send(new RequestSetSelection(startBeat, endBeat));
-        this.first = null;
         this.setSelecting(false);
     }
 
@@ -72,17 +83,17 @@ public class SelectionCtl implements IEventBusSubscriber {
                 this.pageActive = n == 1;
                 if (!this.pageActive) {
                     this.selecting = false;
-                    this.first = null;
+                    this.clearGesture();
                 }
                 this.paint();
             }
             case ExplorerGridChanged(var slots, int totalPages, int page) -> this.grid = slots;
             case SideButtonClick(var btn) when this.pageActive && btn == SideButton.RECORD_ARM -> {
-                this.first = null;
+                this.clearGesture();
                 this.setSelecting(!this.selecting);
             }
             case SideButtonLongPressed(var btn) when this.pageActive && btn == SideButton.RECORD_ARM -> {
-                this.first = null;
+                this.clearGesture();
                 this.selecting = false;
                 this.bus.send(new RequestClearSelection());
                 this.bus.send(new SelectionModeChanged(false));

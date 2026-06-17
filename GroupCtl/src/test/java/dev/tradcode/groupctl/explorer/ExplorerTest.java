@@ -17,6 +17,8 @@ import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
 import dev.tradcode.groupctl.events.ResolutionChanged;
+import dev.tradcode.groupctl.events.SideButton;
+import dev.tradcode.groupctl.events.SideButtonClick;
 
 class ExplorerTest {
 
@@ -69,6 +71,20 @@ class ExplorerTest {
 
         bus.send(new PadClicked(81));
         assertEquals(0.0, bus.last(RequestSetPlaybackPosition.class).beat());
+    }
+
+    @Test
+    void anchorPadLightsUpWhenAStartGestureBegins() {
+        FakeEventBus bus = new FakeEventBus();
+        new Explorer(bus, null);
+        bus.send(new PageSelected(1));
+        bus.send(new MarkersChanged(List.of(new Marker(0, GREEN, "A"))));
+
+        bus.send(new SideButtonClick(SideButton.RECORD_ARM)); // enter select mode
+        bus.send(new PadClicked(81));                          // anchor the gesture
+
+        // Feedback: the anchor pad turns white the instant the gesture starts.
+        assertEquals(ExplorerColors.WHITE, lastPaintPad(bus, 81));
     }
 
     @Test

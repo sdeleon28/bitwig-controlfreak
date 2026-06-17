@@ -95,13 +95,13 @@
 [X] rename SelectionChanged -> BitwigSelectionChanged
 [X] rename ExplorerPads -> ExplorerConstants
 [X] design smell: why are we emitting ExplorerPagesChanged inside paint?
-[ ] BUG: no feedback on selection start gesture
+[X] BUG: no feedback on selection start gesture
 [X] BUG: green section doesn't light up
 [ ] BUG: holding record arm doesn't clear selection
+[ ] BUG: uncolored pads barely visible crawling flashes
 [ ] Stop -> Stop
 [ ] move select gesture to the top of the launchpad
 [ ] use record arm button to enable recording
 [ ] Mute -> loop (cyan)
 [ ] Solo -> metronome (yellow)
 [ ] resolution buttons should paint like pager
-

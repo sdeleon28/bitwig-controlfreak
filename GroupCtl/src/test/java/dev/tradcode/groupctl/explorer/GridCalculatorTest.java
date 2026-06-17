@@ -4,6 +4,7 @@ import dev.tradcode.groupctl.explorer.events.BitwigSelectionChanged;
 import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
 import dev.tradcode.groupctl.explorer.events.Marker;
 import dev.tradcode.groupctl.explorer.events.MarkersChanged;
+import dev.tradcode.groupctl.explorer.events.PendingSelectionChanged;
 import dev.tradcode.groupctl.explorer.events.PlaybackPositionChanged;
 import dev.tradcode.groupctl.explorer.events.RequestExplorerPage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -63,6 +64,27 @@ class GridCalculatorTest {
         ExplorerGridChanged grid = bus.last(ExplorerGridChanged.class);
         assertTrue(grid.slots().get(0).playing());
         assertTrue(grid.slots().get(1).selected());
+    }
+
+    @Test
+    void highlightsThePendingSelectionAnchorAndClearsIt() {
+        FakeEventBus bus = new FakeEventBus();
+        new GridCalculator(bus);
+
+        bus.send(new PageSelected(1));
+        bus.send(new MarkersChanged(List.of(
+            new Marker(0, GREEN, "A"),
+            new Marker(4, RED, "B")
+        )));
+
+        // Anchor over bar 1 ([4,8)) lights that slot without touching bar 0.
+        bus.send(new PendingSelectionChanged(4, 4));
+        assertTrue(bus.last(ExplorerGridChanged.class).slots().get(1).selected());
+        assertFalse(bus.last(ExplorerGridChanged.class).slots().get(0).selected());
+
+        // Clearing the anchor (duration 0) drops the highlight.
+        bus.send(new PendingSelectionChanged(0, 0));
+        assertFalse(bus.last(ExplorerGridChanged.class).slots().get(1).selected());
     }
 
     @Test

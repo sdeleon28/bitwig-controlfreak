@@ -2,6 +2,7 @@ package dev.tradcode.groupctl.explorer;
 
 import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
 import dev.tradcode.groupctl.explorer.events.GridSlot;
+import dev.tradcode.groupctl.explorer.events.PendingSelectionChanged;
 import dev.tradcode.groupctl.explorer.events.RequestClearSelection;
 import dev.tradcode.groupctl.explorer.events.RequestSetSelection;
 import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
@@ -70,6 +71,50 @@ class SelectionCtlTest {
         assertEquals(8.0, sel.endBeat());
         // Mode exits after completing the gesture.
         assertEquals(false, bus.last(SelectionModeChanged.class).active());
+    }
+
+    @Test
+    void firstPadBroadcastsPendingSelectionForFeedback() {
+        FakeEventBus bus = activeCtl();
+        bus.send(new SideButtonClick(SideButton.RECORD_ARM));
+
+        bus.send(new PadClicked(81)); // index 0 -> [0,4)
+
+        // The anchor slot is broadcast so the grid lights it up immediately.
+        PendingSelectionChanged p = bus.last(PendingSelectionChanged.class);
+        assertEquals(0.0, p.startBeat());
+        assertEquals(4.0, p.duration());
+        assertNull(bus.last(RequestSetSelection.class)); // gesture not yet complete
+    }
+
+    @Test
+    void completingTheGestureClearsThePendingFeedback() {
+        FakeEventBus bus = activeCtl();
+        bus.send(new SideButtonClick(SideButton.RECORD_ARM));
+        bus.send(new PadClicked(81));
+        bus.send(new PadClicked(82));
+
+        assertEquals(8.0, bus.last(RequestSetSelection.class).endBeat());
+        // The anchor feedback is dropped as the committed selection takes over.
+        assertEquals(0.0, bus.last(PendingSelectionChanged.class).duration());
+    }
+
+    @Test
+    void cancelingSelectionModeMidGestureClearsPendingFeedback() {
+        FakeEventBus bus = activeCtl();
+        bus.send(new SideButtonClick(SideButton.RECORD_ARM)); // enter
+        bus.send(new PadClicked(81));                          // anchor set
+        bus.send(new SideButtonClick(SideButton.RECORD_ARM)); // exit before finishing
+        assertEquals(0.0, bus.last(PendingSelectionChanged.class).duration());
+    }
+
+    @Test
+    void leavingThePageMidGestureClearsPendingFeedback() {
+        FakeEventBus bus = activeCtl();
+        bus.send(new SideButtonClick(SideButton.RECORD_ARM));
+        bus.send(new PadClicked(81));
+        bus.send(new PageSelected(0));
+        assertEquals(0.0, bus.last(PendingSelectionChanged.class).duration());
     }
 
     @Test
