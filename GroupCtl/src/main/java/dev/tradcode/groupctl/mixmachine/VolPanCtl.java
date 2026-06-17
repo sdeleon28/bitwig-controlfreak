@@ -40,12 +40,14 @@ public class VolPanCtl implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
-            case SideButtonClick(var btn) when btn == SideButton.VOLUME -> {
+            case SideButtonClick(var btn)
+            when this.pageActive && btn == SideButton.VOLUME -> {
                 this.mode = VolPanMode.VOL;
                 this.bus.send(new VolModeSelected());
                 this.paint();
             }
-            case SideButtonClick(var btn) when btn == SideButton.PAN -> {
+            case SideButtonClick(var btn)
+            when this.pageActive && btn == SideButton.PAN -> {
                 this.mode = VolPanMode.PAN;
                 this.bus.send(new PanModeSelected());
                 this.paint();

@@ -56,7 +56,7 @@ public class PadModeCtl implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
-            case SideButtonClick(var btn) -> {
+            case SideButtonClick(var btn) when this.pageActive -> {
                 switch (btn) {
                     case SideButton.STOP:
                         this.setMode(PadMode.SELECT);
