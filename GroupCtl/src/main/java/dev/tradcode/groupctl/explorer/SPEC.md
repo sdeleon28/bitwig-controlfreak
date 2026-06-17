@@ -9,8 +9,6 @@ understanding how it whould behave, DO NOT base your implementation off of that.
 The project explorer offers navigation controls for the bitwig project. It uses
 markers as the basis to calculate the pads that are visible in the launchpad.
 Launchpad pads are used both for visualization and for controlling bitwig.
-Sections are calculated as they are in the javascript implementation (but
-following the event-sourcing java patterns instead).
 
 Pads represent the timeline of the bitwig session. The markers define the color
 of the represented section. How many pads are presented are calculated by the
@@ -22,95 +20,112 @@ clears the selection.
 
 ## Impl
 
-Follow existing patterns from the mixmachine package.
+Follow existing patterns from the mixmachine package. We use event sourcing:
+most communication — with Bitwig, with the hardware, and between explorer
+classes — happens over the main event bus. Direct method calls are allowed
+in closely-related classes, but for the most part we use the bus.
 
-We use event sourcing. We communicate with Bitwig and hardware controllers via
-the main event bus.
+### Dataflow
 
-Pseudo-python of the high level entrypoint:
+The explorer is a strict one-way pipeline over the bus:
 
 ```
-class Explorer:
-    def __init__(self, bus):
-        self.bus.subscribe(self)
-        self.bars_calculator = BarsCalculator()
-        self.selection_highlighter = SelectionHighlighter(bus)
-        self.playback_highlighter = PlaybackHighlighter(bus)
-        self.resolution_calculator = ResolutionCalculator()
-        self.page_filter = PageFilter()
-    
-        self.playback_handler = PlaybackHandler(bus)
-        self.selection_handler = SelectionHandler(bus)
-        self.resolution_ctl = ResolutionCtl(bus)
-        self.page_ctl = ExplorerPageCtl(bus)
-        self.selection_ctl = SelectionCtl(bus)
-
-    def paint(self):
-        events = markers
-            | self.bars_calculator.apply
-            | self.selection_highlighter.apply
-            | self.playback_highlighter.apply
-            | self.resolution_calculator.apply
-            | self.page_filter.apply
-        self.bus.send(events)
-
-    def on(self, event):
-        match event:
-            case MarkersUpdated(markers=markers):
-                self.markers = markers
-                self.paint()
+bitwig trackers ─► domain events ─► GridCalculator ─► ExplorerGridChanged
+                                                        │
+                    ┌────────────────────┬──────────────┴──────────────┐
+                    ▼                    ▼                             ▼
+           ExplorerGridPainter    ExplorerPageCtl            PlaybackHandler /
+           (pad paints)           (page LEDs, fwd/back)      SelectionCtl (seek/select)
 ```
 
-### The paint pipeline
+Two roles, kept apart:
 
-The main paint function should be implemented as a functional pipeline made of
-smaller building blocks that compose to create a series of events to paint
-the project explorer at a given time.
+- **Calculation classes** consume domain events and emit *data* events. They
+  never paint.
+- **Painting classes** consume data events, cache the bits they care about, and
+  emit *only* launchpad paint events (`PaintPad`, `BlinkPad`, `PaintTopButton`,
+  `PaintSideButton`). They never calculate.
 
-#### BarsCalculator
+Input controllers (`ResolutionCtl`, `ExplorerPageCtl`, `SelectionCtl`) translate
+hardware gestures into the domain events the calculator consumes, closing the
+loop entirely over the bus.
 
-Turns the marker metadata from the BitwigMarkersChanged event into a
-datastructure that represents a list of colored blocks for the entire project.
+`Explorer` is just the composition root: it constructs the classes below and
+forwards `flush()` to the bitwig trackers. It holds no state and subscribes to
+nothing.
 
-#### SelectionHighlighter
+### GridCalculator (the reducer)
 
-Overrides some of the blocks to white following the time selection.
+The single, self-sufficient source of the explorer's visual state. It subscribes
+to every input that affects the grid and caches each one:
 
-#### Playbackighlighter
+- `MarkersChanged`
+- `BitwigSelectionChanged`
+- `PlaybackPositionChanged`
+- `ResolutionChanged`
+- `RequestExplorerPage` (a relative page step, +1/-1)
+- `PageSelected` (to gate work on the explorer being on-screen)
 
-Marks the cursor position.
+On any change it runs the pure paint pipeline over its cached state and
+broadcasts one `ExplorerGridChanged { slots, totalPages, page }`. Because it owns
+all the state itself, it has no dependency on subscription order. It only
+computes and broadcasts while the explorer page is active; entering the page
+triggers a fresh broadcast.
 
-#### ResolutionCalculator
+It also owns the **page number and its bounds**. A `RequestExplorerPage` step is
+applied to the page, which is then clamped to the freshly-computed page count
+*before* slicing — so every broadcast grid is already valid for a real page and
+a shrinking layout never produces an out-of-range frame to correct afterwards.
 
-Upscales / downscales the amount of blocks to be displayed.
+#### The pure paint pipeline
 
-#### PageFilter
+Stateless building blocks the calculator composes (each takes its inputs as
+parameters — they hold no state and do not touch the bus):
 
-Calculates the offset and cutoff acording to the selected page.
+- **BarsCalculator** — markers → list of one-bar colored blocks for the project.
+- **SelectionHighlighter** — flags blocks overlapping the time selection.
+- **PlaybackHighlighter** — flags the block under the cursor.
+- **ResolutionCalculator** — merges adjacent same-color bars by bars-per-pad.
+- **PageFilter** — offsets/cuts the blocks down to the 64-pad page.
+
+The result is converted to `GridSlot`s (empty/color/selected/playing + beat
+range) and `totalPages` is `ceil(blocks / 64)`.
+
+### Painting classes
+
+#### ExplorerGridPainter
+
+Subscribes to `ExplorerGridChanged` and paints the 64 pads: off for empty,
+blinking white for the playhead, white for selected, otherwise the section
+color. Emits nothing else. Clearing the grid on a page switch is the Pager's
+job, so it never needs to paint while off-page (the grid simply isn't broadcast
+then).
+
+#### ExplorerPageCtl
+
+The two paging top-button LEDs. A pure view + input class — it owns no page
+state. It caches the current page and page count from `ExplorerGridChanged` only
+to light the LEDs (prev lit off page 0, next lit off the last page), and turns a
+fwd/back press into a relative `RequestExplorerPage` step, gated so it never asks
+to step past an end. GridCalculator owns the page number, applies the step and
+clamps.
 
 ### Event handlers
 
 #### PlaybackHandler
 
-Handles pad presses and sends RequestSetPlaybackPosition. Should be handled
-BiwtigPlaybackTracker.
+Handles pad presses and sends `RequestSetPlaybackPosition`, handled by
+`BitwigPlaybackTracker`. Reads pad→beat from the broadcast grid.
 
 #### SelectionCtl
 
-Handles selection mode, selection start and end gesture. Talks to 
-BitwigSelectionTracker via events.
+Handles selection mode, selection start and end gesture, and the record-arm side
+button LED. Talks to `BitwigSelectionTracker` via events.
 
 #### ResolutionCtl
 
-Similar to pager. Defines resolution in the same way the javascript 
-implementation does (using the same buttons and defaults) but uses this
-codebase's patterns.
-
-#### ExplorerPageCtl
-
-Internal pager. Similar to Pager.java but for internal explorer pages. We
-already have a javascript implementation that you can use to know how it should
-BEHAVE (but ignore the implementation patterns).
+Owns the bars-per-pad resolution (halve/double between 1 and 32) and auto-fits
+the project to one page on entry / on marker change. Emits `ResolutionChanged`.
 
 ### Bitwig tracking
 
@@ -121,7 +136,7 @@ their positions and colors every time marker metadata changes in the project.
 
 #### BitwigPlaybackTracker
 
-Handles RequestSetPlaybackPosition and broadcasts playback events.
+Handles `RequestSetPlaybackPosition` and broadcasts playback events.
 
 #### BitwigSelectionTracker
 

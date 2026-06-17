@@ -1,7 +1,7 @@
 package dev.tradcode.groupctl.explorer;
 
-import dev.tradcode.groupctl.explorer.events.ExplorerPageChanged;
-import dev.tradcode.groupctl.explorer.events.ExplorerPagesChanged;
+import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.explorer.events.RequestExplorerPage;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -19,22 +19,6 @@ public class ExplorerPageCtl implements IEventBusSubscriber {
     public ExplorerPageCtl(IEventBus bus) {
         this.bus = bus;
         this.bus.subscribe(this);
-    }
-
-    private void prev() {
-        if (this.page <= 0)
-            return;
-        this.page--;
-        this.bus.send(new ExplorerPageChanged(this.page));
-        this.paint();
-    }
-
-    private void next() {
-        if (this.page >= this.totalPages - 1)
-            return;
-        this.page++;
-        this.bus.send(new ExplorerPageChanged(this.page));
-        this.paint();
     }
 
     private void paint() {
@@ -61,16 +45,17 @@ public class ExplorerPageCtl implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
-            case TopButtonClick(var btn)when this.pageActive && btn == TopButton.USER_2 ->
-                this.prev();
-            case TopButtonClick(var btn) when this.pageActive && btn == TopButton.MIXER ->
-                this.next();
-            case ExplorerPagesChanged(int tp) -> {
-                this.totalPages = Math.max(1, tp);
-                if (this.page > this.totalPages - 1) {
-                    this.page = this.totalPages - 1;
-                    this.bus.send(new ExplorerPageChanged(this.page));
-                }
+            case TopButtonClick(var btn)when this.pageActive && btn == TopButton.USER_2 -> {
+                if (this.page > 0)
+                    this.bus.send(new RequestExplorerPage(-1));
+            }
+            case TopButtonClick(var btn) when this.pageActive && btn == TopButton.MIXER -> {
+                if (this.page < this.totalPages - 1)
+                    this.bus.send(new RequestExplorerPage(1));
+            }
+            case ExplorerGridChanged(var slots, int totalPages, int page) -> {
+                this.totalPages = Math.max(1, totalPages);
+                this.page = page;
                 this.paint();
             }
             case PageSelected(int n) -> {

@@ -1,7 +1,5 @@
 package dev.tradcode.groupctl.explorer;
 
-import dev.tradcode.groupctl.explorer.events.BitwigSelectionChanged;
-import dev.tradcode.groupctl.explorer.events.PlaybackPositionChanged;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -22,18 +20,13 @@ class HighlighterTest {
 
     @Test
     void selectionWithNoRangeIsIdentity() {
-        SelectionHighlighter sh = new SelectionHighlighter(new FakeEventBus());
-        for (Block b : sh.apply(bars()))
+        for (Block b : new SelectionHighlighter().apply(bars(), 0, 0))
             assertFalse(b.selected);
     }
 
     @Test
     void selectionFlagsOverlappingBars() {
-        FakeEventBus bus = new FakeEventBus();
-        SelectionHighlighter sh = new SelectionHighlighter(bus);
-        bus.send(new BitwigSelectionChanged(4, 8)); // [4, 12)
-
-        List<Block> out = sh.apply(bars());
+        List<Block> out = new SelectionHighlighter().apply(bars(), 4, 8); // [4, 12)
         assertFalse(out.get(0).selected); // [0,4)
         assertTrue(out.get(1).selected);  // [4,8)
         assertTrue(out.get(2).selected);  // [8,12)
@@ -42,18 +35,13 @@ class HighlighterTest {
 
     @Test
     void playbackWithNoPositionIsIdentity() {
-        PlaybackHighlighter ph = new PlaybackHighlighter(new FakeEventBus());
-        for (Block b : ph.apply(bars()))
+        for (Block b : new PlaybackHighlighter().apply(bars(), 0, false))
             assertFalse(b.playing);
     }
 
     @Test
     void playbackFlagsTheBarUnderTheCursor() {
-        FakeEventBus bus = new FakeEventBus();
-        PlaybackHighlighter ph = new PlaybackHighlighter(bus);
-        bus.send(new PlaybackPositionChanged(5)); // inside [4,8)
-
-        List<Block> out = ph.apply(bars());
+        List<Block> out = new PlaybackHighlighter().apply(bars(), 5, true); // inside [4,8)
         assertFalse(out.get(0).playing);
         assertTrue(out.get(1).playing);
         assertFalse(out.get(2).playing);

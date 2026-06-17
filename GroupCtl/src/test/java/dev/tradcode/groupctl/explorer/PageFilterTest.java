@@ -1,6 +1,5 @@
 package dev.tradcode.groupctl.explorer;
 
-import dev.tradcode.groupctl.explorer.events.ExplorerPageChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,16 +21,15 @@ class PageFilterTest {
 
     @Test
     void alwaysReturns64Slots() {
-        FakeEventBus bus = new FakeEventBus();
-        assertEquals(64, new PageFilter(bus).apply(List.of()).size());
-        assertEquals(64, new PageFilter(bus).apply(bars(3)).size());
-        assertEquals(64, new PageFilter(bus).apply(bars(200)).size());
+        PageFilter pf = new PageFilter();
+        assertEquals(64, pf.apply(List.of(), 0).size());
+        assertEquals(64, pf.apply(bars(3), 0).size());
+        assertEquals(64, pf.apply(bars(200), 0).size());
     }
 
     @Test
     void padsShortPageWithEmptySlots() {
-        FakeEventBus bus = new FakeEventBus();
-        List<Block> grid = new PageFilter(bus).apply(bars(3));
+        List<Block> grid = new PageFilter().apply(bars(3), 0);
         assertFalse(grid.get(0).empty);
         assertFalse(grid.get(2).empty);
         assertTrue(grid.get(3).empty);
@@ -40,11 +38,7 @@ class PageFilterTest {
 
     @Test
     void slicesToTheSelectedPage() {
-        FakeEventBus bus = new FakeEventBus();
-        PageFilter pf = new PageFilter(bus);
-        bus.send(new ExplorerPageChanged(1));
-
-        List<Block> grid = pf.apply(bars(70)); // 70 blocks -> page 1 has 6 real
+        List<Block> grid = new PageFilter().apply(bars(70), 1); // 70 blocks -> page 1 has 6 real
         assertFalse(grid.get(0).empty);
         assertEquals(64 * 4.0, grid.get(0).startBeat); // first block of page 1
         assertFalse(grid.get(5).empty);

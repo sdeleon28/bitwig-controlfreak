@@ -1,22 +1,14 @@
 package dev.tradcode.groupctl.explorer;
 
-import dev.tradcode.groupctl.explorer.events.BitwigSelectionChanged;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.tradcode.groupctl.events.Event;
-import dev.tradcode.groupctl.events.IEventBus;
-import dev.tradcode.groupctl.events.IEventBusSubscriber;
+/**
+ * Marks blocks overlapping the time selection as selected.
+ */
+public class SelectionHighlighter {
 
-public class SelectionHighlighter implements IEventBusSubscriber {
-    double start = 0;
-    double duration = 0;
-
-    public SelectionHighlighter(IEventBus bus) {
-        bus.subscribe(this);
-    }
-
-    public List<Block> apply(List<Block> blocks) {
+    public List<Block> apply(List<Block> blocks, double start, double duration) {
         if (duration <= 0)
             return blocks;
         double end = start + duration;
@@ -28,15 +20,5 @@ public class SelectionHighlighter implements IEventBusSubscriber {
                 out.add(b);
         }
         return out;
-    }
-
-    public void on(Event event) {
-        switch (event) {
-            case BitwigSelectionChanged(double s, double d) -> {
-                this.start = s;
-                this.duration = d;
-            }
-            default -> { }
-        }
     }
 }

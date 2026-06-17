@@ -1,7 +1,6 @@
 package dev.tradcode.groupctl.explorer;
 
 import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
-import dev.tradcode.groupctl.explorer.events.ExplorerPagesChanged;
 import dev.tradcode.groupctl.explorer.events.Marker;
 import dev.tradcode.groupctl.explorer.events.MarkersChanged;
 import dev.tradcode.groupctl.explorer.events.RequestSetPlaybackPosition;
@@ -84,7 +83,7 @@ class ExplorerTest {
             new Marker(256, RED, "B")
         )));
         assertEquals(2, bus.last(ResolutionChanged.class).barsPerPad());
-        assertEquals(1, bus.last(ExplorerPagesChanged.class).totalPages());
+        assertEquals(1, bus.last(ExplorerGridChanged.class).totalPages());
     }
 
     @Test
@@ -98,7 +97,7 @@ class ExplorerTest {
             new Marker(8400, RED, "B")
         )));
         assertEquals(32, bus.last(ResolutionChanged.class).barsPerPad());
-        assertEquals(2, bus.last(ExplorerPagesChanged.class).totalPages());
+        assertEquals(2, bus.last(ExplorerGridChanged.class).totalPages());
     }
 
     @Test

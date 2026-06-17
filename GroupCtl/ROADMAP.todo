@@ -94,7 +94,7 @@
 [X] move explorer specific events into explorer
 [X] rename SelectionChanged -> BitwigSelectionChanged
 [X] rename ExplorerPads -> ExplorerConstants
-[ ] design smell: why are we emitting ExplorerPagesChanged inside paint?
+[X] design smell: why are we emitting ExplorerPagesChanged inside paint?
 [ ] BUG: no feedback on selection start gesture
 [X] BUG: green section doesn't light up
 [ ] BUG: holding record arm doesn't clear selection

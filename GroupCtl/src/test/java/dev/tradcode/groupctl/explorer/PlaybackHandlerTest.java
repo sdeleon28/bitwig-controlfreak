@@ -21,7 +21,7 @@ class PlaybackHandlerTest {
     private static List<GridSlot> grid() {
         List<GridSlot> slots = new ArrayList<>();
         for (int i = 0; i < ExplorerConstants.PAGE_SIZE; i++)
-            slots.add(new GridSlot(false, i * 4.0, i * 4.0 + 4.0));
+            slots.add(new GridSlot(false, 0, false, false, i * 4.0, i * 4.0 + 4.0));
         return slots;
     }
 
@@ -30,7 +30,7 @@ class PlaybackHandlerTest {
         FakeEventBus bus = new FakeEventBus();
         new PlaybackHandler(bus);
         bus.send(new PageSelected(1));
-        bus.send(new ExplorerGridChanged(grid()));
+        bus.send(new ExplorerGridChanged(grid(), 1, 0));
 
         bus.send(new PadClicked(71)); // pad index 8 -> beat 32
         assertEquals(32.0, bus.last(RequestSetPlaybackPosition.class).beat());
@@ -41,7 +41,7 @@ class PlaybackHandlerTest {
         FakeEventBus bus = new FakeEventBus();
         new PlaybackHandler(bus);
         bus.send(new PageSelected(1));
-        bus.send(new ExplorerGridChanged(grid()));
+        bus.send(new ExplorerGridChanged(grid(), 1, 0));
         bus.send(new SelectionModeChanged(true));
 
         bus.send(new PadClicked(81));
@@ -54,8 +54,8 @@ class PlaybackHandlerTest {
         new PlaybackHandler(bus);
         bus.send(new PageSelected(1));
         List<GridSlot> g = grid();
-        g.set(0, new GridSlot(true, 0, 0)); // pad 81 empty
-        bus.send(new ExplorerGridChanged(g));
+        g.set(0, new GridSlot(true, 0, false, false, 0, 0)); // pad 81 empty
+        bus.send(new ExplorerGridChanged(g, 1, 0));
 
         bus.send(new PadClicked(81));
         assertNull(bus.last(RequestSetPlaybackPosition.class));
@@ -65,7 +65,7 @@ class PlaybackHandlerTest {
     void ignoresPadsWhenNotOnExplorerPage() {
         FakeEventBus bus = new FakeEventBus();
         new PlaybackHandler(bus);
-        bus.send(new ExplorerGridChanged(grid()));
+        bus.send(new ExplorerGridChanged(grid(), 1, 0));
         bus.send(new PadClicked(81));
         assertNull(bus.last(RequestSetPlaybackPosition.class));
     }

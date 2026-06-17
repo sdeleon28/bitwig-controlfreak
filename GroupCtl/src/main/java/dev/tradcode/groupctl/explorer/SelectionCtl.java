@@ -76,7 +76,7 @@ public class SelectionCtl implements IEventBusSubscriber {
                 }
                 this.paint();
             }
-            case ExplorerGridChanged(var slots) -> this.grid = slots;
+            case ExplorerGridChanged(var slots, int totalPages, int page) -> this.grid = slots;
             case SideButtonClick(var btn) when this.pageActive && btn == SideButton.RECORD_ARM -> {
                 this.first = null;
                 this.setSelecting(!this.selecting);

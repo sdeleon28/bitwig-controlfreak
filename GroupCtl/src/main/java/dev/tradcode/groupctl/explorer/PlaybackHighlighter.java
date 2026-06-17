@@ -1,22 +1,14 @@
 package dev.tradcode.groupctl.explorer;
 
-import dev.tradcode.groupctl.explorer.events.PlaybackPositionChanged;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.tradcode.groupctl.events.Event;
-import dev.tradcode.groupctl.events.IEventBus;
-import dev.tradcode.groupctl.events.IEventBusSubscriber;
+/**
+ * Marks the block under the playback cursor as playing.
+ */
+public class PlaybackHighlighter {
 
-public class PlaybackHighlighter implements IEventBusSubscriber {
-    double beat = 0;
-    boolean has = false;
-
-    public PlaybackHighlighter(IEventBus bus) {
-        bus.subscribe(this);
-    }
-
-    public List<Block> apply(List<Block> blocks) {
+    public List<Block> apply(List<Block> blocks, double beat, boolean has) {
         if (!has)
             return blocks;
         List<Block> out = new ArrayList<>(blocks.size());
@@ -27,15 +19,5 @@ public class PlaybackHighlighter implements IEventBusSubscriber {
                 out.add(b);
         }
         return out;
-    }
-
-    public void on(Event event) {
-        switch (event) {
-            case PlaybackPositionChanged(double bt) -> {
-                this.beat = bt;
-                this.has = true;
-            }
-            default -> { }
-        }
     }
 }

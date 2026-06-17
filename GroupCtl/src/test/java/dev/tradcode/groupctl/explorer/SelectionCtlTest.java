@@ -26,7 +26,7 @@ class SelectionCtlTest {
     private static List<GridSlot> grid() {
         List<GridSlot> slots = new ArrayList<>();
         for (int i = 0; i < ExplorerConstants.PAGE_SIZE; i++)
-            slots.add(new GridSlot(false, i * 4.0, i * 4.0 + 4.0));
+            slots.add(new GridSlot(false, 0, false, false, i * 4.0, i * 4.0 + 4.0));
         return slots;
     }
 
@@ -34,7 +34,7 @@ class SelectionCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new SelectionCtl(bus);
         bus.send(new PageSelected(1));
-        bus.send(new ExplorerGridChanged(grid()));
+        bus.send(new ExplorerGridChanged(grid(), 1, 0));
         return bus;
     }
 
@@ -95,7 +95,7 @@ class SelectionCtlTest {
     void ignoresInteractionsOffTheExplorerPage() {
         FakeEventBus bus = new FakeEventBus();
         new SelectionCtl(bus);
-        bus.send(new ExplorerGridChanged(grid()));
+        bus.send(new ExplorerGridChanged(grid(), 1, 0));
         bus.send(new SideButtonClick(SideButton.RECORD_ARM));
         assertNull(bus.last(SelectionModeChanged.class));
     }

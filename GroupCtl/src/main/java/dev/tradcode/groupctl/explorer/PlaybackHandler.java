@@ -28,7 +28,7 @@ public class PlaybackHandler implements IEventBusSubscriber {
         switch (event) {
             case PageSelected(int n) -> this.pageActive = n == 1;
             case SelectionModeChanged(boolean active) -> this.selecting = active;
-            case ExplorerGridChanged(var slots) -> this.grid = slots;
+            case ExplorerGridChanged(var slots, int totalPages, int page) -> this.grid = slots;
             case PadClicked(int n) when this.pageActive && !this.selecting -> {
                 int idx = ExplorerConstants.PADS.indexOf(n);
                 if (idx >= 0 && idx < this.grid.size()) {

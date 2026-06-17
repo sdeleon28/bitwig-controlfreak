@@ -8,11 +8,7 @@ import dev.tradcode.groupctl.Colors;
 
 /**
  * Turns marker metadata into the project's timeline as a list of one-bar blocks,
- * each colored by the marker active at that bar. Stateless: it is the source of
- * the paint pipeline.
- *
- * <p>The timeline runs from the first marker to one bar past the last marker, so
- * the final section is always visible.
+ * each colored by the marker active at that bar.
  */
 public class BarsCalculator {
 

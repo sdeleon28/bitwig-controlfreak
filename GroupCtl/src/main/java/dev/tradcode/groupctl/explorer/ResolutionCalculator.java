@@ -3,19 +3,13 @@ package dev.tradcode.groupctl.explorer;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.tradcode.groupctl.events.Event;
-import dev.tradcode.groupctl.events.IEventBus;
-import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.events.ResolutionChanged;
+/**
+ * Down-scales the one-bar blocks by merging up to {@code barsPerPad} adjacent
+ * same-color bars into a single block. 
+ */
+public class ResolutionCalculator {
 
-public class ResolutionCalculator implements IEventBusSubscriber {
-    int barsPerPad = 1;
-
-    public ResolutionCalculator(IEventBus bus) {
-        bus.subscribe(this);
-    }
-
-    public List<Block> apply(List<Block> blocks) {
+    public List<Block> apply(List<Block> blocks, int barsPerPad) {
         List<Block> out = new ArrayList<>();
         int n = blocks.size();
         int i = 0;
@@ -41,12 +35,5 @@ public class ResolutionCalculator implements IEventBusSubscriber {
             i = j;
         }
         return out;
-    }
-
-    public void on(Event event) {
-        switch (event) {
-            case ResolutionChanged(int bpp) -> this.barsPerPad = bpp;
-            default -> { }
-        }
     }
 }
