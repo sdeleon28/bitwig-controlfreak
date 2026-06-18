@@ -12,8 +12,8 @@ public final class EditorConstants {
     public static final int PAGE_SIZE = GRID_ROWS * GRID_COLS;
 
     /**
-     * C1 (the top row) is MIDI note 36 — the canonical kick-drum key for GM/GGD
-     * drum maps. Each row down is one chromatic semitone up.
+     * C1 (the bottom row) is MIDI note 36 — the canonical kick-drum key for
+     * GM/GGD drum maps. Each row up is one chromatic semitone higher.
      */
     public static final int BASE_KEY = 36;
 
@@ -46,8 +46,8 @@ public final class EditorConstants {
         return 4.0 / denominator;
     }
 
-    /** MIDI key for a grid row; row 0 is the top row (C1). */
+    /** MIDI key for a grid row; the bottom row is C1, ascending upward. */
     public static int keyForRow(int row) {
-        return BASE_KEY + row;
+        return BASE_KEY + (GRID_ROWS - 1 - row);
     }
 }

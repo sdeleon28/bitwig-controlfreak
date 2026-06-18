@@ -117,4 +117,13 @@
 
 ## midi editor
 
-[-] rough-in
+[X] rough-in
+[X] reverse rows
+[ ] pages
+[ ] play / stop
+[ ] play note back on add
+[ ] support 16 notes (two vertical pages)
+[ ] horizontal slice
+[ ] loop button
+[ ] metronome button
+[ ] playhead?

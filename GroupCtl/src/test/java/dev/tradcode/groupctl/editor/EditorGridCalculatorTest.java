@@ -39,8 +39,8 @@ class EditorGridCalculatorTest {
         EditorGridChanged grid = bus.last(EditorGridChanged.class);
         assertEquals(64, grid.slots().size());
         assertTrue(grid.clipExists());
-        assertTrue(grid.slots().get(0).lit());   // C1 at beat 0
-        assertFalse(grid.slots().get(1).lit());
+        assertTrue(grid.slots().get(56).lit());   // C1 at beat 0 -> bottom row, col 0
+        assertFalse(grid.slots().get(57).lit());
     }
 
     @Test
@@ -50,14 +50,14 @@ class EditorGridCalculatorTest {
 
         bus.send(new PageSelected(EDITOR));
         bus.send(new EditorClipChanged(true, List.of(new EditorNote(36, 0.5))));
-        // At 1/8 the onset lands in column 1.
-        assertFalse(bus.last(EditorGridChanged.class).slots().get(0).lit());
-        assertTrue(bus.last(EditorGridChanged.class).slots().get(1).lit());
+        // C1 sits on the bottom row; at 1/8 the onset lands in column 1.
+        assertFalse(bus.last(EditorGridChanged.class).slots().get(56).lit());
+        assertTrue(bus.last(EditorGridChanged.class).slots().get(57).lit());
 
         // At 1/4 (1 beat/col) it lands in column 0.
         bus.send(new EditorResolutionChanged(4));
-        assertTrue(bus.last(EditorGridChanged.class).slots().get(0).lit());
-        assertFalse(bus.last(EditorGridChanged.class).slots().get(1).lit());
+        assertTrue(bus.last(EditorGridChanged.class).slots().get(56).lit());
+        assertFalse(bus.last(EditorGridChanged.class).slots().get(57).lit());
     }
 
     @Test

@@ -12,6 +12,9 @@ import org.junit.jupiter.api.Test;
 
 class QuantizerTest {
 
+    // C1 (key 36) is the bottom row.
+    private static final int BOTTOM = EditorConstants.GRID_ROWS - 1;
+
     /** Grid index for row (key) and column. */
     private static int idx(int row, int col) {
         return row * EditorConstants.GRID_COLS + col;
@@ -26,10 +29,10 @@ class QuantizerTest {
             new EditorNote(36, 1.0)
         ), 8, true);
 
-        assertTrue(g.get(idx(0, 0)).lit());  // [0.0, 0.5)
-        assertTrue(g.get(idx(0, 1)).lit());  // [0.5, 1.0)
-        assertTrue(g.get(idx(0, 2)).lit());  // [1.0, 1.5)
-        assertFalse(g.get(idx(0, 3)).lit());
+        assertTrue(g.get(idx(BOTTOM, 0)).lit());  // [0.0, 0.5)
+        assertTrue(g.get(idx(BOTTOM, 1)).lit());  // [0.5, 1.0)
+        assertTrue(g.get(idx(BOTTOM, 2)).lit());  // [1.0, 1.5)
+        assertFalse(g.get(idx(BOTTOM, 3)).lit());
     }
 
     @Test
@@ -40,33 +43,33 @@ class QuantizerTest {
             new EditorNote(36, 0.25)
         ), 8, true);
 
-        assertTrue(g.get(idx(0, 0)).lit());
-        assertFalse(g.get(idx(0, 1)).lit());
+        assertTrue(g.get(idx(BOTTOM, 0)).lit());
+        assertFalse(g.get(idx(BOTTOM, 1)).lit());
     }
 
     @Test
-    void mapsKeysToRowsChromaticallyFromTop() {
+    void mapsKeysToRowsChromaticallyFromBottom() {
         List<EditorSlot> g = new Quantizer().apply(List.of(
-            new EditorNote(36, 0.0),  // C1  -> row 0 (top)
-            new EditorNote(37, 0.0),  // C#1 -> row 1
-            new EditorNote(43, 0.0)   // G1  -> row 7 (bottom)
+            new EditorNote(36, 0.0),  // C1  -> row 7 (bottom)
+            new EditorNote(37, 0.0),  // C#1 -> row 6
+            new EditorNote(43, 0.0)   // G1  -> row 0 (top)
         ), 8, true);
 
-        assertTrue(g.get(idx(0, 0)).lit());
-        assertTrue(g.get(idx(1, 0)).lit());
         assertTrue(g.get(idx(7, 0)).lit());
-        assertFalse(g.get(idx(2, 0)).lit());
+        assertTrue(g.get(idx(6, 0)).lit());
+        assertTrue(g.get(idx(0, 0)).lit());
+        assertFalse(g.get(idx(5, 0)).lit());  // D1 (key 38) not present
     }
 
     @Test
     void resolutionChangesColumnWidth() {
         // 1/4 => 1.0 beat per column: 0.5 falls in column 0.
         assertTrue(new Quantizer().apply(List.of(new EditorNote(36, 0.5)), 4, true)
-            .get(idx(0, 0)).lit());
+            .get(idx(BOTTOM, 0)).lit());
 
         // 1/16 => 0.25 beat per column: 0.5 falls in column 2.
         assertTrue(new Quantizer().apply(List.of(new EditorNote(36, 0.5)), 16, true)
-            .get(idx(0, 2)).lit());
+            .get(idx(BOTTOM, 2)).lit());
     }
 
     @Test
@@ -74,13 +77,13 @@ class QuantizerTest {
         // 1/8: 8 columns span [0.0, 4.0). An onset at 4.0 is off the right edge.
         List<EditorSlot> g = new Quantizer().apply(List.of(new EditorNote(36, 4.0)), 8, true);
         for (int col = 0; col < EditorConstants.GRID_COLS; col++)
-            assertFalse(g.get(idx(0, col)).lit());
+            assertFalse(g.get(idx(BOTTOM, col)).lit());
     }
 
     @Test
     void slotsCarryKeyAndBeatRange() {
         List<EditorSlot> g = new Quantizer().apply(List.of(), 8, true);
-        EditorSlot s = g.get(idx(0, 1));
+        EditorSlot s = g.get(idx(BOTTOM, 1));
         assertEquals(36, s.key());
         assertEquals(0.5, s.startBeat());
         assertEquals(1.0, s.endBeat());
