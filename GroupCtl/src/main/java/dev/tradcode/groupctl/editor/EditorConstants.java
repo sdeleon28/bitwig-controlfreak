@@ -46,6 +46,17 @@ public final class EditorConstants {
         return 4.0 / denominator;
     }
 
+    /**
+     * How many horizontal pages the fixed read window splits into at the given
+     * resolution. The window holds {@link #READ_STEPS} fine steps; a page covers
+     * {@link #GRID_COLS} columns, each spanning several fine steps.
+     */
+    public static int totalPages(int denominator) {
+        int fineStepsPerColumn = (int) Math.round(beatsPerStep(denominator) / FINE_STEP_BEATS);
+        int fineStepsPerPage = GRID_COLS * fineStepsPerColumn;
+        return Math.max(1, (READ_STEPS + fineStepsPerPage - 1) / fineStepsPerPage);
+    }
+
     /** MIDI key for a grid row; the bottom row is C1, ascending upward. */
     public static int keyForRow(int row) {
         return BASE_KEY + (GRID_ROWS - 1 - row);

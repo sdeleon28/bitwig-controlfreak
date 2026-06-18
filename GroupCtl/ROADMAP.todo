@@ -119,7 +119,7 @@
 
 [X] rough-in
 [X] reverse rows
-[ ] pages
+[X] pages
 [X] play / stop
 [ ] play note back on add
 [ ] support 16 notes (two vertical pages)
@@ -127,3 +127,11 @@
 [ ] loop button
 [ ] metronome button
 [ ] playhead?
+[ ] when i create a note, bring up the note device
+    [ ] auto-expand RCs
+    [ ] map RCs to twister
+        [ ] map second page to top encoders
+        [ ] pressing one of the encoders reveals the page in UI
+        [ ] backport into mixmachine
+[ ] change presets on the fly
+[ ] keep resolution across page changes

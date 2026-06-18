@@ -17,6 +17,7 @@ public class Editor {
 
         // Input controllers
         new EditorResolutionCtl(bus);
+        new EditorPageCtl(bus);
         new EditorNoteHandler(bus);
         new PlaybackHandler(bus);
 
