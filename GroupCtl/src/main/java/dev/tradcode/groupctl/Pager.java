@@ -11,11 +11,12 @@ import dev.tradcode.groupctl.events.TopButtonClick;
 
 enum Page {
     GROUPCTL(0),
-    PROJECT_EXPLORER(1);
+    PROJECT_EXPLORER(1),
+    EDITOR(2);
 
     // remember to update this!
     static int getPageCount() {
-        return 2;
+        return 3;
     }
 
     private final int value;
