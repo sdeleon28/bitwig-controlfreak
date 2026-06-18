@@ -60,9 +60,11 @@ to every input that affects the grid and caches each one:
 
 - `MarkersChanged`
 - `BitwigSelectionChanged`
+- `PendingSelectionChanged` (the live select-gesture anchor)
 - `PlaybackPositionChanged`
 - `ResolutionChanged`
 - `RequestExplorerPage` (a relative page step, +1/-1)
+- `SelectionModeChanged` (whether a select gesture is active)
 - `PageSelected` (to gate work on the explorer being on-screen)
 
 On any change it runs the pure paint pipeline over its cached state and

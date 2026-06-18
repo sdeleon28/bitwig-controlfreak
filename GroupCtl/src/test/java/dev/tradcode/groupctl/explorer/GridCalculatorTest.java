@@ -7,6 +7,7 @@ import dev.tradcode.groupctl.explorer.events.MarkersChanged;
 import dev.tradcode.groupctl.explorer.events.PendingSelectionChanged;
 import dev.tradcode.groupctl.explorer.events.PlaybackUpdate;
 import dev.tradcode.groupctl.explorer.events.RequestExplorerPage;
+import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -85,6 +86,50 @@ class GridCalculatorTest {
         // Clearing the anchor (duration 0) drops the highlight.
         bus.send(new PendingSelectionChanged(0, 0));
         assertFalse(bus.last(ExplorerGridChanged.class).slots().get(1).selected());
+    }
+
+    @Test
+    void suppressesTheCommittedSelectionWhileSelectingButKeepsThePendingAnchor() {
+        FakeEventBus bus = new FakeEventBus();
+        new GridCalculator(bus);
+
+        bus.send(new PageSelected(1));
+        bus.send(new MarkersChanged(List.of(
+            new Marker(0, GREEN, "A"),
+            new Marker(4, RED, "B")
+        )));
+        bus.send(new BitwigSelectionChanged(0, 4)); // committed loop over bar 0
+        assertTrue(bus.last(ExplorerGridChanged.class).slots().get(0).selected());
+
+        // Entering select mode hides the committed loop highlight.
+        bus.send(new SelectionModeChanged(true));
+        assertFalse(bus.last(ExplorerGridChanged.class).slots().get(0).selected());
+
+        // The live pending anchor still lights up while selecting.
+        bus.send(new PendingSelectionChanged(4, 4)); // bar 1
+        assertFalse(bus.last(ExplorerGridChanged.class).slots().get(0).selected());
+        assertTrue(bus.last(ExplorerGridChanged.class).slots().get(1).selected());
+
+        // Leaving select mode restores the committed loop highlight.
+        bus.send(new SelectionModeChanged(false));
+        assertTrue(bus.last(ExplorerGridChanged.class).slots().get(0).selected());
+    }
+
+    @Test
+    void dropsStaleSelectModeWhenTheExplorerPageGoesAway() {
+        FakeEventBus bus = new FakeEventBus();
+        new GridCalculator(bus);
+
+        bus.send(new PageSelected(1));
+        bus.send(new MarkersChanged(List.of(new Marker(0, GREEN, "A"))));
+        bus.send(new BitwigSelectionChanged(0, 4));
+        bus.send(new SelectionModeChanged(true)); // selecting, loop hidden
+
+        // Leaving the page cancels select mode (SelectionCtl resets it locally
+        // without a SelectionModeChanged event), so re-entry shows the loop again.
+        bus.send(new PageSelected(0));
+        bus.send(new PageSelected(1));
+        assertTrue(bus.last(ExplorerGridChanged.class).slots().get(0).selected());
     }
 
     @Test

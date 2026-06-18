@@ -8,6 +8,7 @@ import dev.tradcode.groupctl.explorer.events.MarkersChanged;
 import dev.tradcode.groupctl.explorer.events.PendingSelectionChanged;
 import dev.tradcode.groupctl.explorer.events.PlaybackUpdate;
 import dev.tradcode.groupctl.explorer.events.RequestExplorerPage;
+import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,6 +37,7 @@ public class GridCalculator implements IEventBusSubscriber {
     int barsPerPad = 1;
     int page = 0;
     boolean pageActive = false;
+    boolean selecting = false;
 
     public GridCalculator(IEventBus bus) {
         this.bus = bus;
@@ -47,7 +49,8 @@ public class GridCalculator implements IEventBusSubscriber {
             return;
 
         List<Block> blocks = this.barsCalculator.apply(this.markers);
-        blocks = this.selectionHighlighter.apply(blocks, this.selectionStart, this.selectionDuration);
+        if (!this.selecting)
+            blocks = this.selectionHighlighter.apply(blocks, this.selectionStart, this.selectionDuration);
         blocks = this.selectionHighlighter.apply(blocks, this.pendingStart, this.pendingDuration);
         blocks = this.playbackHighlighter.apply(blocks, this.playbackBeat, this.isPlaying);
         blocks = this.resolutionCalculator.apply(blocks, this.barsPerPad);
@@ -94,8 +97,14 @@ public class GridCalculator implements IEventBusSubscriber {
                 this.page += delta;
                 this.recompute();
             }
+            case SelectionModeChanged(boolean active) -> {
+                this.selecting = active;
+                this.recompute();
+            }
             case PageSelected(int n) -> {
                 this.pageActive = n == 1;
+                if (!this.pageActive)
+                    this.selecting = false;
                 this.recompute();
             }
             default -> { }
