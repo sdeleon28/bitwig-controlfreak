@@ -120,7 +120,7 @@
 [X] rough-in
 [X] reverse rows
 [ ] pages
-[ ] play / stop
+[X] play / stop
 [ ] play note back on add
 [ ] support 16 notes (two vertical pages)
 [ ] horizontal slice

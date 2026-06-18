@@ -6,6 +6,7 @@ import dev.tradcode.groupctl.events.IEventBus;
 
 public class Editor {
     BitwigEditorClipTracker clipTracker;
+    BitwigPlaybackTracker playbackTracker;
 
     public Editor(IEventBus bus, ControllerHost host) {
         // Calculation
@@ -17,12 +18,15 @@ public class Editor {
         // Input controllers
         new EditorResolutionCtl(bus);
         new EditorNoteHandler(bus);
+        new PlaybackHandler(bus);
 
         // Bitwig trackers
         this.clipTracker = new BitwigEditorClipTracker(bus, host);
+        this.playbackTracker = new BitwigPlaybackTracker(bus, host);
     }
 
     public void flush() {
         this.clipTracker.flush();
+        this.playbackTracker.flush();
     }
 }
