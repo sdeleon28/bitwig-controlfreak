@@ -2,6 +2,7 @@ package dev.tradcode.groupctl.explorer;
 
 import dev.tradcode.groupctl.explorer.events.RequestSetLoop;
 import dev.tradcode.groupctl.explorer.events.RequestSetMetronome;
+import dev.tradcode.groupctl.explorer.events.RequestSetRecord;
 import dev.tradcode.groupctl.explorer.events.TransportTogglesUpdate;
 
 import dev.tradcode.groupctl.events.Event;
@@ -12,16 +13,12 @@ import dev.tradcode.groupctl.events.PaintSideButton;
 import dev.tradcode.groupctl.events.SideButton;
 import dev.tradcode.groupctl.events.SideButtonClick;
 
-/**
- * Owns the MUTE and SOLO side buttons while the explorer is on-screen and turns
- * them into transport toggles: MUTE toggles the arranger loop (cyan) and SOLO
- * toggles the metronome (yellow).
- */
 public class TransportTogglesCtl implements IEventBusSubscriber {
     IEventBus bus;
     boolean pageActive = false;
     boolean loopEnabled = false;
     boolean metronomeEnabled = false;
+    boolean recordEnabled = false;
 
     public TransportTogglesCtl(IEventBus bus) {
         this.bus = bus;
@@ -38,6 +35,10 @@ public class TransportTogglesCtl implements IEventBusSubscriber {
             new PaintSideButton(
                 SideButton.SOLO,
                 this.metronomeEnabled ? ExplorerColors.METRONOME_COLOR : 0
+            ),
+            new PaintSideButton(
+                SideButton.RECORD_ARM,
+                this.recordEnabled ? ExplorerColors.RECORD_COLOR : 0
             )
         );
     }
@@ -48,15 +49,18 @@ public class TransportTogglesCtl implements IEventBusSubscriber {
                 this.pageActive = n == 1;
                 this.paint();
             }
-            case TransportTogglesUpdate(boolean loop, boolean metronome) -> {
+            case TransportTogglesUpdate(boolean loop, boolean metronome, boolean record) -> {
                 this.loopEnabled = loop;
                 this.metronomeEnabled = metronome;
+                this.recordEnabled = record;
                 this.paint();
             }
             case SideButtonClick(var btn) when this.pageActive && btn == SideButton.MUTE ->
                 this.bus.send(new RequestSetLoop(!this.loopEnabled));
             case SideButtonClick(var btn) when this.pageActive && btn == SideButton.SOLO ->
                 this.bus.send(new RequestSetMetronome(!this.metronomeEnabled));
+            case SideButtonClick(var btn) when this.pageActive && btn == SideButton.RECORD_ARM ->
+                this.bus.send(new RequestSetRecord(!this.recordEnabled));
             default -> { }
         }
     }

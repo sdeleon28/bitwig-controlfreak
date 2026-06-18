@@ -110,7 +110,7 @@
 [X] Solo -> metronome (yellow)
 [X] move select gesture mixer button instead of rec arm
 [X] disable loop highlighter while select gesture is active
-[ ] use record arm button to enable recording
+[X] use record arm button to enable recording
 [ ] resolution buttons should paint like pager
 [ ] make Stop button blink instead of solid paint
 [ ] BUG: uncolored pads barely visible crawling flashes

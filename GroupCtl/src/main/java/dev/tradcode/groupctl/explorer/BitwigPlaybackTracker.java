@@ -3,6 +3,7 @@ package dev.tradcode.groupctl.explorer;
 import dev.tradcode.groupctl.explorer.events.PlaybackUpdate;
 import dev.tradcode.groupctl.explorer.events.RequestSetLoop;
 import dev.tradcode.groupctl.explorer.events.RequestSetMetronome;
+import dev.tradcode.groupctl.explorer.events.RequestSetRecord;
 import dev.tradcode.groupctl.explorer.events.RequestSetPlaybackPosition;
 import dev.tradcode.groupctl.explorer.events.RequestStopPlayback;
 import dev.tradcode.groupctl.explorer.events.TransportTogglesUpdate;
@@ -22,6 +23,7 @@ public class BitwigPlaybackTracker implements IEventBusSubscriber {
     boolean dirty = false;
     boolean loopEnabled = false;
     boolean metronomeEnabled = false;
+    boolean recordEnabled = false;
     boolean togglesDirty = false;
 
     protected BitwigPlaybackTracker(IEventBus bus, ControllerHost host) {
@@ -48,6 +50,10 @@ public class BitwigPlaybackTracker implements IEventBusSubscriber {
             this.metronomeEnabled = v;
             this.togglesDirty = true;
         });
+        transport.isArrangerRecordEnabled().addValueObserver(v -> {
+            this.recordEnabled = v;
+            this.togglesDirty = true;
+        });
     }
 
     public void on(Event event) {
@@ -63,6 +69,8 @@ public class BitwigPlaybackTracker implements IEventBusSubscriber {
             when (transport != null) -> transport.isArrangerLoopEnabled().set(enabled);
             case RequestSetMetronome(boolean enabled)
             when (transport != null) -> transport.isMetronomeEnabled().set(enabled);
+            case RequestSetRecord(boolean enabled)
+            when (transport != null) -> transport.isArrangerRecordEnabled().set(enabled);
             default -> { }
         }
     }
@@ -73,7 +81,13 @@ public class BitwigPlaybackTracker implements IEventBusSubscriber {
             this.dirty = false;
         }
         if (this.togglesDirty) {
-            this.bus.send(new TransportTogglesUpdate(this.loopEnabled, this.metronomeEnabled));
+            this.bus.send(
+                new TransportTogglesUpdate(
+                    this.loopEnabled,
+                    this.metronomeEnabled,
+                    this.recordEnabled
+                )
+            );
             this.togglesDirty = false;
         }
     }

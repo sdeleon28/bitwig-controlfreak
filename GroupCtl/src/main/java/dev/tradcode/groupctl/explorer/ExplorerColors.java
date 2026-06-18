@@ -12,4 +12,5 @@ public final class ExplorerColors {
     public static final int STOP_COLOR = 7;            // dim red (stop side button)
     public static final int LOOP_COLOR = 41;           // cyan (loop side button)
     public static final int METRONOME_COLOR = 109;     // yellow (metronome side button)
+    public static final int RECORD_COLOR = 5;          // red (record side button, mirrors mixer/select red)
 }
