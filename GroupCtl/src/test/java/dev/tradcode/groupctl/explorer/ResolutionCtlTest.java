@@ -10,6 +10,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import dev.tradcode.groupctl.events.PageSelected;
+import dev.tradcode.groupctl.events.PaintTopButton;
 import dev.tradcode.groupctl.events.ResolutionChanged;
 import dev.tradcode.groupctl.events.TopButton;
 import dev.tradcode.groupctl.events.TopButtonClick;
@@ -22,6 +23,14 @@ class ResolutionCtlTest {
             new Marker(0, "0,156,68", "A"),
             new Marker(lastBeat, "216,46,34", "B")
         ));
+    }
+
+    /** Latest color painted to the given top button, or -1 if never painted. */
+    private static int lastTopColor(FakeEventBus bus, TopButton btn) {
+        for (int i = bus.events.size() - 1; i >= 0; i--)
+            if (bus.events.get(i) instanceof PaintTopButton p && p.btn() == btn)
+                return p.color();
+        return -1;
     }
 
     @Test
@@ -113,5 +122,49 @@ class ResolutionCtlTest {
         bus.send(new PageSelected(0));
         bus.send(new PageSelected(1));
         assertEquals(2, bus.last(ResolutionChanged.class).barsPerPad());
+    }
+
+    @Test
+    void doesNotPaintZoomInButtonAtMinResolution() {
+        FakeEventBus bus = new FakeEventBus();
+        new ResolutionCtl(bus);
+        bus.send(new PageSelected(1)); // no markers => auto-fits to 1 (min)
+
+        assertEquals(0, lastTopColor(bus, TopButton.USER_1));
+        assertEquals(ExplorerColors.RESOLUTION_COLOR, lastTopColor(bus, TopButton.SESSION));
+    }
+
+    @Test
+    void doesNotPaintZoomOutButtonAtMaxResolution() {
+        FakeEventBus bus = new FakeEventBus();
+        new ResolutionCtl(bus);
+        bus.send(new PageSelected(1));
+        for (int i = 0; i < 5; i++) // 1 -> 2 -> 4 -> 8 -> 16 -> 32 (max)
+            bus.send(new TopButtonClick(TopButton.SESSION));
+
+        assertEquals(0, lastTopColor(bus, TopButton.SESSION));
+        assertEquals(ExplorerColors.RESOLUTION_COLOR, lastTopColor(bus, TopButton.USER_1));
+    }
+
+    @Test
+    void paintsBothButtonsWhenZoomAvailableInEitherDirection() {
+        FakeEventBus bus = new FakeEventBus();
+        new ResolutionCtl(bus);
+        bus.send(new PageSelected(1));
+        bus.send(new TopButtonClick(TopButton.SESSION)); // -> 2 (off both rails)
+
+        assertEquals(ExplorerColors.RESOLUTION_COLOR, lastTopColor(bus, TopButton.SESSION));
+        assertEquals(ExplorerColors.RESOLUTION_COLOR, lastTopColor(bus, TopButton.USER_1));
+    }
+
+    @Test
+    void clearsBothButtonsWhenLeavingExplorerPage() {
+        FakeEventBus bus = new FakeEventBus();
+        new ResolutionCtl(bus);
+        bus.send(new PageSelected(1));
+        bus.send(new PageSelected(0));
+
+        assertEquals(0, lastTopColor(bus, TopButton.SESSION));
+        assertEquals(0, lastTopColor(bus, TopButton.USER_1));
     }
 }

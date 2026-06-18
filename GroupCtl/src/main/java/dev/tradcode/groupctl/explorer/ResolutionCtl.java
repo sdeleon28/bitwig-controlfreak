@@ -46,6 +46,7 @@ public class ResolutionCtl implements IEventBusSubscriber {
         this.barsPerPad *= 2;
         this.overridden = true;
         this.bus.send(new ResolutionChanged(this.barsPerPad));
+        this.paint();
     }
 
     private void increase() {
@@ -54,6 +55,7 @@ public class ResolutionCtl implements IEventBusSubscriber {
         this.barsPerPad /= 2;
         this.overridden = true;
         this.bus.send(new ResolutionChanged(this.barsPerPad));
+        this.paint();
     }
 
     /** Finest resolution whose page count fits in one launchpad page. */
@@ -89,10 +91,13 @@ public class ResolutionCtl implements IEventBusSubscriber {
     }
 
     private void paint() {
-        int color = this.pageActive ? ExplorerColors.RESOLUTION_COLOR : 0;
+        int sessionColor = this.pageActive && this.barsPerPad < MAX
+            ? ExplorerColors.RESOLUTION_COLOR : 0;
+        int user1Color = this.pageActive && this.barsPerPad > MIN
+            ? ExplorerColors.RESOLUTION_COLOR : 0;
         this.bus.send(
-            new PaintTopButton(TopButton.SESSION, color),
-            new PaintTopButton(TopButton.USER_1, color)
+            new PaintTopButton(TopButton.SESSION, sessionColor),
+            new PaintTopButton(TopButton.USER_1, user1Color)
         );
     }
 
@@ -104,8 +109,10 @@ public class ResolutionCtl implements IEventBusSubscriber {
                 this.increase();
             case MarkersChanged(var markers) -> {
                 this.contentBars = contentBarsOf(markers);
-                if (this.pageActive && !this.overridden)
+                if (this.pageActive && !this.overridden) {
                     this.applyAutoFit();
+                    this.paint();
+                }
             }
             case PageSelected(int n) -> {
                 this.pageActive = n == 1;

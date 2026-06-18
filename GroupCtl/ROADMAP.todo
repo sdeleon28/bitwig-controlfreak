@@ -111,6 +111,6 @@
 [X] move select gesture mixer button instead of rec arm
 [X] disable loop highlighter while select gesture is active
 [X] use record arm button to enable recording
-[ ] resolution buttons should paint like pager
+[X] resolution buttons should paint like pager
 [ ] make Stop button blink instead of solid paint
 [ ] BUG: uncolored pads barely visible crawling flashes
