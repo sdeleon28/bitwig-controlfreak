@@ -14,9 +14,8 @@ Pads represent the timeline of the bitwig session. The markers define the color
 of the represented section. How many pads are presented are calculated by the
 ResolutionCalculator.
 
-You can also change the selection by pressing the record arm button, then a
-first and last pad to make the selection. Longpressing the rec arm button
-clears the selection.
+You can also change the selection by pressing the mixer button, then a
+first and last pad to make the selection.
 
 ## Impl
 
@@ -121,7 +120,7 @@ into `RequestStopPlayback` (also handled by `BitwigPlaybackTracker`).
 
 #### SelectionCtl
 
-Handles selection mode, selection start and end gesture, and the record-arm side
+Handles selection mode, selection start and end gesture, and the MIXER top
 button LED. Talks to `BitwigSelectionTracker` via events.
 
 #### TransportTogglesCtl

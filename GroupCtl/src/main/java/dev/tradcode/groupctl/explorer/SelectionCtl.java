@@ -3,7 +3,6 @@ package dev.tradcode.groupctl.explorer;
 import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
 import dev.tradcode.groupctl.explorer.events.GridSlot;
 import dev.tradcode.groupctl.explorer.events.PendingSelectionChanged;
-import dev.tradcode.groupctl.explorer.events.RequestClearSelection;
 import dev.tradcode.groupctl.explorer.events.RequestSetSelection;
 import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
 import java.util.ArrayList;
@@ -14,10 +13,9 @@ import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
-import dev.tradcode.groupctl.events.PaintSideButton;
-import dev.tradcode.groupctl.events.SideButton;
-import dev.tradcode.groupctl.events.SideButtonClick;
-import dev.tradcode.groupctl.events.SideButtonLongPressed;
+import dev.tradcode.groupctl.events.PaintTopButton;
+import dev.tradcode.groupctl.events.TopButton;
+import dev.tradcode.groupctl.events.TopButtonClick;
 
 public class SelectionCtl implements IEventBusSubscriber {
     IEventBus bus;
@@ -45,7 +43,7 @@ public class SelectionCtl implements IEventBusSubscriber {
             color = ExplorerColors.WHITE;
         else
             color = ExplorerColors.SELECT_COLOR;
-        this.bus.send(new PaintSideButton(SideButton.RECORD_ARM, color));
+        this.bus.send(new PaintTopButton(TopButton.MIXER, color));
     }
 
     private void clearGesture() {
@@ -87,17 +85,12 @@ public class SelectionCtl implements IEventBusSubscriber {
                 }
                 this.paint();
             }
-            case ExplorerGridChanged(var slots, int totalPages, int page) -> this.grid = slots;
-            case SideButtonClick(var btn) when this.pageActive && btn == SideButton.RECORD_ARM -> {
+            case ExplorerGridChanged(var slots, int totalPages, int page) ->
+                this.grid = slots;
+            case TopButtonClick(var btn)
+            when this.pageActive && btn == TopButton.MIXER -> {
                 this.clearGesture();
                 this.setSelecting(!this.selecting);
-            }
-            case SideButtonLongPressed(var btn) when this.pageActive && btn == SideButton.RECORD_ARM -> {
-                this.clearGesture();
-                this.selecting = false;
-                this.bus.send(new RequestClearSelection());
-                this.bus.send(new SelectionModeChanged(false));
-                this.paint();
             }
             case PadClicked(int n) when this.pageActive && this.selecting ->
                 this.handlePad(n);

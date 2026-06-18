@@ -3,7 +3,6 @@ package dev.tradcode.groupctl.explorer;
 import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
 import dev.tradcode.groupctl.explorer.events.GridSlot;
 import dev.tradcode.groupctl.explorer.events.PendingSelectionChanged;
-import dev.tradcode.groupctl.explorer.events.RequestClearSelection;
 import dev.tradcode.groupctl.explorer.events.RequestSetSelection;
 import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,10 +16,9 @@ import org.junit.jupiter.api.Test;
 
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
-import dev.tradcode.groupctl.events.PaintSideButton;
-import dev.tradcode.groupctl.events.SideButton;
-import dev.tradcode.groupctl.events.SideButtonClick;
-import dev.tradcode.groupctl.events.SideButtonLongPressed;
+import dev.tradcode.groupctl.events.PaintTopButton;
+import dev.tradcode.groupctl.events.TopButton;
+import dev.tradcode.groupctl.events.TopButtonClick;
 
 class SelectionCtlTest {
 
@@ -40,27 +38,27 @@ class SelectionCtlTest {
     }
 
     @Test
-    void idleSideButtonIsRedOnExplorerPage() {
+    void idleMixerButtonIsLitOnExplorerPage() {
         FakeEventBus bus = new FakeEventBus();
         new SelectionCtl(bus);
         bus.send(new PageSelected(1));
-        PaintSideButton p = bus.last(PaintSideButton.class);
-        assertEquals(SideButton.RECORD_ARM, p.btn());
+        PaintTopButton p = bus.last(PaintTopButton.class);
+        assertEquals(TopButton.MIXER, p.btn());
         assertEquals(ExplorerColors.SELECT_COLOR, p.color());
     }
 
     @Test
-    void clickingRecordArmTogglesSelectionMode() {
+    void clickingMixerTogglesSelectionMode() {
         FakeEventBus bus = activeCtl();
-        bus.send(new SideButtonClick(SideButton.RECORD_ARM));
+        bus.send(new TopButtonClick(TopButton.MIXER));
         assertTrue(bus.last(SelectionModeChanged.class).active());
-        assertEquals(ExplorerColors.WHITE, bus.last(PaintSideButton.class).color());
+        assertEquals(ExplorerColors.WHITE, bus.last(PaintTopButton.class).color());
     }
 
     @Test
     void twoPadsDefineASelection() {
         FakeEventBus bus = activeCtl();
-        bus.send(new SideButtonClick(SideButton.RECORD_ARM));
+        bus.send(new TopButtonClick(TopButton.MIXER));
 
         bus.send(new PadClicked(81)); // index 0 -> [0,4)
         assertNull(bus.last(RequestSetSelection.class)); // first press only stores
@@ -76,7 +74,7 @@ class SelectionCtlTest {
     @Test
     void firstPadBroadcastsPendingSelectionForFeedback() {
         FakeEventBus bus = activeCtl();
-        bus.send(new SideButtonClick(SideButton.RECORD_ARM));
+        bus.send(new TopButtonClick(TopButton.MIXER));
 
         bus.send(new PadClicked(81)); // index 0 -> [0,4)
 
@@ -90,7 +88,7 @@ class SelectionCtlTest {
     @Test
     void completingTheGestureClearsThePendingFeedback() {
         FakeEventBus bus = activeCtl();
-        bus.send(new SideButtonClick(SideButton.RECORD_ARM));
+        bus.send(new TopButtonClick(TopButton.MIXER));
         bus.send(new PadClicked(81));
         bus.send(new PadClicked(82));
 
@@ -102,16 +100,16 @@ class SelectionCtlTest {
     @Test
     void cancelingSelectionModeMidGestureClearsPendingFeedback() {
         FakeEventBus bus = activeCtl();
-        bus.send(new SideButtonClick(SideButton.RECORD_ARM)); // enter
-        bus.send(new PadClicked(81));                          // anchor set
-        bus.send(new SideButtonClick(SideButton.RECORD_ARM)); // exit before finishing
+        bus.send(new TopButtonClick(TopButton.MIXER)); // enter
+        bus.send(new PadClicked(81));                  // anchor set
+        bus.send(new TopButtonClick(TopButton.MIXER)); // exit before finishing
         assertEquals(0.0, bus.last(PendingSelectionChanged.class).duration());
     }
 
     @Test
     void leavingThePageMidGestureClearsPendingFeedback() {
         FakeEventBus bus = activeCtl();
-        bus.send(new SideButtonClick(SideButton.RECORD_ARM));
+        bus.send(new TopButtonClick(TopButton.MIXER));
         bus.send(new PadClicked(81));
         bus.send(new PageSelected(0));
         assertEquals(0.0, bus.last(PendingSelectionChanged.class).duration());
@@ -120,7 +118,7 @@ class SelectionCtlTest {
     @Test
     void selectionIsOrderIndependent() {
         FakeEventBus bus = activeCtl();
-        bus.send(new SideButtonClick(SideButton.RECORD_ARM));
+        bus.send(new TopButtonClick(TopButton.MIXER));
         bus.send(new PadClicked(82)); // [4,8)
         bus.send(new PadClicked(81)); // [0,4)
         RequestSetSelection sel = bus.last(RequestSetSelection.class);
@@ -129,19 +127,11 @@ class SelectionCtlTest {
     }
 
     @Test
-    void longPressClearsSelection() {
-        FakeEventBus bus = activeCtl();
-        bus.send(new SideButtonLongPressed(SideButton.RECORD_ARM));
-        assertEquals(1, bus.count(RequestClearSelection.class));
-        assertEquals(false, bus.last(SelectionModeChanged.class).active());
-    }
-
-    @Test
     void ignoresInteractionsOffTheExplorerPage() {
         FakeEventBus bus = new FakeEventBus();
         new SelectionCtl(bus);
         bus.send(new ExplorerGridChanged(grid(), 1, 0));
-        bus.send(new SideButtonClick(SideButton.RECORD_ARM));
+        bus.send(new TopButtonClick(TopButton.MIXER));
         assertNull(bus.last(SelectionModeChanged.class));
     }
 }

@@ -1,7 +1,6 @@
 package dev.tradcode.groupctl.explorer;
 
 import dev.tradcode.groupctl.explorer.events.BitwigSelectionChanged;
-import dev.tradcode.groupctl.explorer.events.RequestClearSelection;
 import dev.tradcode.groupctl.explorer.events.RequestSetSelection;
 import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Transport;
@@ -48,10 +47,6 @@ public class BitwigSelectionTracker implements IEventBusSubscriber {
                     transport.arrangerLoopStart().set(s);
                     transport.arrangerLoopDuration().set(e - s);
                 }
-            }
-            case RequestClearSelection() -> {
-                if (transport != null)
-                    transport.arrangerLoopDuration().set(0);
             }
             default -> { }
         }

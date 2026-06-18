@@ -25,7 +25,7 @@ class ExplorerPageCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new ExplorerPageCtl(bus);
         bus.send(new PageSelected(1)); // no grid yet -> totalPages 1, page 0
-        bus.send(new TopButtonClick(TopButton.MIXER));
+        bus.send(new TopButtonClick(TopButton.RIGHT));
         assertNull(bus.last(RequestExplorerPage.class));
     }
 
@@ -36,7 +36,7 @@ class ExplorerPageCtlTest {
         bus.send(new PageSelected(1));
         bus.send(grid(3, 0));
 
-        bus.send(new TopButtonClick(TopButton.MIXER));
+        bus.send(new TopButtonClick(TopButton.RIGHT));
         assertEquals(1, bus.last(RequestExplorerPage.class).delta());
     }
 
@@ -47,7 +47,7 @@ class ExplorerPageCtlTest {
         bus.send(new PageSelected(1));
         bus.send(grid(3, 2));
 
-        bus.send(new TopButtonClick(TopButton.USER_2));
+        bus.send(new TopButtonClick(TopButton.LEFT));
         assertEquals(-1, bus.last(RequestExplorerPage.class).delta());
     }
 
@@ -58,9 +58,9 @@ class ExplorerPageCtlTest {
         bus.send(new PageSelected(1));
 
         bus.send(grid(3, 2));                          // last page
-        bus.send(new TopButtonClick(TopButton.MIXER)); // no next
+        bus.send(new TopButtonClick(TopButton.RIGHT)); // no next
         bus.send(grid(3, 0));                          // first page
-        bus.send(new TopButtonClick(TopButton.USER_2)); // no prev
+        bus.send(new TopButtonClick(TopButton.LEFT));  // no prev
 
         assertNull(bus.last(RequestExplorerPage.class));
     }
@@ -70,7 +70,7 @@ class ExplorerPageCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new ExplorerPageCtl(bus);
         bus.send(grid(3, 0)); // cached, but page never activated
-        bus.send(new TopButtonClick(TopButton.MIXER));
+        bus.send(new TopButtonClick(TopButton.RIGHT));
         assertNull(bus.last(RequestExplorerPage.class));
     }
 }

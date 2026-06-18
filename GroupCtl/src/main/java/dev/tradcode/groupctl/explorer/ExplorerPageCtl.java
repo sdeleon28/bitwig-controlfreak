@@ -24,18 +24,20 @@ public class ExplorerPageCtl implements IEventBusSubscriber {
     private void paint() {
         if (!this.pageActive) {
             this.bus.send(
-                new PaintTopButton(TopButton.USER_2, 0),
-                new PaintTopButton(TopButton.MIXER, 0)
+                new PaintTopButton(TopButton.LEFT, 0),
+                new PaintTopButton(TopButton.RIGHT, 0)
             );
             return;
         }
         this.bus.send(
             new PaintTopButton(
-                TopButton.USER_2,
-                this.page > 0 ? ExplorerColors.PAGE_COLOR : 0
+                TopButton.LEFT,
+                this.page > 0
+                    ? ExplorerColors.PAGE_COLOR
+                    : 0
             ),
             new PaintTopButton(
-                TopButton.MIXER,
+                TopButton.RIGHT,
                 this.page < this.totalPages - 1
                     ? ExplorerColors.PAGE_COLOR
                     : 0
@@ -45,14 +47,16 @@ public class ExplorerPageCtl implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
-            case TopButtonClick(var btn)when this.pageActive && btn == TopButton.USER_2 -> {
-                if (this.page > 0)
-                    this.bus.send(new RequestExplorerPage(-1));
-            }
-            case TopButtonClick(var btn) when this.pageActive && btn == TopButton.MIXER -> {
-                if (this.page < this.totalPages - 1)
-                    this.bus.send(new RequestExplorerPage(1));
-            }
+            case TopButtonClick(var btn) 
+            when this.pageActive
+              && btn == TopButton.LEFT
+              && (this.page > 0) ->
+                this.bus.send(new RequestExplorerPage(-1));
+            case TopButtonClick(var btn)
+            when this.pageActive
+              && btn == TopButton.RIGHT
+              && (this.page < this.totalPages - 1) ->
+                this.bus.send(new RequestExplorerPage(1));
             case ExplorerGridChanged(var slots, int totalPages, int page) -> {
                 this.totalPages = Math.max(1, totalPages);
                 this.page = page;
