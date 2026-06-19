@@ -33,7 +33,7 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
 
     @Override
     protected void paintRing(BitwigTrack t) {
-        if (!active) return;
+        if (!isActive()) return;
         this.bus.send(
             new SetEncoderValue(
                 t.getPosition(),
@@ -48,7 +48,7 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
     }
 
     private void setSoloAt(int n, boolean solo) {
-        if (!active) return;
+        if (!isActive()) return;
         this.tracksInSelectedGroup()
             .stream()
             .filter(t -> t.getPosition() == n)
@@ -57,7 +57,7 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
     }
 
     private void announcePress(int n) {
-        if (!active) return;
+        if (!isActive()) return;
         this.tracksInSelectedGroup()
             .stream()
             .filter(t -> t.getPosition() == n)
@@ -102,7 +102,7 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
                     });
             }
             case EncoderTurned(int n, int v) -> {
-                if (!active) return;
+                if (!isActive()) return;
                 this.tracksInSelectedGroup()
                     .stream()
                     .filter(t -> t.getPosition() == n)

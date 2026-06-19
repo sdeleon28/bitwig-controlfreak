@@ -4,6 +4,7 @@ import dev.tradcode.groupctl.editor.events.EditorClipChanged;
 import dev.tradcode.groupctl.editor.events.EditorNote;
 import dev.tradcode.groupctl.editor.events.RequestClearNotes;
 import dev.tradcode.groupctl.editor.events.RequestSetNote;
+import dev.tradcode.groupctl.editor.events.RequestSetVelocity;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,6 +21,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
     IEventBus bus;
     Clip clip;
     boolean[][] onsets = new boolean[EditorConstants.READ_STEPS][EditorConstants.GRID_ROWS];
+    double[][] velocities = new double[EditorConstants.READ_STEPS][EditorConstants.GRID_ROWS];
     boolean exists = false;
     double lengthBeats = EditorConstants.READ_BEATS;
     boolean dirty = false;
@@ -52,6 +54,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
             // Only onsets light a pad; sustained continuations are ignored
             // (note lengths don't matter for percussion).
             this.onsets[x][y] = ns.state() == NoteStep.State.NoteOn;
+            this.velocities[x][y] = ns.velocity();
             this.dirty = true;
         });
     }
@@ -81,6 +84,23 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
                     if (x >= 0 && x < EditorConstants.READ_STEPS)
                         this.clip.clearStep(EditorConstants.CHANNEL, x, y);
             }
+            case RequestSetVelocity(int key, double startBeat, double endBeat, double velocity)
+            when this.clip != null -> {
+                int y = key - EditorConstants.BASE_KEY;
+                if (y < 0 || y >= EditorConstants.GRID_ROWS)
+                    return;
+                int from = stepFor(startBeat);
+                int to = stepFor(endBeat);
+                // Re-assert the note via setStep (the same write note creation uses)
+                // rather than editing the NoteStep in place: setStep round-trips
+                // through the note-step observer, so our velocity cache is
+                // refreshed by Bitwig instead of guessed at on our side.
+                int insertVelocity = (int) Math.round(velocity * 127);
+                for (int x = from; x < to; x++)
+                    if (x >= 0 && x < EditorConstants.READ_STEPS && this.onsets[x][y])
+                        this.clip.setStep(EditorConstants.CHANNEL, x, y,
+                            insertVelocity, EditorConstants.FINE_STEP_BEATS);
+            }
             default -> { }
         }
     }
@@ -93,7 +113,9 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
             for (int y = 0; y < EditorConstants.GRID_ROWS; y++)
                 if (this.onsets[x][y])
                     notes.add(new EditorNote(
-                        EditorConstants.BASE_KEY + y, x * EditorConstants.FINE_STEP_BEATS));
+                        EditorConstants.BASE_KEY + y,
+                        x * EditorConstants.FINE_STEP_BEATS,
+                        this.velocities[x][y]));
         this.bus.send(new EditorClipChanged(this.exists, this.lengthBeats, notes));
         this.dirty = false;
     }

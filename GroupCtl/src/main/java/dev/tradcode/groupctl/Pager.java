@@ -1,6 +1,7 @@
 package dev.tradcode.groupctl;
 
 import dev.tradcode.groupctl.events.ClearLaunchpad;
+import dev.tradcode.groupctl.events.ClearTwister;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -8,27 +9,6 @@ import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintTopButton;
 import dev.tradcode.groupctl.events.TopButton;
 import dev.tradcode.groupctl.events.TopButtonClick;
-
-enum Page {
-    GROUPCTL(0),
-    PROJECT_EXPLORER(1),
-    EDITOR(2);
-
-    // remember to update this!
-    static int getPageCount() {
-        return 3;
-    }
-
-    private final int value;
-
-    Page(int value) {
-        this.value = value;
-    }
-
-    public int getValue() {
-        return this.value;
-    }
-}
 
 public class Pager implements IEventBusSubscriber {
     IEventBus bus;
@@ -60,7 +40,7 @@ public class Pager implements IEventBusSubscriber {
     }
 
     private void clear() {
-        this.bus.send(new ClearLaunchpad());
+        this.bus.send(new ClearLaunchpad(), new ClearTwister());
     }
 
     private void paint() {

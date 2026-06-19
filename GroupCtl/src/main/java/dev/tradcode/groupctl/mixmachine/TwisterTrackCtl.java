@@ -24,7 +24,7 @@ public abstract class TwisterTrackCtl extends TwisterTrackEncoderCtl {
      */
     @Override
     protected void paint() {
-        if (!active) return;
+        if (!isActive()) return;
         this.clearLeds();
         for (var t : this.tracksInSelectedGroup()) {
             var pos = t.getPosition();
@@ -45,7 +45,7 @@ public abstract class TwisterTrackCtl extends TwisterTrackEncoderCtl {
 
     @Override
     protected void paintRings() {
-        if (!active) return;
+        if (!isActive()) return;
         this.clearRings();
         this.tracksInSelectedGroup().forEach(this::paintRing);
     }

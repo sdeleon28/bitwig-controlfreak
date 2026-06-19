@@ -14,9 +14,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 
+import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.EncoderButtonPressed;
 import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
+import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.PanModeSelected;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
@@ -209,6 +211,23 @@ class TwisterVolPanCtlTest {
         bus.send(new EncoderButtonPressed(1));
 
         assertTrue(bus.events.stream().noneMatch(e -> e instanceof RequestSetSolo));
+    }
+
+    @Test
+    void editorPageSuppressesEncodersThenRestores() {
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new PageSelected(Page.EDITOR.getValue()));
+        bus.events.clear();
+        bus.send(new EncoderTurned(2, 127));
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof SetTrackVolume),
+            "turns must not move a track while the editor owns the Twister");
+
+        bus.send(new PageSelected(Page.GROUPCTL.getValue()));
+        bus.send(new EncoderTurned(2, 127));
+        assertTrue(bus.events.stream().anyMatch(e -> e instanceof SetTrackVolume),
+            "leaving the editor page restores encoder control");
     }
 
     @Test

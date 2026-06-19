@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 
 import dev.tradcode.groupctl.events.ClearLaunchpad;
+import dev.tradcode.groupctl.events.ClearTwister;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.EventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -54,5 +55,20 @@ class PagerTest {
         assertTrue(clearIdx >= 0, "a clear should be emitted");
         assertTrue(pageIdx >= 0, "the page switch should be announced");
         assertTrue(clearIdx < pageIdx, "clear must precede the PageSelected so pages paint fearlessly");
+    }
+
+    @Test
+    void clearsTheTwisterBeforeAnnouncingThePageSwitch() {
+        EventBus bus = new EventBus();
+        new Pager(bus);
+        Recorder rec = new Recorder();
+        bus.subscribe(rec);
+
+        bus.send(new TopButtonClick(TopButton.DOWN)); // page 0 -> 1
+
+        int clearIdx = firstIndexOf(rec, ClearTwister.class);
+        int pageIdx = firstIndexOf(rec, PageSelected.class);
+        assertTrue(clearIdx >= 0, "the Twister should be cleared on a page switch");
+        assertTrue(clearIdx < pageIdx, "the Twister clear must precede PageSelected so programs repaint without racing");
     }
 }

@@ -7,11 +7,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.MidiIn;
 
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PadLongPressed;
+import dev.tradcode.groupctl.events.PadLongPressStarted;
 import dev.tradcode.groupctl.events.SideButton;
 import dev.tradcode.groupctl.events.SideButtonClick;
 import dev.tradcode.groupctl.events.SideButtonLongPressed;
@@ -39,7 +41,9 @@ public class LaunchpadInput {
 
     IEventBus bus;
     MidiIn in;
+    ControllerHost host;
     Set<HeldPad> heldPads = new HashSet<>();
+    Set<Integer> startedHolds = new HashSet<>();
     Set<HeldPad> heldSideButtons = new HashSet<>();
 
     record HeldPad(int n, Date since) {
@@ -50,8 +54,9 @@ public class LaunchpadInput {
         }
     }
 
-    public LaunchpadInput(IEventBus bus, MidiIn in) {
+    public LaunchpadInput(IEventBus bus, MidiIn in, ControllerHost host) {
         this.bus = bus;
+        this.host = host;
         in.setMidiCallback((int channel, int msg, int vel) -> {
             if (PADS.contains(msg))
                 if (vel == 0)
@@ -143,24 +148,25 @@ public class LaunchpadInput {
     }
 
     private void padDown(int n) {
-        this.heldPads.add(new HeldPad(n, new Date()));
+        var pressedAt = new Date();
+        this.heldPads.add(new HeldPad(n, pressedAt));
+        this.host.scheduleTask(() -> this.holdElapsed(n, pressedAt), HOLD_THRESHOLD_MS);
+    }
+
+    private void holdElapsed(int n, Date pressedAt) {
+        boolean stillHeldSamePress = heldPads.stream()
+            .anyMatch(h -> h.n == n && h.since == pressedAt);
+        if (!stillHeldSamePress || !this.startedHolds.add(n))
+            return;
+        this.bus.send(new PadLongPressStarted(n));
     }
 
     private void padUp(int n) {
-        heldPads.stream()
-            .filter(h -> h.n == n)
-            .findFirst()
-            .ifPresent(h -> {
-                var now = new Date();
-                var diffMs = ChronoUnit.MILLIS.between(
-                    h.since.toInstant(),
-                    now.toInstant()
-                );
-                if (diffMs > HOLD_THRESHOLD_MS)
-                    this.bus.send(new PadLongPressed(n));
-                else
-                    this.bus.send(new PadClicked(n));
-            });
-        heldPads.removeIf(h -> h.n == n);
+        if (this.startedHolds.contains(n))
+            this.bus.send(new PadLongPressed(n));
+        else
+            this.bus.send(new PadClicked(n));
+        this.startedHolds.remove(n);
+        this.heldPads.removeIf(h -> h.n == n);
     }
 }

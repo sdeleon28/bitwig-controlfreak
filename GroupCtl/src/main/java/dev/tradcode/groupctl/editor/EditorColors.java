@@ -4,7 +4,9 @@ public final class EditorColors {
     private EditorColors() { }
 
     public static final int NOTE = 69;             // lit pad: a note falls here (very nice!)
+    public static final int ACTIVE_CONTEXT = 5;    // red: pad held as the Twister velocity context
     public static final int RESOLUTION_COLOR = 41; // cyan, mirrors the explorer resolution LEDs
     public static final int PAGE_COLOR = 49;       // purple, mirrors the explorer page LEDs
     public static final int STOP_COLOR = 7;        // dim red, blinks while playing (mirrors explorer)
+    public static final int VELOCITY_ENCODER_COLOR = 64; // twister green, marks the armed velocity encoder
 }

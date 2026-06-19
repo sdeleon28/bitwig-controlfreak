@@ -2,6 +2,7 @@ package dev.tradcode.groupctl;
 
 import com.bitwig.extension.controller.api.MidiOut;
 
+import dev.tradcode.groupctl.events.ClearTwister;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -50,6 +51,7 @@ public class TwisterOutput implements IEventBusSubscriber {
         switch (event) {
             case PaintEncoder(int n, int color) -> this.paint(n, color);
             case SetEncoderValue(int n, int v) -> this.ring(n, v);
+            case ClearTwister() -> this.clear();
             default -> { }
         }
     }

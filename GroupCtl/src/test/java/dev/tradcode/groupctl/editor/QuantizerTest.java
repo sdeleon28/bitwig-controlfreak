@@ -116,6 +116,24 @@ class QuantizerTest {
     }
 
     @Test
+    void singleOnsetCellCarriesItsVelocity() {
+        List<EditorSlot> g = new Quantizer().apply(List.of(
+            new EditorNote(36, 0.0, 0.42)
+        ), 8, true, 0);
+        assertEquals(0.42, g.get(idx(BOTTOM, 0)).velocity(), 1e-9);
+    }
+
+    @Test
+    void multiOnsetCellDefaultsVelocityToFull() {
+        // Two onsets fold into one cell; the encoder arrives at a known baseline.
+        List<EditorSlot> g = new Quantizer().apply(List.of(
+            new EditorNote(36, 0.0, 0.2),
+            new EditorNote(36, 0.25, 0.3)
+        ), 8, true, 0);
+        assertEquals(1.0, g.get(idx(BOTTOM, 0)).velocity(), 1e-9);
+    }
+
+    @Test
     void nothingIsLitWhenNoClipExists() {
         List<EditorSlot> g = new Quantizer().apply(List.of(new EditorNote(36, 0.0)), 8, false, 0);
         for (EditorSlot s : g)

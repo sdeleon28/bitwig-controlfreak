@@ -16,20 +16,36 @@ public class Quantizer {
             for (int col = 0; col < EditorConstants.GRID_COLS; col++) {
                 double startBeat = (firstCol + col) * beatsPerStep;
                 double endBeat = startBeat + beatsPerStep;
-                boolean lit = exists && hasOnset(notes, key, startBeat, endBeat);
-                slots.add(new EditorSlot(lit, key, startBeat, endBeat));
+                List<EditorNote> onsets = exists
+                    ? onsetsIn(notes, key, startBeat, endBeat)
+                    : List.of();
+                slots.add(new EditorSlot(
+                    !onsets.isEmpty(), key, startBeat, endBeat, velocityOf(onsets)));
             }
         }
         return slots;
     }
 
-    private static boolean hasOnset(List<EditorNote> notes, int key,
-                                    double startBeat, double endBeat) {
+    /**
+     * One onset shows its own velocity; a cell folding several onsets shows full
+     * velocity, so a turn there rewrites them all from a known baseline.
+     */
+    private static double velocityOf(List<EditorNote> onsets) {
+        if (onsets.isEmpty())
+            return 0.0;
+        if (onsets.size() == 1)
+            return onsets.get(0).velocity();
+        return 1.0;
+    }
+
+    private static List<EditorNote> onsetsIn(List<EditorNote> notes, int key,
+                                             double startBeat, double endBeat) {
+        List<EditorNote> onsets = new ArrayList<>();
         if (notes == null)
-            return false;
+            return onsets;
         for (EditorNote n : notes)
             if (n.key() == key && n.beat() >= startBeat && n.beat() < endBeat)
-                return true;
-        return false;
+                onsets.add(n);
+        return onsets;
     }
 }

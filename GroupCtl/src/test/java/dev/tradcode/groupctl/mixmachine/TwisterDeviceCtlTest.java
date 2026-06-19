@@ -6,7 +6,9 @@ import dev.tradcode.groupctl.mixmachine.events.SetRcValue;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
+import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.EncoderTurned;
+import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 
@@ -36,6 +38,22 @@ class TwisterDeviceCtlTest {
         bus.send(new EncoderTurned(1, 127));
 
         assertTrue(wroteRc(bus));
+    }
+
+    @Test
+    void editorPageSuppressesEncodersThenRestores() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterDeviceCtl(bus);
+        bus.send(new RequestSelectDevice(0));
+
+        bus.send(new PageSelected(Page.EDITOR.getValue()));
+        bus.events.clear();
+        bus.send(new EncoderTurned(1, 127));
+        assertFalse(wroteRc(bus), "RC turns must not fire while the editor owns the Twister");
+
+        bus.send(new PageSelected(Page.GROUPCTL.getValue()));
+        bus.send(new EncoderTurned(1, 127));
+        assertTrue(wroteRc(bus), "leaving the editor page restores RC control");
     }
 
     @Test

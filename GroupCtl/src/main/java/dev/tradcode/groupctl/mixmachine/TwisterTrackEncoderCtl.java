@@ -2,8 +2,10 @@ package dev.tradcode.groupctl.mixmachine;
 
 import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
 import dev.tradcode.groupctl.Colors;
+import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
+import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 
@@ -25,8 +27,25 @@ import dev.tradcode.groupctl.events.SetEncoderValue;
 public abstract class TwisterTrackEncoderCtl extends TrackCtl {
     boolean active = false;
 
+    /**
+     * The editor page borrows the whole Twister, so every program here goes dark
+     * there. {@link #active} keeps tracking the selection state underneath, so
+     * leaving the editor page restores whatever was showing before.
+     */
+    boolean editorPageActive = false;
+
     public TwisterTrackEncoderCtl(IEventBus bus) {
         super(bus);
+    }
+
+    protected boolean isActive() {
+        return this.active && !this.editorPageActive;
+    }
+
+    private void onPageSelected(int n) {
+        this.editorPageActive = n == Page.EDITOR.getValue();
+        if (!this.editorPageActive)
+            this.refresh();
     }
 
     protected int bwToTwisterColor(String bwColor) {
@@ -59,6 +78,7 @@ public abstract class TwisterTrackEncoderCtl extends TrackCtl {
             // state source of truth is on our end for device selection, so we
             // match on the request instead of the response from bw
             case RequestSelectDevice(int n) -> this.active = false;
+            case PageSelected(int n) -> this.onPageSelected(n);
             default -> { }
         }
     }

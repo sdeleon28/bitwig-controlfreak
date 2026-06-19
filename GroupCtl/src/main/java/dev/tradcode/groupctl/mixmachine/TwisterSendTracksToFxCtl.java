@@ -35,12 +35,12 @@ public class TwisterSendTracksToFxCtl extends TwisterTrackCtl {
     }
 
     private void setSolo(boolean solo) {
-        if (!active || this.selectedFx == -1) return;
+        if (!isActive() || this.selectedFx == -1) return;
         this.bus.send(new RequestFxSetSolo(this.selectedFx, this.selectedFxName, solo));
     }
 
     private void announcePress(int n) {
-        if (!active || this.selectedFx == -1) return;
+        if (!isActive() || this.selectedFx == -1) return;
         this.tracksInSelectedGroup()
             .stream()
             .filter(t -> t.getPosition() == n)
@@ -52,7 +52,7 @@ public class TwisterSendTracksToFxCtl extends TwisterTrackCtl {
 
     @Override
     protected void paintRing(BitwigTrack t) {
-        if (!active) return;
+        if (!isActive()) return;
         if (this.selectedFx == -1) return;
         this.sends.stream()
             .filter(s -> s.trackId == t.id && s.id == this.selectedFx)
@@ -97,7 +97,7 @@ public class TwisterSendTracksToFxCtl extends TwisterTrackCtl {
             }
             case EncoderButtonReleased(int n) -> this.setSolo(false);
             case EncoderTurned(int n, int v) -> {
-                if (!active) return;
+                if (!isActive()) return;
                 this.tracksInSelectedGroup()
                     .stream()
                     .filter(t -> t.getPosition() == n)

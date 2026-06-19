@@ -69,7 +69,7 @@ public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
     }
 
     private void setSoloAt(int n, boolean solo) {
-        if (!active) return;
+        if (!isActive()) return;
         int fxIndex = this.fxIndexForButton(n);
         if (fxIndex < 0) return;
         this.fxTracks.stream()
@@ -79,7 +79,7 @@ public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
     }
 
     private void announcePress(int n) {
-        if (!active) return;
+        if (!isActive()) return;
         if (n >= 1 && n <= FX_COUNT) {
             // bottom block: selected track's send to this FX
             int fxIndex = n - 1;
@@ -103,7 +103,7 @@ public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
 
     @Override
     protected void paint() {
-        if (!active) return;
+        if (!isActive()) return;
         this.clearLeds();
         for (var fx : this.fxTracks) {
             if (fx.id < 0 || fx.id >= FX_COUNT) continue;
@@ -115,7 +115,7 @@ public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
 
     @Override
     protected void paintRings() {
-        if (!active) return;
+        if (!isActive()) return;
         this.clearRings();
         for (var fx : this.fxTracks) {
             if (fx.id < 0 || fx.id >= FX_COUNT) continue;
@@ -126,7 +126,7 @@ public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
 
     /** Top block: FX track's own vol or pan. */
     private void paintFxVolPanRing(int fxIndex) {
-        if (!active) return;
+        if (!isActive()) return;
         this.fxTracks.stream()
             .filter(fx -> fx.id == fxIndex)
             .findFirst()
@@ -143,7 +143,7 @@ public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
 
     /** Bottom block: selected track's send level to FX {@code fxIndex}. */
     private void paintSendRing(int fxIndex) {
-        if (!active) return;
+        if (!isActive()) return;
         this.sends.stream()
             .filter(s -> s.trackId == this.selectedTrackId && s.id == fxIndex)
             .findFirst()
@@ -205,7 +205,7 @@ public class TwisterSendTrackToAllFxCtl extends TwisterTrackEncoderCtl {
                 this.paintSendRing(sendId);
             }
             case EncoderTurned(int n, int v) -> {
-                if (!active) return;
+                if (!isActive()) return;
                 double val = ((double) v) / 127.0;
                 if (n >= 1 && n <= FX_COUNT) {
                     this.bus.send(

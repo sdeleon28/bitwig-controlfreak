@@ -19,6 +19,8 @@ public class Editor {
         new EditorResolutionCtl(bus);
         new EditorPageCtl(bus);
         new EditorNoteHandler(bus);
+        new PadContextCtl(bus);
+        new TwisterMidiContextCtl(bus);
         new PlaybackHandler(bus);
 
         // Bitwig trackers

@@ -121,12 +121,17 @@
 [X] reverse rows
 [X] pages
 [X] play / stop
-[-] holding pad for existing note should enable context-aware twister encoders
-    [-] velocity
-    [-] infrastructure ready for other values, nothing to implement for now
-    [-] if multiple notes, default the encoder to 127 and affect all
-    [-] gesture different from add / remove because of hold behavior
-    [-] single taps should still behave normally (add / remove)
+[X] holding pad for existing note should enable context-aware twister encoders
+    [X] velocity
+    [X] infrastructure ready for other values, nothing to implement for now
+    [X] if multiple notes, default the encoder to 127 and affect all
+    [X] gesture different from add / remove because of hold behavior
+    [X] single taps should still behave normally (add / remove)
+    [ ] make twister actively immediately, delete note only if i didn't touch the twister or didn't hold pad long enough
+[ ] sidequest add palette pages at the end
+    [ ] log color number on pad press
+    [ ] copy from js palette
+[ ] using palette as reference filter pad color by velocity (lower -> dimmer, higher -> brighter)
 [ ] play note back on add
 [ ] growl resolution and page
 [ ] support 16 notes (two vertical pages)

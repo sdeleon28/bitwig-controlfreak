@@ -8,9 +8,11 @@ import dev.tradcode.groupctl.mixmachine.events.SetRcValue;
 import java.util.HashMap;
 import java.util.Map;
 
+import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
+import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
@@ -20,8 +22,23 @@ public class TwisterDeviceCtl extends DeviceCtl {
     static int RC_COUNT = 8;
     boolean active = false;
 
+    // The editor page borrows the whole Twister; RC mode goes dark there and is
+    // restored on the way out. See TwisterTrackEncoderCtl for the sibling gate.
+    boolean editorPageActive = false;
+
     public TwisterDeviceCtl(IEventBus bus) {
         super(bus);
+    }
+
+    private boolean isActive() {
+        return this.active && !this.editorPageActive;
+    }
+
+    private void onPageSelected(int n) {
+        this.editorPageActive = n == Page.EDITOR.getValue();
+        if (!this.isActive()) return;
+        this.paint();
+        this.bus.send(new RequestInitRcs());
     }
 
     private void clearLeds() {
@@ -35,7 +52,7 @@ public class TwisterDeviceCtl extends DeviceCtl {
     }
 
     protected void paint() {
-        if (!active) return;
+        if (!isActive()) return;
         this.clearLeds();
         for (int i = 0; i < RC_COUNT; i++)
             this.bus.send(new PaintEncoder(i, 25));
@@ -66,6 +83,7 @@ public class TwisterDeviceCtl extends DeviceCtl {
     public void on(Event event) {
         super.on(event);
         switch (event) {
+            case PageSelected(int n) -> this.onPageSelected(n);
             case BitwigTrackSelected(int n) -> this.active = false;
             case RequestSelectTrack(int trackId, String name) ->
                 this.active = false;
@@ -80,7 +98,7 @@ public class TwisterDeviceCtl extends DeviceCtl {
                 this.bus.send(new RequestInitRcs());
             }
             case RcValueChanged(int id, double v) -> {
-                if (!this.active) return;
+                if (!isActive()) return;
                 this.bus.send(
                     new SetEncoderValue(
                         this.idToPosition(id),
@@ -89,7 +107,7 @@ public class TwisterDeviceCtl extends DeviceCtl {
                 );
             }
             case EncoderTurned(int n, int v) -> {
-                if (!this.active) return;
+                if (!isActive()) return;
                 this.bus.send(
                     new SetRcValue(
                         this.positionToId(n),
