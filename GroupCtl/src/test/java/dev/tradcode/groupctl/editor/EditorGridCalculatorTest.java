@@ -21,12 +21,15 @@ class EditorGridCalculatorTest {
 
     private static final int EDITOR = EditorConstants.PAGE_INDEX;
 
+    // A clip that fills the whole read window (the default page count applies).
+    private static final double FULL = EditorConstants.READ_BEATS;
+
     @Test
     void staysSilentUntilTheEditorPageIsActive() {
         FakeEventBus bus = new FakeEventBus();
         new EditorGridCalculator(bus);
 
-        bus.send(new EditorClipChanged(true, List.of(new EditorNote(36, 0.0))));
+        bus.send(new EditorClipChanged(true, FULL, List.of(new EditorNote(36, 0.0))));
         assertNull(bus.last(EditorGridChanged.class));
     }
 
@@ -36,7 +39,7 @@ class EditorGridCalculatorTest {
         new EditorGridCalculator(bus);
 
         bus.send(new PageSelected(EDITOR));
-        bus.send(new EditorClipChanged(true, List.of(new EditorNote(36, 0.0))));
+        bus.send(new EditorClipChanged(true, FULL, List.of(new EditorNote(36, 0.0))));
 
         EditorGridChanged grid = bus.last(EditorGridChanged.class);
         assertEquals(64, grid.slots().size());
@@ -51,7 +54,7 @@ class EditorGridCalculatorTest {
         new EditorGridCalculator(bus);
 
         bus.send(new PageSelected(EDITOR));
-        bus.send(new EditorClipChanged(true, List.of(new EditorNote(36, 0.5))));
+        bus.send(new EditorClipChanged(true, FULL, List.of(new EditorNote(36, 0.5))));
         // C1 sits on the bottom row; at 1/8 the onset lands in column 1.
         assertFalse(bus.last(EditorGridChanged.class).slots().get(56).lit());
         assertTrue(bus.last(EditorGridChanged.class).slots().get(57).lit());
@@ -68,7 +71,7 @@ class EditorGridCalculatorTest {
         new EditorGridCalculator(bus);
 
         bus.send(new PageSelected(EDITOR));
-        bus.send(new EditorClipChanged(false, List.of()));
+        bus.send(new EditorClipChanged(false, 0.0, List.of()));
 
         EditorGridChanged grid = bus.last(EditorGridChanged.class);
         assertFalse(grid.clipExists());
@@ -92,12 +95,59 @@ class EditorGridCalculatorTest {
     }
 
     @Test
+    void boundsThePageCountToTheClipLength() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridCalculator(bus);
+
+        bus.send(new PageSelected(EDITOR));                       // 1/8 -> 2 pages over the read window
+        bus.send(new EditorClipChanged(true, 2.0, List.of()));    // a 2-beat clip fits in one 4-beat page
+        assertEquals(1, bus.last(EditorPageChanged.class).totalPages());
+    }
+
+    @Test
+    void keepsTheClipBoundWhenZoomingIn() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridCalculator(bus);
+
+        bus.send(new PageSelected(EDITOR));
+        bus.send(new EditorClipChanged(true, 2.0, List.of()));
+        bus.send(new EditorResolutionChanged(16));     // read window alone would offer 4 pages
+        assertEquals(1, bus.last(EditorPageChanged.class).totalPages());
+    }
+
+    @Test
+    void cannotPageBeyondAShortClip() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridCalculator(bus);
+
+        bus.send(new PageSelected(EDITOR));
+        bus.send(new EditorClipChanged(true, 2.0, List.of()));   // single page
+        bus.send(new RequestEditorPage(1));
+        assertEquals(0, bus.last(EditorPageChanged.class).page());
+    }
+
+    @Test
+    void clampsThePageWhenTheClipShrinks() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridCalculator(bus);
+
+        bus.send(new PageSelected(EDITOR));
+        bus.send(new EditorResolutionChanged(32));     // 8 pages over the read window
+        bus.send(new RequestEditorPage(7));            // last page
+        assertEquals(7, bus.last(EditorPageChanged.class).page());
+
+        bus.send(new EditorClipChanged(true, 1.0, List.of()));   // 1-beat clip -> one page
+        assertEquals(0, bus.last(EditorPageChanged.class).page());
+        assertEquals(1, bus.last(EditorPageChanged.class).totalPages());
+    }
+
+    @Test
     void pagingWindowsOntoLaterBeatsOfTheClip() {
         FakeEventBus bus = new FakeEventBus();
         new EditorGridCalculator(bus);
 
         bus.send(new PageSelected(EDITOR)); // 1/8, page 0 covers [0, 4)
-        bus.send(new EditorClipChanged(true, List.of(new EditorNote(36, 4.5))));
+        bus.send(new EditorClipChanged(true, FULL, List.of(new EditorNote(36, 4.5))));
         // The onset sits beyond the first page, so nothing lights up yet.
         for (var slot : bus.last(EditorGridChanged.class).slots())
             assertFalse(slot.lit());
@@ -156,11 +206,11 @@ class EditorGridCalculatorTest {
         new EditorGridCalculator(bus);
 
         bus.send(new PageSelected(EDITOR));
-        bus.send(new EditorClipChanged(true, List.of(new EditorNote(36, 0.0))));
+        bus.send(new EditorClipChanged(true, FULL, List.of(new EditorNote(36, 0.0))));
         long before = bus.count(EditorGridChanged.class);
 
         bus.send(new PageSelected(0));
-        bus.send(new EditorClipChanged(true, List.of(new EditorNote(37, 0.0))));
+        bus.send(new EditorClipChanged(true, FULL, List.of(new EditorNote(37, 0.0))));
         assertEquals(before, bus.count(EditorGridChanged.class));
     }
 }

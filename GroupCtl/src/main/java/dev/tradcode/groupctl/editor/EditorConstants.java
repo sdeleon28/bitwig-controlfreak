@@ -26,6 +26,7 @@ public final class EditorConstants {
      */
     public static final double FINE_STEP_BEATS = 0.125; // 1/32 note
     public static final int READ_STEPS = 64;            // 8 beats of fine steps
+    public static final double READ_BEATS = READ_STEPS * FINE_STEP_BEATS;
 
     public static final int DEFAULT_DENOMINATOR = 8;    // 1/8
     public static final List<Integer> DENOMINATORS = List.of(4, 8, 16, 32);
@@ -40,25 +41,4 @@ public final class EditorConstants {
         21, 22, 23, 24, 25, 26, 27, 28,
         11, 12, 13, 14, 15, 16, 17, 18
     );
-
-    /** Beat span of one column at the given note denominator (1/4 = 1 beat). */
-    public static double beatsPerStep(int denominator) {
-        return 4.0 / denominator;
-    }
-
-    /**
-     * How many horizontal pages the fixed read window splits into at the given
-     * resolution. The window holds {@link #READ_STEPS} fine steps; a page covers
-     * {@link #GRID_COLS} columns, each spanning several fine steps.
-     */
-    public static int totalPages(int denominator) {
-        int fineStepsPerColumn = (int) Math.round(beatsPerStep(denominator) / FINE_STEP_BEATS);
-        int fineStepsPerPage = GRID_COLS * fineStepsPerColumn;
-        return Math.max(1, (READ_STEPS + fineStepsPerPage - 1) / fineStepsPerPage);
-    }
-
-    /** MIDI key for a grid row; the bottom row is C1, ascending upward. */
-    public static int keyForRow(int row) {
-        return BASE_KEY + (GRID_ROWS - 1 - row);
-    }
 }

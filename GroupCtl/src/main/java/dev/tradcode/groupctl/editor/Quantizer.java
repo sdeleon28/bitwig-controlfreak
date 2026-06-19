@@ -8,11 +8,11 @@ import java.util.List;
 public class Quantizer {
 
     public List<EditorSlot> apply(List<EditorNote> notes, int denominator, boolean exists, int page) {
-        double beatsPerStep = EditorConstants.beatsPerStep(denominator);
+        double beatsPerStep = GridGeometry.beatsPerStep(denominator);
         int firstCol = page * EditorConstants.GRID_COLS;
         List<EditorSlot> slots = new ArrayList<>(EditorConstants.PAGE_SIZE);
         for (int row = 0; row < EditorConstants.GRID_ROWS; row++) {
-            int key = EditorConstants.keyForRow(row);
+            int key = GridGeometry.keyForRow(row);
             for (int col = 0; col < EditorConstants.GRID_COLS; col++) {
                 double startBeat = (firstCol + col) * beatsPerStep;
                 double endBeat = startBeat + beatsPerStep;

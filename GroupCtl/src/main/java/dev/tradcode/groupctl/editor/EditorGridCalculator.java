@@ -22,6 +22,7 @@ public class EditorGridCalculator implements IEventBusSubscriber {
     boolean exists = false;
     List<EditorNote> notes = new ArrayList<>();
     int denominator = EditorConstants.DEFAULT_DENOMINATOR;
+    double lengthBeats = EditorConstants.READ_BEATS;
     int page = 0;
     boolean pageActive = false;
 
@@ -33,7 +34,7 @@ public class EditorGridCalculator implements IEventBusSubscriber {
     private void recompute() {
         if (!this.pageActive)
             return;
-        int totalPages = EditorConstants.totalPages(this.denominator);
+        int totalPages = GridGeometry.totalPages(this.denominator, this.lengthBeats);
         this.page = Math.min(Math.max(this.page, 0), totalPages - 1);
         List<EditorSlot> slots = this.quantizer.apply(this.notes, this.denominator, this.exists, this.page);
         this.bus.send(
@@ -44,8 +45,9 @@ public class EditorGridCalculator implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
-            case EditorClipChanged(boolean exists, var notes) -> {
+            case EditorClipChanged(boolean exists, double lengthBeats, var notes) -> {
                 this.exists = exists;
+                this.lengthBeats = lengthBeats;
                 this.notes = notes;
                 this.recompute();
             }

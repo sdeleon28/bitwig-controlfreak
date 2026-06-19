@@ -21,6 +21,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
     Clip clip;
     boolean[][] onsets = new boolean[EditorConstants.READ_STEPS][EditorConstants.GRID_ROWS];
     boolean exists = false;
+    double lengthBeats = EditorConstants.READ_BEATS;
     boolean dirty = false;
 
     protected BitwigEditorClipTracker(IEventBus bus, ControllerHost host) {
@@ -36,6 +37,10 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
         this.clip.scrollToKey(EditorConstants.BASE_KEY);
         this.clip.exists().addValueObserver(v -> {
             this.exists = v;
+            this.dirty = true;
+        });
+        this.clip.getLoopLength().addValueObserver(v -> {
+            this.lengthBeats = v;
             this.dirty = true;
         });
         this.clip.addNoteStepObserver(ns -> {
@@ -89,7 +94,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
                 if (this.onsets[x][y])
                     notes.add(new EditorNote(
                         EditorConstants.BASE_KEY + y, x * EditorConstants.FINE_STEP_BEATS));
-        this.bus.send(new EditorClipChanged(this.exists, notes));
+        this.bus.send(new EditorClipChanged(this.exists, this.lengthBeats, notes));
         this.dirty = false;
     }
 }

@@ -4,4 +4,4 @@ import dev.tradcode.groupctl.events.Event;
 
 import java.util.List;
 
-public record EditorClipChanged(boolean exists, List<EditorNote> notes) implements Event { }
+public record EditorClipChanged(boolean exists, double lengthBeats, List<EditorNote> notes) implements Event { }
