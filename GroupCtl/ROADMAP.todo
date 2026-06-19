@@ -121,7 +121,14 @@
 [X] reverse rows
 [X] pages
 [X] play / stop
+[-] holding pad for existing note should enable context-aware twister encoders
+    [-] velocity
+    [-] infrastructure ready for other values, nothing to implement for now
+    [-] if multiple notes, default the encoder to 127 and affect all
+    [-] gesture different from add / remove because of hold behavior
+    [-] single taps should still behave normally (add / remove)
 [ ] play note back on add
+[ ] growl resolution and page
 [ ] support 16 notes (two vertical pages)
 [ ] horizontal slice
 [ ] loop button
@@ -135,3 +142,8 @@
         [ ] backport into mixmachine
 [ ] change presets on the fly
 [ ] keep resolution across page changes
+[ ] midi editor vertical paging
+    [ ] make midi editor a 2 page long program
+    [ ] midi editor page 1 (global page 3) corresponds to the top part of the grid
+    [ ] midi editor page 2 (global page 4) corresponds to the bottom part (C1 is in the bottom row)
+    [ ] add scroll animation between midi editor pages (move notes one row by one row to indicate scrolling)
