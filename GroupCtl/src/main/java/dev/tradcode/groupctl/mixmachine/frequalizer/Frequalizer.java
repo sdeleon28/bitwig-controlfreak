@@ -8,6 +8,9 @@ public class Frequalizer {
     BitwigFrequalizerTracker tracker;
 
     public Frequalizer(IEventBus bus, ControllerHost host) {
+        // Activation
+        new FrequalizerActivationCtl(bus);
+
         // Calculation
         new FrequalizerCalculator(bus);
 

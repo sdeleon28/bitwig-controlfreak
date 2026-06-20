@@ -2,12 +2,14 @@ package dev.tradcode.groupctl.mixmachine.frequalizer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import dev.tradcode.groupctl.events.PadClicked;
+import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
 import dev.tradcode.groupctl.mixmachine.frequalizer.events.FrequalizerActivated;
 import dev.tradcode.groupctl.mixmachine.frequalizer.events.FrequalizerModePadsChanged;
@@ -85,6 +87,58 @@ class FrequalizerModeCtlTest {
         bus.send(new FrequalizerActivated(true));
         bus.send(new PadClicked(57)); // quadrant-local 3 — not a mode pad
         bus.send(new PadClicked(11)); // outside the quadrant entirely
+
+        assertNull(bus.last(RequestSetFrequalizerParam.class));
+    }
+
+    @Test
+    void doesNotPaintWhenNotOnTheFirstPage() {
+        FakeEventBus bus = new FakeEventBus();
+        new FrequalizerModeCtl(bus);
+
+        bus.send(new PageSelected(1));
+        bus.send(new FrequalizerModePadsChanged(List.of(new ModePadSlot(9, 21))));
+
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof PaintPad));
+    }
+
+    @Test
+    void repaintsCachedPadsWhenReturningToTheFirstPageWhileActive() {
+        FakeEventBus bus = new FakeEventBus();
+        new FrequalizerModeCtl(bus);
+
+        bus.send(new FrequalizerActivated(true));
+        bus.send(new FrequalizerModePadsChanged(List.of(new ModePadSlot(9, 21))));
+        bus.send(new PageSelected(1));
+        bus.clear();
+
+        bus.send(new PageSelected(0));
+
+        assertEquals(21, paintFor(bus, STEREO_PAD));
+    }
+
+    @Test
+    void doesNotRepaintWhenReturningToTheFirstPageWhileInactive() {
+        FakeEventBus bus = new FakeEventBus();
+        new FrequalizerModeCtl(bus);
+
+        bus.send(new FrequalizerModePadsChanged(List.of(new ModePadSlot(9, 21))));
+        bus.send(new PageSelected(1));
+        bus.clear();
+
+        bus.send(new PageSelected(0));
+
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof PaintPad));
+    }
+
+    @Test
+    void ignoresClicksWhenNotOnTheFirstPage() {
+        FakeEventBus bus = new FakeEventBus();
+        new FrequalizerModeCtl(bus);
+
+        bus.send(new FrequalizerActivated(true));
+        bus.send(new PageSelected(1));
+        bus.send(new PadClicked(STEREO_PAD));
 
         assertNull(bus.last(RequestSetFrequalizerParam.class));
     }

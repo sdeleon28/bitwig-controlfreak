@@ -168,10 +168,11 @@
 
 [X] write spec
 [X] rough-in
-[ ] BUG: frequalizer brought up by default when i select the track
-    [ ] what is making it detect selection?
-    [ ] selection should be detected when i explicitly press the device pad, not when i select the track
-    [ ] selecting the device when it's already pre-selected causes print bugs in top-right quadrant
+[X] BUG: frequalizer brought up by default when i select the track
+    [X] what is making it detect selection?
+    [X] selection should be detected when i explicitly press the device pad, not when i select the track
+    [X] selecting the device when it's already pre-selected causes print bugs in top-right quadrant
+    [X] frequalizer pad quadrant should only be active on the first page (mirror LaunchpadGroupCtl)
 [ ] remove direct ID references (use param indexes instead)
 
 ## ssl comp

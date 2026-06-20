@@ -100,6 +100,22 @@ class LaunchpadFxCtlTest {
     }
 
     @Test
+    void reSelectingAnotherDeviceDoesNotReclearTheYieldedQuadrant() {
+        // Once the FX pads have been handed over to the device/frequalizer
+        // controls, a second device selection must not blank the shared quadrant
+        // again — re-clearing would wipe whatever took it over.
+        FakeEventBus bus = new FakeEventBus();
+        withFx(bus);
+        bus.send(new BitwigTrackSelected(GROUP_ID));
+        bus.send(new RequestSelectDevice(0)); // hand over (clears once)
+        bus.events.clear();
+
+        bus.send(new RequestSelectDevice(1));
+
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof PaintPad));
+    }
+
+    @Test
     void selectingTrackAfterDeviceRelightsFxPads() {
         FakeEventBus bus = new FakeEventBus();
         withFx(bus);
