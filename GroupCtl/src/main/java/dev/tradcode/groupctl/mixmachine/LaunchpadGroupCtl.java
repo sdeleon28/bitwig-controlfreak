@@ -22,7 +22,7 @@ public class LaunchpadGroupCtl implements IEventBusSubscriber {
     IEventBus bus;
     ArrayList<BitwigTrack> schema = new ArrayList<>();
     int selectedGroupId = -1;
-    boolean pageActive = true; // TODO
+    boolean pageActive = true;
     Map<Integer, Integer> GLOBAL_TO_LOCAL = Map.ofEntries(
         // row 1
         Map.entry(15, 1),  Map.entry(16, 2),

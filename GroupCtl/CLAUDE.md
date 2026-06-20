@@ -48,6 +48,22 @@ Bitwig API or interacting directly with hardware devices.
 Assemble the dependency injection and bus interactions in a subsystem to make it
 easily pluggable into the extension.
 
+### Clearing hardware surfaces
+
+Never blank a shared surface (Launchpad, Twister, or any device) from inside a
+`Ctl` by emitting per-element "off" paints to hand the surface over. Driving
+elements dark from a `Ctl` that is yielding races the controller taking over:
+depending on subscriber order the clear can land *after* the new paint and wipe
+it. This is a recurring source of message-ordering bugs.
+
+A `Ctl` yields by ceasing to paint — nothing more. The surface is blanked with
+the broad `ClearLaunchpad` / `ClearTwister` events, emitted once by the
+coordinator that owns the transition (today the `Pager`, on page switch) and
+handled by the hardware wrapper. When state then changes, broadcast it and let
+each `Ctl` repaint from that broadcast; the incoming controller overwrites what
+the outgoing one left. Clearing your own region as the first step of painting
+*your own* content is fine — the rule is about blanking to yield.
+
 ## Testing
 
 Test behaviour through the event bus, the same way the rest of the system talks

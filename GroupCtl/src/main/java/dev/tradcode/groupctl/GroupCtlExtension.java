@@ -25,6 +25,7 @@ public class GroupCtlExtension extends ControllerExtension
    Explorer explorer;
    Editor editor;
    MixMachine mixMachine;
+   PluginLogger pluginLogger;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
    {
@@ -44,6 +45,7 @@ public class GroupCtlExtension extends ControllerExtension
 
       eventBus = new EventBus();
       logger = new Logger(eventBus, host);
+      pluginLogger = new PluginLogger(eventBus, host);
       twisterIn = new TwisterInput(eventBus, host.getMidiInPort(1));
       twisterOut = new TwisterOutput(eventBus, host.getMidiOutPort(1));
       growler = new Growler(eventBus, host);
@@ -71,6 +73,7 @@ public class GroupCtlExtension extends ControllerExtension
        explorer.flush();
        editor.flush();
        mixMachine.flush();
+       pluginLogger.flush();
    }
 
    /** Called when we receive short MIDI message on port 0. */

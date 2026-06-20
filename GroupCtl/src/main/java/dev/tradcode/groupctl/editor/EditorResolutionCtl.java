@@ -61,15 +61,14 @@ public class EditorResolutionCtl implements IEventBusSubscriber {
                 // TODO: resolution should just be persistent
                 boolean wasActive = this.pageActive;
                 this.pageActive = Page.isEditorPage(n);
-                if (this.pageActive) {
-                    // Fresh view when the editor opens, but the resolution rides
-                    // along when hopping between the two editor pages.
-                    if (!wasActive) {
-                        this.denominator = EditorConstants.DEFAULT_DENOMINATOR;
-                        this.bus.send(new EditorResolutionChanged(this.denominator));
-                    }
-                    this.paint();
+                if (!this.pageActive) return;
+                // Fresh view when the editor opens, but the resolution rides
+                // along when hopping between the two editor pages.
+                if (!wasActive) {
+                    this.denominator = EditorConstants.DEFAULT_DENOMINATOR;
+                    this.bus.send(new EditorResolutionChanged(this.denominator));
                 }
+                this.paint();
             }
             default -> { }
         }

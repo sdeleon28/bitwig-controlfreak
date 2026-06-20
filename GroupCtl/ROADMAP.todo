@@ -137,14 +137,22 @@
 [X] support 16 notes (two vertical pages)
 [ ] horizontal slice
 [ ] loop button
+    [ ] map to user 2
+    [ ] set loop region to currently selected item
+    [ ] force loop on
 [ ] metronome button
-[ ] playhead?
-[ ] when i create a note, bring up the note device
-    [ ] auto-expand RCs
-    [ ] map RCs to twister
-        [ ] map second page to top encoders
-        [ ] pressing one of the encoders reveals the page in UI
-        [ ] backport into mixmachine
+[ ] playhead
+[ ] expand note context feature set
+    [ ] top 2 rows should map to RCs
+    [ ] bottom note controls
+        [ ] velocity
+        [ ] release velocity
+        [ ] timbre
+        [ ] pressure
+        [ ] gain
+        [ ] pan
+        [ ] humanize velocity amount
+            [ ] should work for multi-select
 [ ] change presets on the fly
 [ ] keep resolution across page changes
 [X] midi editor vertical paging
@@ -152,9 +160,26 @@
     [X] midi editor page 1 (global page 3) corresponds to the top part of the grid
     [X] midi editor page 2 (global page 4) corresponds to the bottom part (C1 is in the bottom row)
     [X] add scroll animation between midi editor pages (move notes one row by one row to indicate scrolling)
-    [ ] go through TODOs (remove unnecessary state resets on page changes)
-[-] frequalizer
-    [X] write spec
-    [-] rough-in
-    [ ] remove direct ID references (use param indexes instead)
-[ ] explore increased resolution by using relative mode encoders
+    [-] go through TODOs (remove unnecessary state resets on page changes)
+[ ] midi editor horizontal paging
+    [ ] mirror vertical paging animation
+
+# frequalizer
+
+[X] write spec
+[X] rough-in
+[ ] remove direct ID references (use param indexes instead)
+
+## ssl comp
+
+[-] write spec
+    [-] mirror frequalizer
+[ ] rough-in
+    [ ] mirror frequalizer
+[ ] remove direct ID references (use param indexes instead)
+
+## backlog
+
+[ ] lowest priority: explore increased resolution by using relative mode encoders
+    -> this will probably need specific tuning for specific params and will require a full
+       system refactor, so let's ignore it until there are no features left to implement
