@@ -152,3 +152,9 @@
     [X] midi editor page 1 (global page 3) corresponds to the top part of the grid
     [X] midi editor page 2 (global page 4) corresponds to the bottom part (C1 is in the bottom row)
     [X] add scroll animation between midi editor pages (move notes one row by one row to indicate scrolling)
+    [ ] go through TODOs (remove unnecessary state resets on page changes)
+[-] frequalizer
+    [X] write spec
+    [-] rough-in
+    [ ] remove direct ID references (use param indexes instead)
+[ ] explore increased resolution by using relative mode encoders
