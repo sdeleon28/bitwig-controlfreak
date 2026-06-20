@@ -1,6 +1,8 @@
 package dev.tradcode.groupctl.editor;
 
+import dev.tradcode.groupctl.editor.events.EditorPagerMode;
 import dev.tradcode.groupctl.editor.events.PlaybackUpdate;
+import dev.tradcode.groupctl.editor.events.RequestEditorSideRepaint;
 import dev.tradcode.groupctl.editor.events.RequestStartPlayback;
 import dev.tradcode.groupctl.editor.events.RequestStopPlayback;
 
@@ -18,6 +20,7 @@ public class PlaybackHandler implements IEventBusSubscriber {
     IEventBus bus;
     boolean pageActive = false;
     boolean isPlaying = false;
+    boolean mode = false;
 
     public PlaybackHandler(IEventBus bus) {
         this.bus = bus;
@@ -37,13 +40,17 @@ public class PlaybackHandler implements IEventBusSubscriber {
         switch (event) {
             case PageSelected(int n) -> {
                 this.pageActive = Page.isEditorPage(n);
+                this.mode = false;
                 this.paint();
             }
             case PlaybackUpdate(boolean isPlaying) -> {
                 this.isPlaying = isPlaying;
-                this.paint();
+                if (!this.mode)
+                    this.paint();
             }
-            case SideButtonClick(var btn) when this.pageActive && btn == SideButton.STOP -> {
+            case EditorPagerMode(boolean active) -> this.mode = active;
+            case RequestEditorSideRepaint() -> this.paint();
+            case SideButtonClick(var btn) when this.pageActive && !this.mode && btn == SideButton.STOP -> {
                 if (this.isPlaying)
                     this.bus.send(new RequestStopPlayback());
                 else

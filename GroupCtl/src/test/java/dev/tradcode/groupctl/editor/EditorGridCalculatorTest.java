@@ -1,12 +1,11 @@
 package dev.tradcode.groupctl.editor;
 
 import dev.tradcode.groupctl.editor.events.EditorClipChanged;
+import dev.tradcode.groupctl.editor.events.EditorColumnOffsetChanged;
 import dev.tradcode.groupctl.editor.events.EditorGridChanged;
 import dev.tradcode.groupctl.editor.events.EditorKeyOffsetChanged;
 import dev.tradcode.groupctl.editor.events.EditorNote;
-import dev.tradcode.groupctl.editor.events.EditorPageChanged;
 import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
-import dev.tradcode.groupctl.editor.events.RequestEditorPage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -81,124 +80,19 @@ class EditorGridCalculatorTest {
     }
 
     @Test
-    void reportsTheTotalPageCountForTheResolution() {
+    void windowsOntoLaterBeatsAtAColumnOffset() {
         FakeEventBus bus = new FakeEventBus();
         new EditorGridCalculator(bus);
 
-        bus.send(new PageSelected(EDITOR)); // 1/8 -> 2 pages
-        assertEquals(2, bus.last(EditorPageChanged.class).totalPages());
-
-        bus.send(new EditorResolutionChanged(4)); // 1/4 -> 1 page
-        assertEquals(1, bus.last(EditorPageChanged.class).totalPages());
-
-        bus.send(new EditorResolutionChanged(32)); // 1/32 -> 8 pages
-        assertEquals(8, bus.last(EditorPageChanged.class).totalPages());
-    }
-
-    @Test
-    void boundsThePageCountToTheClipLength() {
-        FakeEventBus bus = new FakeEventBus();
-        new EditorGridCalculator(bus);
-
-        bus.send(new PageSelected(EDITOR));                       // 1/8 -> 2 pages over the read window
-        bus.send(new EditorClipChanged(true, 2.0, List.of()));    // a 2-beat clip fits in one 4-beat page
-        assertEquals(1, bus.last(EditorPageChanged.class).totalPages());
-    }
-
-    @Test
-    void keepsTheClipBoundWhenZoomingIn() {
-        FakeEventBus bus = new FakeEventBus();
-        new EditorGridCalculator(bus);
-
-        bus.send(new PageSelected(EDITOR));
-        bus.send(new EditorClipChanged(true, 2.0, List.of()));
-        bus.send(new EditorResolutionChanged(16));     // read window alone would offer 4 pages
-        assertEquals(1, bus.last(EditorPageChanged.class).totalPages());
-    }
-
-    @Test
-    void cannotPageBeyondAShortClip() {
-        FakeEventBus bus = new FakeEventBus();
-        new EditorGridCalculator(bus);
-
-        bus.send(new PageSelected(EDITOR));
-        bus.send(new EditorClipChanged(true, 2.0, List.of()));   // single page
-        bus.send(new RequestEditorPage(1));
-        assertEquals(0, bus.last(EditorPageChanged.class).page());
-    }
-
-    @Test
-    void clampsThePageWhenTheClipShrinks() {
-        FakeEventBus bus = new FakeEventBus();
-        new EditorGridCalculator(bus);
-
-        bus.send(new PageSelected(EDITOR));
-        bus.send(new EditorResolutionChanged(32));     // 8 pages over the read window
-        bus.send(new RequestEditorPage(7));            // last page
-        assertEquals(7, bus.last(EditorPageChanged.class).page());
-
-        bus.send(new EditorClipChanged(true, 1.0, List.of()));   // 1-beat clip -> one page
-        assertEquals(0, bus.last(EditorPageChanged.class).page());
-        assertEquals(1, bus.last(EditorPageChanged.class).totalPages());
-    }
-
-    @Test
-    void pagingWindowsOntoLaterBeatsOfTheClip() {
-        FakeEventBus bus = new FakeEventBus();
-        new EditorGridCalculator(bus);
-
-        bus.send(new PageSelected(EDITOR)); // 1/8, page 0 covers [0, 4)
+        bus.send(new PageSelected(EDITOR)); // 1/8, the first window covers [0, 4)
         bus.send(new EditorClipChanged(true, FULL, List.of(new EditorNote(36, 4.5))));
-        // The onset sits beyond the first page, so nothing lights up yet.
+        // The onset sits beyond the first window, so nothing lights up yet.
         for (var slot : bus.last(EditorGridChanged.class).slots())
             assertFalse(slot.lit());
 
-        bus.send(new RequestEditorPage(1)); // page 1 covers [4, 8)
-        assertEquals(1, bus.last(EditorPageChanged.class).page());
+        bus.send(new EditorColumnOffsetChanged(EditorConstants.GRID_COLS)); // window onto [4, 8)
         assertFalse(bus.last(EditorGridChanged.class).slots().get(56).lit()); // [4.0, 4.5)
         assertTrue(bus.last(EditorGridChanged.class).slots().get(57).lit());  // [4.5, 5.0)
-    }
-
-    @Test
-    void clampsPagingToTheAvailableRange() {
-        FakeEventBus bus = new FakeEventBus();
-        new EditorGridCalculator(bus);
-
-        bus.send(new PageSelected(EDITOR)); // 1/8 -> 2 pages (0..1)
-
-        bus.send(new RequestEditorPage(-1)); // can't go before the first page
-        assertEquals(0, bus.last(EditorPageChanged.class).page());
-
-        bus.send(new RequestEditorPage(5)); // can't go past the last page
-        assertEquals(1, bus.last(EditorPageChanged.class).page());
-    }
-
-    @Test
-    void clampsThePageWhenResolutionCoarsens() {
-        FakeEventBus bus = new FakeEventBus();
-        new EditorGridCalculator(bus);
-
-        bus.send(new PageSelected(EDITOR));
-        bus.send(new EditorResolutionChanged(16)); // 4 pages
-        bus.send(new RequestEditorPage(3));         // last page
-        assertEquals(3, bus.last(EditorPageChanged.class).page());
-
-        bus.send(new EditorResolutionChanged(4));   // 1 page -> clamp to 0
-        assertEquals(0, bus.last(EditorPageChanged.class).page());
-    }
-
-    @Test
-    void keepsTheHorizontalPageOnReentry() {
-        FakeEventBus bus = new FakeEventBus();
-        new EditorGridCalculator(bus);
-
-        bus.send(new PageSelected(EDITOR));
-        bus.send(new RequestEditorPage(1));
-        assertEquals(1, bus.last(EditorPageChanged.class).page());
-
-        bus.send(new PageSelected(0));
-        bus.send(new PageSelected(EDITOR));
-        assertEquals(1, bus.last(EditorPageChanged.class).page());
     }
 
     @Test
@@ -215,19 +109,6 @@ class EditorGridCalculatorTest {
         bus.send(new EditorKeyOffsetChanged(EditorConstants.MAX_KEY_OFFSET));
         // The high window drops key 44 onto the bottom-left pad.
         assertTrue(bus.last(EditorGridChanged.class).slots().get(56).lit());
-    }
-
-    @Test
-    void keepsTheHorizontalPageWhenHoppingBetweenEditorPages() {
-        FakeEventBus bus = new FakeEventBus();
-        new EditorGridCalculator(bus);
-
-        bus.send(new PageSelected(EDITOR));
-        bus.send(new RequestEditorPage(1));
-        assertEquals(1, bus.last(EditorPageChanged.class).page());
-
-        bus.send(new PageSelected(EditorConstants.PAGE_INDEX_BOTTOM));
-        assertEquals(1, bus.last(EditorPageChanged.class).page());
     }
 
     @Test

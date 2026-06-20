@@ -22,7 +22,9 @@ public class Editor {
         // Input controllers
         new EditorResolutionCtl(bus);
         new EditorPageCtl(bus);
+        new EditorSidePagerCtl(bus, scheduler);
         new EditorVerticalPager(bus, scheduler);
+        new EditorHorizontalPager(bus, scheduler);
         new EditorNoteHandler(bus);
         new PadContextCtl(bus);
         new TwisterMidiContextCtl(bus);

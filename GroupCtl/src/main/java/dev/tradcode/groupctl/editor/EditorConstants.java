@@ -46,6 +46,9 @@ public final class EditorConstants {
     public static final int DEFAULT_DENOMINATOR = 8;    // 1/8
     public static final List<Integer> DENOMINATORS = List.of(4, 8, 16, 32);
 
+    /** Per-step delay of the horizontal/vertical scroll animations. */
+    public static final long SCROLL_STEP_MS = 22;
+
     public static final List<Integer> PADS = List.of(
         81, 82, 83, 84, 85, 86, 87, 88,
         71, 72, 73, 74, 75, 76, 77, 78,

@@ -7,14 +7,14 @@ import java.util.List;
 
 public class Quantizer {
 
-    public List<EditorSlot> apply(List<EditorNote> notes, int denominator, boolean exists, int page) {
-        return apply(notes, denominator, exists, page, 0);
+    public List<EditorSlot> apply(List<EditorNote> notes, int denominator, boolean exists, int colOffset) {
+        return apply(notes, denominator, exists, colOffset, 0);
     }
 
     public List<EditorSlot> apply(List<EditorNote> notes, int denominator, boolean exists,
-                                  int page, int keyOffset) {
+                                  int colOffset, int keyOffset) {
         double beatsPerStep = GridGeometry.beatsPerStep(denominator);
-        int firstCol = page * EditorConstants.GRID_COLS;
+        int firstCol = colOffset;
         List<EditorSlot> slots = new ArrayList<>(EditorConstants.PAGE_SIZE);
         for (int row = 0; row < EditorConstants.GRID_ROWS; row++) {
             int key = GridGeometry.keyForRow(row, keyOffset);

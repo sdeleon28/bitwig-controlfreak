@@ -6,6 +6,7 @@ import java.util.List;
 import com.bitwig.extension.controller.api.MidiOut;
 
 import dev.tradcode.groupctl.events.BlinkPad;
+import dev.tradcode.groupctl.events.BlinkTopButton;
 import dev.tradcode.groupctl.events.ClearLaunchpad;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
@@ -34,6 +35,7 @@ public class LaunchpadOutput implements IEventBusSubscriber {
     static int CH_FLASH = 0x91;
     static int CH_PULSE = 0x92;
     static int CC_BYTE = 0xB0;
+    static int CC_FLASH = 0xB1;
 
     public LaunchpadOutput(IEventBus bus, MidiOut out) {
         this.bus = bus;
@@ -48,6 +50,9 @@ public class LaunchpadOutput implements IEventBusSubscriber {
             case BlinkPad(int n, int color) -> this.blinkPad(n, color);
             case PaintTopButton(TopButton btn, int color) -> {
                 this.paintTopButton(btn.getValue(), color);
+            }
+            case BlinkTopButton(TopButton btn, int color) -> {
+                this.blinkTopButton(btn.getValue(), color);
             }
             case PaintSideButton(SideButton btn, int color) -> {
                 this.paintSideButton(btn.getValue(), color);
@@ -68,6 +73,11 @@ public class LaunchpadOutput implements IEventBusSubscriber {
 
     public void paintTopButton(int cc, int color) {
         out.sendMidi(CC_BYTE, cc, color);
+    }
+
+    public void blinkTopButton(int cc, int color) {
+        out.sendMidi(CC_BYTE, cc, 0);
+        out.sendMidi(CC_FLASH, cc, color);
     }
 
     public void paintSideButton(int n, int color) {

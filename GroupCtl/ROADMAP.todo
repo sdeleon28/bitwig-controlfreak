@@ -161,8 +161,12 @@
     [X] midi editor page 2 (global page 4) corresponds to the bottom part (C1 is in the bottom row)
     [X] add scroll animation between midi editor pages (move notes one row by one row to indicate scrolling)
     [X] go through TODOs (remove unnecessary state resets on page and resolution changes)
-[ ] midi editor horizontal paging
-    [ ] mirror vertical paging animation
+[X] midi editor horizontal paging (see Advanced Paging in SPEC.md)
+    [X] scroll animation between horizontal pages (mirror the vertical pager)
+    [X] page change on arrow button-up; both arrows together arm pager mode
+    [X] side buttons flash the page count + current page on page / resolution change
+    [X] pager mode: side buttons blink as a tappable page picker, arrows flash
+    [X] exit pager mode by tapping a page or an arrow
 
 # frequalizer
 
@@ -177,8 +181,9 @@
 
 ## ssl comp
 
-[-] write spec
-    [-] mirror frequalizer
+[ ] figure out param structure
+[ ] write spec
+    [ ] mirror frequalizer
 [ ] rough-in
     [ ] mirror frequalizer
 [ ] remove direct ID references (use param indexes instead)

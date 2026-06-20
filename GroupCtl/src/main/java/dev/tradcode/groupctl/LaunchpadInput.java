@@ -19,6 +19,7 @@ import dev.tradcode.groupctl.events.SideButtonClick;
 import dev.tradcode.groupctl.events.SideButtonLongPressed;
 import dev.tradcode.groupctl.events.TopButton;
 import dev.tradcode.groupctl.events.TopButtonClick;
+import dev.tradcode.groupctl.events.TopButtonReleased;
 
 public class LaunchpadInput {
     static List<Integer> PADS = Arrays.asList(
@@ -76,36 +77,30 @@ public class LaunchpadInput {
         });
     }
 
-    private void topButtonUp(int n) {
+    private TopButton topButtonFor(int n) {
+        return switch (n) {
+            case 104 -> TopButton.UP;
+            case 105 -> TopButton.DOWN;
+            case 106 -> TopButton.LEFT;
+            case 107 -> TopButton.RIGHT;
+            case 108 -> TopButton.SESSION;
+            case 109 -> TopButton.USER_1;
+            case 110 -> TopButton.USER_2;
+            case 111 -> TopButton.MIXER;
+            default -> null;
+        };
     }
-    
+
+    private void topButtonUp(int n) {
+        TopButton btn = this.topButtonFor(n);
+        if (btn != null)
+            this.bus.send(new TopButtonReleased(btn));
+    }
+
     private void topButtonDown(int n) {
-        switch (n) {
-            case 104:
-                this.bus.send(new TopButtonClick(TopButton.UP));
-                break;
-            case 105:
-                this.bus.send(new TopButtonClick(TopButton.DOWN));
-                break;
-            case 106:
-                this.bus.send(new TopButtonClick(TopButton.LEFT));
-                break;
-            case 107:
-                this.bus.send(new TopButtonClick(TopButton.RIGHT));
-                break;
-            case 108:
-                this.bus.send(new TopButtonClick(TopButton.SESSION));
-                break;
-            case 109:
-                this.bus.send(new TopButtonClick(TopButton.USER_1));
-                break;
-            case 110:
-                this.bus.send(new TopButtonClick(TopButton.USER_2));
-                break;
-            case 111:
-                this.bus.send(new TopButtonClick(TopButton.MIXER));
-                break;
-        }
+        TopButton btn = this.topButtonFor(n);
+        if (btn != null)
+            this.bus.send(new TopButtonClick(btn));
     }
 
     private SideButton sideButtonFor(int n) {
