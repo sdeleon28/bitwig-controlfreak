@@ -7,6 +7,7 @@ import dev.tradcode.groupctl.editor.events.EditorKeyOffsetChanged;
 import dev.tradcode.groupctl.editor.events.EditorNote;
 import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
 import dev.tradcode.groupctl.editor.events.EditorSlot;
+import dev.tradcode.groupctl.editor.events.RequestEditorGridRepaint;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,6 +60,7 @@ public class EditorGridCalculator implements IEventBusSubscriber {
                 this.keyOffset = keyOffset;
                 this.recompute();
             }
+            case RequestEditorGridRepaint() -> this.recompute();
             case PageSelected(int n) -> {
                 this.pageActive = Page.isEditorPage(n);
                 this.recompute();

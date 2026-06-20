@@ -1,6 +1,7 @@
 package dev.tradcode.groupctl.editor;
 
 import dev.tradcode.groupctl.editor.events.EditorGridChanged;
+import dev.tradcode.groupctl.editor.events.EditorPagerMode;
 import dev.tradcode.groupctl.editor.events.EditorSlot;
 import dev.tradcode.groupctl.editor.events.RequestClearNotes;
 import dev.tradcode.groupctl.editor.events.RequestSetNote;
@@ -18,6 +19,7 @@ public class EditorNoteHandler implements IEventBusSubscriber {
     IEventBus bus;
     boolean pageActive = false;
     boolean clipExists = false;
+    boolean pagerMode = false;
     List<EditorSlot> grid = new ArrayList<>();
 
     public EditorNoteHandler(IEventBus bus) {
@@ -43,7 +45,8 @@ public class EditorNoteHandler implements IEventBusSubscriber {
                 this.grid = slots;
                 this.clipExists = clipExists;
             }
-            case PadClicked(int n) when this.pageActive && this.clipExists ->
+            case EditorPagerMode(boolean active) -> this.pagerMode = active;
+            case PadClicked(int n) when this.pageActive && this.clipExists && !this.pagerMode ->
                 this.handlePad(n);
             default -> { }
         }

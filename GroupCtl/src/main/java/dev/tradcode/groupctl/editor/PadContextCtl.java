@@ -1,6 +1,7 @@
 package dev.tradcode.groupctl.editor;
 
 import dev.tradcode.groupctl.editor.events.EditorGridChanged;
+import dev.tradcode.groupctl.editor.events.EditorPagerMode;
 import dev.tradcode.groupctl.editor.events.EditorSlot;
 import dev.tradcode.groupctl.editor.events.NoteCell;
 import dev.tradcode.groupctl.editor.events.RequestEndNoteContext;
@@ -30,6 +31,7 @@ public class PadContextCtl implements IEventBusSubscriber {
     IEventBus bus;
     boolean pageActive = false;
     boolean clipExists = false;
+    boolean pagerMode = false;
     List<EditorSlot> grid = new ArrayList<>();
     Set<Integer> heldNotes = new LinkedHashSet<>();
 
@@ -99,7 +101,14 @@ public class PadContextCtl implements IEventBusSubscriber {
                 if (dropped)
                     this.emitContext();
             }
-            case PadLongPressStarted(int n) when this.pageActive && this.clipExists ->
+            case EditorPagerMode(boolean active) -> {
+                this.pagerMode = active;
+                if (active && !this.heldNotes.isEmpty()) {
+                    this.heldNotes.clear();
+                    this.emitContext();
+                }
+            }
+            case PadLongPressStarted(int n) when this.pageActive && this.clipExists && !this.pagerMode ->
                 this.hold(n);
             case PadLongPressed(int n) when this.pageActive ->
                 this.release(n);

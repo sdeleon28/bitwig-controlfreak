@@ -65,14 +65,14 @@ class EditorHorizontalPagerTest {
         FakeEventBus bus = new FakeEventBus();
         pager(bus, new RecordingScheduler());
 
-        bus.send(new PageSelected(EDITOR));            // 1/8 -> 2 pages
-        assertEquals(2, lastTotal(bus));
+        bus.send(new PageSelected(EDITOR));            // 1/8 -> 16 pages over the 64-beat window
+        assertEquals(16, lastTotal(bus));
 
-        bus.send(new EditorResolutionChanged(4));      // 1/4 -> 1 page
-        assertEquals(1, lastTotal(bus));
-
-        bus.send(new EditorResolutionChanged(32));     // 1/32 -> 8 pages
+        bus.send(new EditorResolutionChanged(4));      // 1/4 -> 8 pages
         assertEquals(8, lastTotal(bus));
+
+        bus.send(new EditorResolutionChanged(32));     // 1/32 -> 64 pages
+        assertEquals(64, lastTotal(bus));
     }
 
     @Test
@@ -127,13 +127,13 @@ class EditorHorizontalPagerTest {
         FakeEventBus bus = new FakeEventBus();
         pager(bus, new RecordingScheduler());
 
-        bus.send(new PageSelected(EDITOR)); // 1/8 -> 2 pages (0..1)
+        bus.send(new PageSelected(EDITOR)); // 1/8 -> 16 pages (0..15)
 
         bus.send(new RequestEditorPage(-1)); // can't go before the first page
         assertEquals(0, lastPage(bus));
 
-        bus.send(new RequestEditorPage(5)); // can't go past the last page
-        assertEquals(1, lastPage(bus));
+        bus.send(new RequestEditorPage(50)); // can't go past the last page
+        assertEquals(15, lastPage(bus));
     }
 
     @Test
@@ -142,12 +142,12 @@ class EditorHorizontalPagerTest {
         pager(bus, new RecordingScheduler());
 
         bus.send(new PageSelected(EDITOR));
-        bus.send(new EditorResolutionChanged(16)); // 4 pages
-        bus.send(new RequestEditorPage(3));        // last page
-        assertEquals(3, lastPage(bus));
+        bus.send(new EditorResolutionChanged(32)); // 64 pages
+        bus.send(new RequestEditorPage(63));       // last page
+        assertEquals(63, lastPage(bus));
 
-        bus.send(new EditorResolutionChanged(4));  // 1 page -> clamp to 0
-        assertEquals(0, lastPage(bus));
+        bus.send(new EditorResolutionChanged(4));  // 8 pages -> clamp to 7
+        assertEquals(7, lastPage(bus));
     }
 
     @Test

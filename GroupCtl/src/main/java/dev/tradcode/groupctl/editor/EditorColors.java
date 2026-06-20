@@ -10,7 +10,7 @@ public final class EditorColors {
     public static final int STOP_COLOR = 7;        // dim red, blinks while playing (mirrors explorer)
     public static final int VELOCITY_ENCODER_COLOR = 64; // twister green, marks the armed velocity encoder
 
-    public static final int PAGE_DOT = 49;         // purple: a page slot on the side-button indicator
-    public static final int PAGE_DOT_CURRENT = 3;  // white: the current page on the side-button indicator
+    public static final int PAGE_DOT = 49;         // purple: a reachable page on the grid page picker
+    public static final int PAGE_DOT_CURRENT = 3;  // white: the current page on the grid page picker
     public static final int PAGER_ARROW = 49;      // purple: left/right arrows flashing in pager mode
 }

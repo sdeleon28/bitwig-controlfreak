@@ -137,12 +137,6 @@
 [ ] growl resolution and page
 [X] support 16 notes (two vertical pages)
 [ ] horizontal slice
-[ ] loop button
-    [ ] map to user 2
-    [ ] set loop region to currently selected item
-    [ ] force loop on
-[ ] metronome button
-[ ] playhead
 [ ] expand note context feature set
     [ ] top 2 rows should map to RCs
     [ ] bottom note controls
@@ -163,11 +157,20 @@
     [X] add scroll animation between midi editor pages (move notes one row by one row to indicate scrolling)
     [X] go through TODOs (remove unnecessary state resets on page and resolution changes)
 [X] midi editor horizontal paging (see Advanced Paging in SPEC.md)
-    [X] scroll animation between horizontal pages (mirror the vertical pager)
-    [X] page change on arrow button-up; both arrows together arm pager mode
-    [X] side buttons flash the page count + current page on page / resolution change
-    [X] pager mode: side buttons blink as a tappable page picker, arrows flash
-    [X] exit pager mode by tapping a page or an arrow
+    [X] replaced with grid-based paging
+[ ] resolution change changes bitwig resolution to match
+[ ] playhead feedback UI
+[ ] selecting page moves the playhead
+[ ] loop buttons
+    [ ] user 2
+        [ ] set loop region to currently selected page
+        [ ] force loop on
+        [ ] pressing again starts
+    [ ] mixer
+        [ ] set loop region to currently selected item
+        [ ] force loop on
+        [ ] pressing again starts
+    [ ] move stop gesture to pressing both user 2 and mixer at the same time
 [ ] make it work for GGD
 
 # frequalizer

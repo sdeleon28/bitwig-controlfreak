@@ -1,6 +1,7 @@
 package dev.tradcode.groupctl.editor;
 
 import dev.tradcode.groupctl.editor.events.EditorGridChanged;
+import dev.tradcode.groupctl.editor.events.EditorPagerMode;
 import dev.tradcode.groupctl.editor.events.EditorSlot;
 import dev.tradcode.groupctl.editor.events.RequestEndNoteContext;
 import dev.tradcode.groupctl.editor.events.RequestNoteContext;
@@ -129,6 +130,29 @@ class PadContextCtlTest {
         )), true));
 
         assertEquals(EditorColors.ACTIVE_CONTEXT, padColor(bus, EditorConstants.PADS.get(0)));
+    }
+
+    @Test
+    void ignoresHoldsWhileInPagerMode() {
+        FakeEventBus bus = new FakeEventBus();
+        onEditor(bus, Map.of(0, new EditorSlot(true, 36, 0.0, 0.5, 0.6)));
+        bus.send(new EditorPagerMode(true)); // grid is now a page picker
+
+        bus.send(new PadLongPressStarted(EditorConstants.PADS.get(0)));
+
+        assertNull(bus.last(RequestNoteContext.class));
+    }
+
+    @Test
+    void enteringPagerModeReleasesAnyHeldContext() {
+        FakeEventBus bus = new FakeEventBus();
+        onEditor(bus, Map.of(0, new EditorSlot(true, 36, 0.0, 0.5, 0.6)));
+        bus.send(new PadLongPressStarted(EditorConstants.PADS.get(0)));
+        assertNotNull(bus.last(RequestNoteContext.class));
+
+        bus.send(new EditorPagerMode(true));
+
+        assertNotNull(bus.last(RequestEndNoteContext.class));
     }
 
     @Test

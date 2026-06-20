@@ -40,7 +40,7 @@ public final class EditorConstants {
      * quantizer can fold several raw onsets onto a single display pad.
      */
     public static final double FINE_STEP_BEATS = 0.125; // 1/32 note
-    public static final int READ_STEPS = 64;            // 8 beats of fine steps
+    public static final int READ_STEPS = 512;           // 64 beats (16 bars) of fine steps
     public static final double READ_BEATS = READ_STEPS * FINE_STEP_BEATS;
 
     public static final int DEFAULT_DENOMINATOR = 8;    // 1/8

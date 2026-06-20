@@ -31,18 +31,26 @@ class GridGeometryTest {
 
     @Test
     void aClipThatFillsTheReadWindowSplitsByResolution() {
-        double full = EditorConstants.READ_BEATS;
-        assertEquals(1, GridGeometry.totalPages(4, full));
-        assertEquals(2, GridGeometry.totalPages(8, full));
-        assertEquals(4, GridGeometry.totalPages(16, full));
-        assertEquals(8, GridGeometry.totalPages(32, full));
+        double full = EditorConstants.READ_BEATS; // 64 beats / 16 bars
+        assertEquals(8, GridGeometry.totalPages(4, full));
+        assertEquals(16, GridGeometry.totalPages(8, full));
+        assertEquals(32, GridGeometry.totalPages(16, full));
+        assertEquals(64, GridGeometry.totalPages(32, full));
     }
 
     @Test
-    void pageCountIsBoundedByTheClipLength() {
+    void pageCountFollowsTheClipLength() {
         assertEquals(1, GridGeometry.totalPages(8, 2.0));   // 2 beats fit one 4-beat page
-        assertEquals(1, GridGeometry.totalPages(16, 2.0));  // window alone would give 4
+        assertEquals(1, GridGeometry.totalPages(16, 2.0));  // 2 beats fit one 2-beat page
         assertEquals(2, GridGeometry.totalPages(32, 2.0));  // 1-beat pages -> 2 pages
+    }
+
+    @Test
+    void longClipsPageBeyondTheOldEightBeatWindow() {
+        // The regression: a 16-beat clip at 1/8 used to cap at 2 pages.
+        assertEquals(4, GridGeometry.totalPages(8, 16.0));
+        // A 4-bar clip at 1/16 spans 8 two-beat pages.
+        assertEquals(8, GridGeometry.totalPages(16, 16.0));
     }
 
     @Test
@@ -52,6 +60,6 @@ class GridGeometryTest {
 
     @Test
     void aClipLongerThanTheReadWindowIsCappedToWhatCanBeShown() {
-        assertEquals(2, GridGeometry.totalPages(8, 100.0));  // capped at the read window
+        assertEquals(16, GridGeometry.totalPages(8, 100.0));  // capped at the 64-beat read window
     }
 }
