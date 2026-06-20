@@ -68,13 +68,7 @@ public class EditorGridCalculator implements IEventBusSubscriber {
                 this.recompute();
             }
             case PageSelected(int n) -> {
-                boolean wasActive = this.pageActive;
                 this.pageActive = Page.isEditorPage(n);
-                // Horizontal scroll survives the vertical hop between editor pages,
-                // resetting only when the editor is opened afresh.
-                // TODO: no need for the reset
-                if (this.pageActive && !wasActive)
-                    this.page = 0;
                 this.recompute();
             }
             default -> { }

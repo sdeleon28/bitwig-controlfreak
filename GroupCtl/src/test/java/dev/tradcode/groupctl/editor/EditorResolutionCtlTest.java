@@ -31,10 +31,24 @@ class EditorResolutionCtlTest {
     }
 
     @Test
-    void resetsToDefaultAndEmitsOnEntry() {
+    void doesNotEmitOnEntry() {
         FakeEventBus bus = new FakeEventBus();
         new EditorResolutionCtl(bus);
         bus.send(new PageSelected(EDITOR));
+        assertNull(bus.last(EditorResolutionChanged.class));
+    }
+
+    @Test
+    void keepsResolutionAcrossPageChanges() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorResolutionCtl(bus);
+        bus.send(new PageSelected(EDITOR));
+        bus.send(new TopButtonClick(TopButton.SESSION)); // 1/8 -> 1/4 (coarsest)
+        assertEquals(4, bus.last(EditorResolutionChanged.class).denominator());
+
+        bus.send(new PageSelected(1));
+        bus.send(new PageSelected(EDITOR));
+        bus.send(new TopButtonClick(TopButton.USER_1)); // 1/4 -> 1/8
         assertEquals(8, bus.last(EditorResolutionChanged.class).denominator());
     }
 

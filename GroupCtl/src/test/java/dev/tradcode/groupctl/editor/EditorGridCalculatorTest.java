@@ -188,7 +188,7 @@ class EditorGridCalculatorTest {
     }
 
     @Test
-    void resetsToTheFirstPageOnReentry() {
+    void keepsTheHorizontalPageOnReentry() {
         FakeEventBus bus = new FakeEventBus();
         new EditorGridCalculator(bus);
 
@@ -198,7 +198,7 @@ class EditorGridCalculatorTest {
 
         bus.send(new PageSelected(0));
         bus.send(new PageSelected(EDITOR));
-        assertEquals(0, bus.last(EditorPageChanged.class).page());
+        assertEquals(1, bus.last(EditorPageChanged.class).page());
     }
 
     @Test
