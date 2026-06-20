@@ -7,6 +7,7 @@ import dev.tradcode.groupctl.editor.events.RequestSetNote;
 import java.util.ArrayList;
 import java.util.List;
 
+import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -37,7 +38,7 @@ public class EditorNoteHandler implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
-            case PageSelected(int n) -> this.pageActive = n == EditorConstants.PAGE_INDEX;
+            case PageSelected(int n) -> this.pageActive = Page.isEditorPage(n);
             case EditorGridChanged(var slots, var clipExists) -> {
                 this.grid = slots;
                 this.clipExists = clipExists;

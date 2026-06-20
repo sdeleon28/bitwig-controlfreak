@@ -35,7 +35,7 @@ public class TwisterDeviceCtl extends DeviceCtl {
     }
 
     private void onPageSelected(int n) {
-        this.editorPageActive = n == Page.EDITOR.getValue();
+        this.editorPageActive = Page.isEditorPage(n);
         if (!this.isActive()) return;
         this.paint();
         this.bus.send(new RequestInitRcs());

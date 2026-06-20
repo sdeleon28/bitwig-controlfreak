@@ -21,6 +21,15 @@ class GridGeometryTest {
     }
 
     @Test
+    void aKeyOffsetLiftsTheWholeWindowUpByThatManySemitones() {
+        // The top vertical page sits an octave above C1.
+        assertEquals(44, GridGeometry.keyForRow(7, EditorConstants.MAX_KEY_OFFSET));  // bottom row
+        assertEquals(51, GridGeometry.keyForRow(0, EditorConstants.MAX_KEY_OFFSET));  // top row
+        // A mid-scroll offset windows onto an overlapping band.
+        assertEquals(39, GridGeometry.keyForRow(7, 3));
+    }
+
+    @Test
     void aClipThatFillsTheReadWindowSplitsByResolution() {
         double full = EditorConstants.READ_BEATS;
         assertEquals(1, GridGeometry.totalPages(4, full));

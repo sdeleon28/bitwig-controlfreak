@@ -14,7 +14,15 @@ public final class GridGeometry {
 
     /** MIDI key for a grid row; the bottom row is C1, ascending upward. */
     public static int keyForRow(int row) {
-        return EditorConstants.BASE_KEY + (EditorConstants.GRID_ROWS - 1 - row);
+        return keyForRow(row, 0);
+    }
+
+    /**
+     * MIDI key for a grid row once the visible window is lifted by {@code keyOffset}
+     * semitones, the lever the vertical pages pull to show a higher octave.
+     */
+    public static int keyForRow(int row, int keyOffset) {
+        return EditorConstants.BASE_KEY + keyOffset + (EditorConstants.GRID_ROWS - 1 - row);
     }
 
     /**

@@ -7,6 +7,7 @@ import dev.tradcode.groupctl.editor.events.RequestSetVelocity;
 import java.util.List;
 
 import dev.tradcode.groupctl.events.EncoderTurned;
+import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -59,7 +60,7 @@ public class TwisterMidiContextCtl implements IEventBusSubscriber {
     public void on(Event event) {
         switch (event) {
             case PageSelected(int n) -> {
-                this.pageActive = n == EditorConstants.PAGE_INDEX;
+                this.pageActive = Page.isEditorPage(n);
                 if (!this.pageActive) {
                     this.active = false;
                     this.cells = List.of();

@@ -5,6 +5,7 @@ import dev.tradcode.groupctl.editor.events.RequestStartPlayback;
 import dev.tradcode.groupctl.editor.events.RequestStopPlayback;
 
 import dev.tradcode.groupctl.events.BlinkPad;
+import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -35,7 +36,7 @@ public class PlaybackHandler implements IEventBusSubscriber {
     public void on(Event event) {
         switch (event) {
             case PageSelected(int n) -> {
-                this.pageActive = n == EditorConstants.PAGE_INDEX;
+                this.pageActive = Page.isEditorPage(n);
                 this.paint();
             }
             case PlaybackUpdate(boolean isPlaying) -> {

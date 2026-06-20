@@ -2,6 +2,8 @@ package dev.tradcode.groupctl.editor;
 
 import com.bitwig.extension.controller.api.ControllerHost;
 
+import dev.tradcode.groupctl.BitwigScheduler;
+import dev.tradcode.groupctl.Scheduler;
 import dev.tradcode.groupctl.events.IEventBus;
 
 public class Editor {
@@ -9,6 +11,8 @@ public class Editor {
     BitwigPlaybackTracker playbackTracker;
 
     public Editor(IEventBus bus, ControllerHost host) {
+        Scheduler scheduler = new BitwigScheduler(host);
+
         // Calculation
         new EditorGridCalculator(bus);
 
@@ -18,6 +22,7 @@ public class Editor {
         // Input controllers
         new EditorResolutionCtl(bus);
         new EditorPageCtl(bus);
+        new EditorVerticalPager(bus, scheduler);
         new EditorNoteHandler(bus);
         new PadContextCtl(bus);
         new TwisterMidiContextCtl(bus);

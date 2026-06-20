@@ -2,14 +2,29 @@ package dev.tradcode.groupctl.editor;
 
 import java.util.List;
 
+import dev.tradcode.groupctl.Page;
+
 public final class EditorConstants {
     private EditorConstants() { }
 
-    public static final int PAGE_INDEX = 2;
+    /** Global page holding the editor's top (higher) octave of keys. */
+    public static final int PAGE_INDEX = Page.EDITOR.getValue();
+    /** Global page holding the editor's bottom octave, with C1 on the last row. */
+    public static final int PAGE_INDEX_BOTTOM = Page.EDITOR_BOTTOM.getValue();
 
     public static final int GRID_ROWS = 8;
     public static final int GRID_COLS = 8;
     public static final int PAGE_SIZE = GRID_ROWS * GRID_COLS;
+
+    /**
+     * The editor stacks two vertical pages, so the readable key span is twice the
+     * grid height. The bottom page shows {@code [BASE_KEY, BASE_KEY + GRID_ROWS)}
+     * and the top page the octave above it.
+     */
+    public static final int VERTICAL_PAGES = 2;
+    public static final int KEY_RANGE = GRID_ROWS * VERTICAL_PAGES;
+    /** Largest key offset: the top page's bottom row sits this far above C1. */
+    public static final int MAX_KEY_OFFSET = KEY_RANGE - GRID_ROWS;
 
     /**
      * C1 (the bottom row) is MIDI note 36 — the canonical kick-drum key for

@@ -2,6 +2,7 @@ package dev.tradcode.groupctl.editor;
 
 import dev.tradcode.groupctl.editor.events.EditorClipChanged;
 import dev.tradcode.groupctl.editor.events.EditorGridChanged;
+import dev.tradcode.groupctl.editor.events.EditorKeyOffsetChanged;
 import dev.tradcode.groupctl.editor.events.EditorNote;
 import dev.tradcode.groupctl.editor.events.EditorPageChanged;
 import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
@@ -198,6 +199,35 @@ class EditorGridCalculatorTest {
         bus.send(new PageSelected(0));
         bus.send(new PageSelected(EDITOR));
         assertEquals(0, bus.last(EditorPageChanged.class).page());
+    }
+
+    @Test
+    void windowsOntoTheHighOctaveAtAKeyOffset() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridCalculator(bus);
+
+        bus.send(new PageSelected(EDITOR));
+        bus.send(new EditorClipChanged(true, FULL, List.of(new EditorNote(44, 0.0))));
+        // The default window is the low octave [36, 44): key 44 sits off the top.
+        for (var slot : bus.last(EditorGridChanged.class).slots())
+            assertFalse(slot.lit());
+
+        bus.send(new EditorKeyOffsetChanged(EditorConstants.MAX_KEY_OFFSET));
+        // The high window drops key 44 onto the bottom-left pad.
+        assertTrue(bus.last(EditorGridChanged.class).slots().get(56).lit());
+    }
+
+    @Test
+    void keepsTheHorizontalPageWhenHoppingBetweenEditorPages() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridCalculator(bus);
+
+        bus.send(new PageSelected(EDITOR));
+        bus.send(new RequestEditorPage(1));
+        assertEquals(1, bus.last(EditorPageChanged.class).page());
+
+        bus.send(new PageSelected(EditorConstants.PAGE_INDEX_BOTTOM));
+        assertEquals(1, bus.last(EditorPageChanged.class).page());
     }
 
     @Test

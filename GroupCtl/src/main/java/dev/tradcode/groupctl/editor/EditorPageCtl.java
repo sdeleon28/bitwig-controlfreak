@@ -3,6 +3,7 @@ package dev.tradcode.groupctl.editor;
 import dev.tradcode.groupctl.editor.events.EditorPageChanged;
 import dev.tradcode.groupctl.editor.events.RequestEditorPage;
 
+import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -47,7 +48,7 @@ public class EditorPageCtl implements IEventBusSubscriber {
                 this.paint();
             }
             case PageSelected(int n) -> {
-                this.pageActive = n == EditorConstants.PAGE_INDEX;
+                this.pageActive = Page.isEditorPage(n);
                 this.paint();
             }
             default -> { }

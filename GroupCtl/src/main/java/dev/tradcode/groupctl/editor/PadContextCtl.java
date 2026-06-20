@@ -10,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -80,7 +81,7 @@ public class PadContextCtl implements IEventBusSubscriber {
     public void on(Event event) {
         switch (event) {
             case PageSelected(int n) -> {
-                this.pageActive = n == EditorConstants.PAGE_INDEX;
+                this.pageActive = Page.isEditorPage(n);
                 if (!this.pageActive)
                     this.heldNotes.clear();
             }

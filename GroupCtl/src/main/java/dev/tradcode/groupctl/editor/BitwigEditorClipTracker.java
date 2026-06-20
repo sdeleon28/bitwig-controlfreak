@@ -20,8 +20,8 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
     ControllerHost host;
     IEventBus bus;
     Clip clip;
-    boolean[][] onsets = new boolean[EditorConstants.READ_STEPS][EditorConstants.GRID_ROWS];
-    double[][] velocities = new double[EditorConstants.READ_STEPS][EditorConstants.GRID_ROWS];
+    boolean[][] onsets = new boolean[EditorConstants.READ_STEPS][EditorConstants.KEY_RANGE];
+    double[][] velocities = new double[EditorConstants.READ_STEPS][EditorConstants.KEY_RANGE];
     boolean exists = false;
     double lengthBeats = EditorConstants.READ_BEATS;
     boolean dirty = false;
@@ -34,7 +34,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
         if (host == null)
             return;
         this.clip = host.createArrangerCursorClip(
-            EditorConstants.READ_STEPS, EditorConstants.GRID_ROWS);
+            EditorConstants.READ_STEPS, EditorConstants.KEY_RANGE);
         this.clip.setStepSize(EditorConstants.FINE_STEP_BEATS);
         this.clip.scrollToKey(EditorConstants.BASE_KEY);
         this.clip.exists().addValueObserver(v -> {
@@ -49,7 +49,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
             int x = ns.x();
             int y = ns.y();
             if (x < 0 || x >= EditorConstants.READ_STEPS
-                || y < 0 || y >= EditorConstants.GRID_ROWS)
+                || y < 0 || y >= EditorConstants.KEY_RANGE)
                 return;
             // Only onsets light a pad; sustained continuations are ignored
             // (note lengths don't matter for percussion).
@@ -69,14 +69,14 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
                 int x = stepFor(beat);
                 int y = key - EditorConstants.BASE_KEY;
                 if (x >= 0 && x < EditorConstants.READ_STEPS
-                    && y >= 0 && y < EditorConstants.GRID_ROWS)
+                    && y >= 0 && y < EditorConstants.KEY_RANGE)
                     this.clip.setStep(EditorConstants.CHANNEL, x, y,
                         EditorConstants.VELOCITY, EditorConstants.FINE_STEP_BEATS);
             }
             case RequestClearNotes(int key, double startBeat, double endBeat)
             when this.clip != null -> {
                 int y = key - EditorConstants.BASE_KEY;
-                if (y < 0 || y >= EditorConstants.GRID_ROWS)
+                if (y < 0 || y >= EditorConstants.KEY_RANGE)
                     return;
                 int from = stepFor(startBeat);
                 int to = stepFor(endBeat);
@@ -87,7 +87,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
             case RequestSetVelocity(int key, double startBeat, double endBeat, double velocity)
             when this.clip != null -> {
                 int y = key - EditorConstants.BASE_KEY;
-                if (y < 0 || y >= EditorConstants.GRID_ROWS)
+                if (y < 0 || y >= EditorConstants.KEY_RANGE)
                     return;
                 int from = stepFor(startBeat);
                 int to = stepFor(endBeat);
@@ -110,7 +110,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
             return;
         List<EditorNote> notes = new ArrayList<>();
         for (int x = 0; x < EditorConstants.READ_STEPS; x++)
-            for (int y = 0; y < EditorConstants.GRID_ROWS; y++)
+            for (int y = 0; y < EditorConstants.KEY_RANGE; y++)
                 if (this.onsets[x][y])
                     notes.add(new EditorNote(
                         EditorConstants.BASE_KEY + y,

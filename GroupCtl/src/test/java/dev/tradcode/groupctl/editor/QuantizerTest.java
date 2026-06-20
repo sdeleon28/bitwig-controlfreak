@@ -62,6 +62,20 @@ class QuantizerTest {
     }
 
     @Test
+    void aKeyOffsetWindowsOntoTheHigherOctave() {
+        // C2 (key 48) sits in the top page's band [44, 52); D#1 (key 39) does not.
+        List<EditorSlot> g = new Quantizer().apply(List.of(
+            new EditorNote(48, 0.0),
+            new EditorNote(39, 0.0)
+        ), 8, true, 0, EditorConstants.MAX_KEY_OFFSET);
+
+        assertTrue(g.get(idx(3, 0)).lit());            // key 48 -> row 3
+        for (EditorSlot s : g)
+            assertTrue(s.key() >= 44 && s.key() < 52); // window never shows C1's octave
+        assertFalse(g.get(idx(BOTTOM, 0)).lit());      // bottom row is key 44, not 48
+    }
+
+    @Test
     void resolutionChangesColumnWidth() {
         // 1/4 => 1.0 beat per column: 0.5 falls in column 0.
         assertTrue(new Quantizer().apply(List.of(new EditorNote(36, 0.5)), 4, true, 0)

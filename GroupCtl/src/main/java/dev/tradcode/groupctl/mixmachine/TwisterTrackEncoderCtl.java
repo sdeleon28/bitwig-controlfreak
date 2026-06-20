@@ -43,7 +43,7 @@ public abstract class TwisterTrackEncoderCtl extends TrackCtl {
     }
 
     private void onPageSelected(int n) {
-        this.editorPageActive = n == Page.EDITOR.getValue();
+        this.editorPageActive = Page.isEditorPage(n);
         if (!this.editorPageActive)
             this.refresh();
     }
