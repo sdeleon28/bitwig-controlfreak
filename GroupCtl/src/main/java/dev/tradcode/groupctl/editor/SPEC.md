@@ -51,3 +51,28 @@ one directional data flow to produce the correct output again.
 
 Separate concerns require separate classes: bitwig state tracking, computation,
 painting, hardware event handling.
+
+## Advanced paging
+
+As we go into higher resolutions, paging becomes more cumbersome, so let's
+design an internal paging mechanism to keep it simple to interact with the
+pages and see how many pages there are in the current resolution.
+
+We'll use the side buttons for this feature, but only temporarily:
+
+* Flash the amount of pages and highlight current page with a different color
+  in the side buttons
+  * When we change one of the pages from the left and right arrow buttons
+  * When we change the resolution
+  * This should happen for about as long as the page animation is going on
+    * Horizontal paging animation should mirror the vertical one we have in
+      place
+* Change the page change event in the left / right arrows to be on button up
+  (instead of button down).
+  * This makes it possible to have a HorizontalPagerModeStart event when we
+    press both arrows at the same time.
+  * When the mode is on, the side buttons blink (current page with its own
+    color).
+  * You can go out of horizontal pager mode by selecting one of the pages or
+    by pressing one of the right / left arrows.
+  * right / left arrows should also flash while in horizontal pager mode.
