@@ -15,6 +15,9 @@ import com.bitwig.extension.controller.api.TrackBank;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
+import dev.tradcode.groupctl.events.RequestClearMute;
+import dev.tradcode.groupctl.events.RequestClearRec;
+import dev.tradcode.groupctl.events.RequestClearSolo;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.events.RequestToggleMute;
 import dev.tradcode.groupctl.events.RequestToggleRec;
@@ -144,6 +147,15 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
                 getTrack(id).solo().set(solo);
             case RequestToggleRec(int id, String trackName) ->
                 getTrack(id).arm().toggle();
+            case RequestClearMute(var ids) -> {
+                for (var id : ids) getTrack(id).mute().set(false);
+            }
+            case RequestClearSolo(var ids) -> {
+                for (var id : ids) getTrack(id).solo().set(false);
+            }
+            case RequestClearRec(var ids) -> {
+                for (var id : ids) getTrack(id).arm().set(false);
+            }
             case RequestSelectTrack(int trackId, String trackName) -> {
                 var track = getTrack(trackId);
                 track.selectInMixer();

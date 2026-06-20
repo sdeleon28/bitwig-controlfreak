@@ -10,6 +10,9 @@ import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PadModeUpdated;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PanModeSelected;
+import dev.tradcode.groupctl.events.RequestClearMute;
+import dev.tradcode.groupctl.events.RequestClearRec;
+import dev.tradcode.groupctl.events.RequestClearSolo;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestFxToggleMute;
 import dev.tradcode.groupctl.events.RequestFxToggleRec;
@@ -68,6 +71,10 @@ public class Growler implements IEventBusSubscriber {
             case RequestFxToggleMute e -> this.growl(e);
             case RequestFxToggleSolo e -> this.growl(e);
             case RequestFxToggleRec e -> this.growl(e);
+            // clear-all actions
+            case RequestClearMute e -> this.growl(e);
+            case RequestClearSolo e -> this.growl(e);
+            case RequestClearRec e -> this.growl(e);
             default -> { }
         }
     }

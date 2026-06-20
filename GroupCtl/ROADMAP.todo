@@ -3,11 +3,11 @@
 ## mixmachine
 
 [ ] BUG: why does encoder 7 light up for group 2?
-[ ] longpress mute to clear mute
-    [ ] ignore ref tracks
-[ ] longrpress solo to clear solo
-[ ] longpress rec arm to clear arm
-[-] make refs behave like in the js implementation
+[X] longpress mute to clear mute
+    [X] ignore ref tracks
+[X] longrpress solo to clear solo
+[X] longpress rec arm to clear arm
+[X] make refs behave like in the js implementation
 
 ## send feature
 

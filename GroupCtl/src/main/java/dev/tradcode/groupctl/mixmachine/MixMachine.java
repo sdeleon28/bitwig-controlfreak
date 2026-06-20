@@ -21,6 +21,7 @@ public class MixMachine {
     TwisterSendTrackToAllFxCtl twisterSendTrackToAllFxCtl;
     VolPanCtl volPanCtl;
     PadModeCtl padModeCtl;
+    ClearActionsCtl clearActionsCtl;
     Frequalizer frequalizer;
 
     public MixMachine(IEventBus bus, ControllerHost host) {
@@ -39,6 +40,7 @@ public class MixMachine {
         twisterSendTrackToAllFxCtl = new TwisterSendTrackToAllFxCtl(bus);
         volPanCtl = new VolPanCtl(bus);
         padModeCtl = new PadModeCtl(bus);
+        clearActionsCtl = new ClearActionsCtl(bus);
         frequalizer = new Frequalizer(bus, host);
     }
 
