@@ -3,6 +3,7 @@ package dev.tradcode.groupctl.mixmachine;
 import com.bitwig.extension.controller.api.ControllerHost;
 
 import dev.tradcode.groupctl.events.IEventBus;
+import dev.tradcode.groupctl.mixmachine.frequalizer.Frequalizer;
 
 public class MixMachine {
     BitwigSchemaTracker schemaTracker;
@@ -20,6 +21,7 @@ public class MixMachine {
     TwisterSendTrackToAllFxCtl twisterSendTrackToAllFxCtl;
     VolPanCtl volPanCtl;
     PadModeCtl padModeCtl;
+    Frequalizer frequalizer;
 
     public MixMachine(IEventBus bus, ControllerHost host) {
         schemaTracker = new BitwigSchemaTracker(host, bus);
@@ -37,6 +39,7 @@ public class MixMachine {
         twisterSendTrackToAllFxCtl = new TwisterSendTrackToAllFxCtl(bus);
         volPanCtl = new VolPanCtl(bus);
         padModeCtl = new PadModeCtl(bus);
+        frequalizer = new Frequalizer(bus, host);
     }
 
     public void flush() {
@@ -45,5 +48,6 @@ public class MixMachine {
         devicesTracker.flush();
         fxTracker.flush();
         sendsTracker.flush();
+        frequalizer.flush();
     }
 }

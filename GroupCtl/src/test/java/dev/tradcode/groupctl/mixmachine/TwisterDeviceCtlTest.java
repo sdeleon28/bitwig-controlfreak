@@ -11,6 +11,7 @@ import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
+import dev.tradcode.groupctl.mixmachine.frequalizer.events.FrequalizerActivated;
 
 class TwisterDeviceCtlTest {
 
@@ -54,6 +55,22 @@ class TwisterDeviceCtlTest {
         bus.send(new PageSelected(Page.GROUPCTL.getValue()));
         bus.send(new EncoderTurned(1, 127));
         assertTrue(wroteRc(bus), "leaving the editor page restores RC control");
+    }
+
+    @Test
+    void frequalizerActiveSuppressesEncodersThenRestores() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterDeviceCtl(bus);
+        bus.send(new RequestSelectDevice(0));
+
+        bus.send(new FrequalizerActivated(true));
+        bus.events.clear();
+        bus.send(new EncoderTurned(1, 127));
+        assertFalse(wroteRc(bus), "RC turns must not fire while the frequalizer owns the Twister");
+
+        bus.send(new FrequalizerActivated(false));
+        bus.send(new EncoderTurned(1, 127));
+        assertTrue(wroteRc(bus), "leaving the frequalizer restores RC control");
     }
 
     @Test
