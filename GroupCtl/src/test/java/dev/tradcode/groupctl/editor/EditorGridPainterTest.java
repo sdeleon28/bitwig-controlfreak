@@ -10,6 +10,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import dev.tradcode.groupctl.events.ClearLaunchpad;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.PaintPad;
 
@@ -17,6 +18,10 @@ class EditorGridPainterTest {
 
     private static EditorSlot unlit() {
         return new EditorSlot(false, 36, 0, 0.5);
+    }
+
+    private static EditorSlot playing(boolean lit) {
+        return new EditorSlot(lit, 36, 0, 0.5, lit ? 1.0 : 0.0, true);
     }
 
     private static List<EditorSlot> grid(Map<Integer, EditorSlot> overrides) {
@@ -56,5 +61,50 @@ class EditorGridPainterTest {
 
         bus.send(new EditorGridChanged(grid(Map.of()), true));
         assertEquals(64, bus.count(PaintPad.class));
+    }
+
+    @Test
+    void paintsThePlayheadColumnDistinctly() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridPainter(bus);
+
+        bus.send(new EditorGridChanged(grid(Map.of(
+            0, playing(true),    // a note struck under the cursor
+            8, playing(false)    // an empty cell swept by the cursor
+        )), true));
+
+        assertEquals(EditorColors.PLAYHEAD_NOTE, lastPaintPad(bus, EditorConstants.PADS.get(0)));
+        assertEquals(EditorColors.PLAYHEAD, lastPaintPad(bus, EditorConstants.PADS.get(8)));
+    }
+
+    @Test
+    void onlyRepaintsPadsWhoseColorChanged() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridPainter(bus);
+
+        bus.send(new EditorGridChanged(grid(Map.of(0, new EditorSlot(true, 36, 0, 0.5))), true));
+        long afterFirst = bus.count(PaintPad.class);
+
+        // Only pad 1 changes (becomes the playhead); the other 63 stay put.
+        bus.send(new EditorGridChanged(grid(Map.of(
+            0, new EditorSlot(true, 36, 0, 0.5),
+            1, playing(false)
+        )), true));
+
+        assertEquals(afterFirst + 1, bus.count(PaintPad.class));
+    }
+
+    @Test
+    void repaintsEverythingAfterAClear() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridPainter(bus);
+
+        bus.send(new EditorGridChanged(grid(Map.of()), true));
+        long afterFirst = bus.count(PaintPad.class);
+
+        bus.send(new ClearLaunchpad());
+        bus.send(new EditorGridChanged(grid(Map.of()), true));
+
+        assertEquals(afterFirst + 64, bus.count(PaintPad.class));
     }
 }

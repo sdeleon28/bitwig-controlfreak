@@ -13,4 +13,7 @@ public final class EditorColors {
     public static final int PAGE_DOT = 49;         // purple: a reachable page on the grid page picker
     public static final int PAGE_DOT_CURRENT = 3;  // white: the current page on the grid page picker
     public static final int PAGER_ARROW = 49;      // purple: left/right arrows flashing in pager mode
+
+    public static final int PLAYHEAD = 45;         // blue: empty cell swept by the play cursor
+    public static final int PLAYHEAD_NOTE = 3;     // white: a note struck under the play cursor
 }

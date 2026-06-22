@@ -156,4 +156,28 @@ class QuantizerTest {
         for (EditorSlot s : g)
             assertFalse(s.lit());
     }
+
+    @Test
+    void marksTheWholeColumnUnderThePlayheadAsPlaying() {
+        // 1/8 => column 1 spans [0.5, 1.0); a playhead at 0.6 lands there.
+        List<EditorSlot> g = new Quantizer().apply(List.of(), 8, true, 0, 0, 0.6);
+        for (int row = 0; row < EditorConstants.GRID_ROWS; row++)
+            assertTrue(g.get(idx(row, 1)).playing());
+        assertFalse(g.get(idx(BOTTOM, 0)).playing());
+        assertFalse(g.get(idx(BOTTOM, 2)).playing());
+    }
+
+    @Test
+    void aNegativePlayheadMarksNothingPlaying() {
+        List<EditorSlot> g = new Quantizer().apply(List.of(), 8, true, 0, 0, -1.0);
+        for (EditorSlot s : g)
+            assertFalse(s.playing());
+    }
+
+    @Test
+    void nothingPlaysWithoutAClipEvenUnderThePlayhead() {
+        List<EditorSlot> g = new Quantizer().apply(List.of(), 8, false, 0, 0, 0.6);
+        for (EditorSlot s : g)
+            assertFalse(s.playing());
+    }
 }

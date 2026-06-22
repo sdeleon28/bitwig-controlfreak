@@ -5,6 +5,7 @@ import dev.tradcode.groupctl.editor.events.EditorColumnOffsetChanged;
 import dev.tradcode.groupctl.editor.events.EditorGridChanged;
 import dev.tradcode.groupctl.editor.events.EditorKeyOffsetChanged;
 import dev.tradcode.groupctl.editor.events.EditorNote;
+import dev.tradcode.groupctl.editor.events.EditorPlaybackPosition;
 import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -109,6 +110,37 @@ class EditorGridCalculatorTest {
         bus.send(new EditorKeyOffsetChanged(EditorConstants.MAX_KEY_OFFSET));
         // The high window drops key 44 onto the bottom-left pad.
         assertTrue(bus.last(EditorGridChanged.class).slots().get(56).lit());
+    }
+
+    @Test
+    void sweepsThePlayingColumnAsThePlayheadMoves() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridCalculator(bus);
+
+        bus.send(new PageSelected(EDITOR));
+        bus.send(new EditorClipChanged(true, FULL, List.of()));
+
+        bus.send(new EditorPlaybackPosition(0.6)); // 1/8 -> column 1
+        assertTrue(bus.last(EditorGridChanged.class).slots().get(57).playing());
+        assertFalse(bus.last(EditorGridChanged.class).slots().get(56).playing());
+
+        bus.send(new EditorPlaybackPosition(-1.0)); // stopped
+        for (var slot : bus.last(EditorGridChanged.class).slots())
+            assertFalse(slot.playing());
+    }
+
+    @Test
+    void staysSilentUnderThePagePickerOverlay() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridCalculator(bus);
+
+        bus.send(new PageSelected(EDITOR));
+        bus.send(new EditorClipChanged(true, FULL, List.of()));
+        bus.send(new dev.tradcode.groupctl.editor.events.EditorPagerMode(true));
+        long before = bus.count(EditorGridChanged.class);
+
+        bus.send(new EditorPlaybackPosition(0.6)); // a playhead tick must not repaint the grid
+        assertEquals(before, bus.count(EditorGridChanged.class));
     }
 
     @Test

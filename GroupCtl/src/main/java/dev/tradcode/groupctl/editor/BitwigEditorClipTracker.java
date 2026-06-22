@@ -2,6 +2,8 @@ package dev.tradcode.groupctl.editor;
 
 import dev.tradcode.groupctl.editor.events.EditorClipChanged;
 import dev.tradcode.groupctl.editor.events.EditorNote;
+import dev.tradcode.groupctl.editor.events.EditorPlaybackPosition;
+import dev.tradcode.groupctl.editor.events.PlaybackUpdate;
 import dev.tradcode.groupctl.editor.events.RequestClearNotes;
 import dev.tradcode.groupctl.editor.events.RequestSetNote;
 import dev.tradcode.groupctl.editor.events.RequestSetVelocity;
@@ -25,6 +27,9 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
     boolean exists = false;
     double lengthBeats = EditorConstants.READ_BEATS;
     boolean dirty = false;
+    int playingStep = -1;
+    boolean playheadDirty = false;
+    boolean isPlaying = false;
 
     protected BitwigEditorClipTracker(IEventBus bus, ControllerHost host) {
         this.bus = bus;
@@ -57,6 +62,10 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
             this.velocities[x][y] = ns.velocity();
             this.dirty = true;
         });
+        this.clip.playingStep().addValueObserver(v -> {
+            this.playingStep = v;
+            this.playheadDirty = true;
+        });
     }
 
     private static int stepFor(double beat) {
@@ -65,13 +74,19 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
+            case PlaybackUpdate(boolean playing) -> this.isPlaying = playing;
             case RequestSetNote(int key, double beat) when this.clip != null -> {
                 int x = stepFor(beat);
                 int y = key - EditorConstants.BASE_KEY;
                 if (x >= 0 && x < EditorConstants.READ_STEPS
-                    && y >= 0 && y < EditorConstants.KEY_RANGE)
+                    && y >= 0 && y < EditorConstants.KEY_RANGE) {
                     this.clip.setStep(EditorConstants.CHANNEL, x, y,
                         EditorConstants.VELOCITY, EditorConstants.FINE_STEP_BEATS);
+                    // Audition the note the moment it lands, but only when the
+                    // transport is idle — during playback the clip already sounds it.
+                    if (!this.isPlaying)
+                        this.clip.getTrack().playNote(key, EditorConstants.VELOCITY);
+                }
             }
             case RequestClearNotes(int key, double startBeat, double endBeat)
             when this.clip != null -> {
@@ -106,6 +121,13 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
     }
 
     public void flush() {
+        // The playhead ticks far more often than the notes change; keep it on its
+        // own dirty flag so a moving cursor never republishes the clip geometry.
+        if (this.playheadDirty) {
+            this.bus.send(new EditorPlaybackPosition(
+                this.playingStep >= 0 ? this.playingStep * EditorConstants.FINE_STEP_BEATS : -1.0));
+            this.playheadDirty = false;
+        }
         if (!this.dirty)
             return;
         List<EditorNote> notes = new ArrayList<>();

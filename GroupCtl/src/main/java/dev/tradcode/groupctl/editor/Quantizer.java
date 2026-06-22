@@ -13,6 +13,16 @@ public class Quantizer {
 
     public List<EditorSlot> apply(List<EditorNote> notes, int denominator, boolean exists,
                                   int colOffset, int keyOffset) {
+        return apply(notes, denominator, exists, colOffset, keyOffset, -1.0);
+    }
+
+    /**
+     * {@code playheadBeat} is the clip-relative beat under the play cursor, or a
+     * negative value when nothing is playing. The whole column spanning that beat
+     * is marked playing so the painter can sweep a vertical cursor across the grid.
+     */
+    public List<EditorSlot> apply(List<EditorNote> notes, int denominator, boolean exists,
+                                  int colOffset, int keyOffset, double playheadBeat) {
         double beatsPerStep = GridGeometry.beatsPerStep(denominator);
         int firstCol = colOffset;
         List<EditorSlot> slots = new ArrayList<>(EditorConstants.PAGE_SIZE);
@@ -24,8 +34,9 @@ public class Quantizer {
                 List<EditorNote> onsets = exists
                     ? onsetsIn(notes, key, startBeat, endBeat)
                     : List.of();
+                boolean playing = exists && playheadBeat >= startBeat && playheadBeat < endBeat;
                 slots.add(new EditorSlot(
-                    !onsets.isEmpty(), key, startBeat, endBeat, velocityOf(onsets)));
+                    !onsets.isEmpty(), key, startBeat, endBeat, velocityOf(onsets), playing));
             }
         }
         return slots;

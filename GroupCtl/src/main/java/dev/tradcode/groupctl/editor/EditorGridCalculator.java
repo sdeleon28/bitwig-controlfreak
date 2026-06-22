@@ -5,6 +5,8 @@ import dev.tradcode.groupctl.editor.events.EditorColumnOffsetChanged;
 import dev.tradcode.groupctl.editor.events.EditorGridChanged;
 import dev.tradcode.groupctl.editor.events.EditorKeyOffsetChanged;
 import dev.tradcode.groupctl.editor.events.EditorNote;
+import dev.tradcode.groupctl.editor.events.EditorPagerMode;
+import dev.tradcode.groupctl.editor.events.EditorPlaybackPosition;
 import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
 import dev.tradcode.groupctl.editor.events.EditorSlot;
 import dev.tradcode.groupctl.editor.events.RequestEditorGridRepaint;
@@ -26,7 +28,9 @@ public class EditorGridCalculator implements IEventBusSubscriber {
     int denominator = EditorConstants.DEFAULT_DENOMINATOR;
     int keyOffset = 0;
     int colOffset = 0;
+    double playheadBeat = -1.0;
     boolean pageActive = false;
+    boolean pagerMode = false;
 
     public EditorGridCalculator(IEventBus bus) {
         this.bus = bus;
@@ -34,10 +38,14 @@ public class EditorGridCalculator implements IEventBusSubscriber {
     }
 
     private void recompute() {
-        if (!this.pageActive)
+        // While the page picker overlays the grid, stay silent: a playhead tick
+        // would otherwise repaint the note grid over the overlay. The picker asks
+        // for a fresh repaint when it dismisses.
+        if (!this.pageActive || this.pagerMode)
             return;
         List<EditorSlot> slots = this.quantizer.apply(
-            this.notes, this.denominator, this.exists, this.colOffset, this.keyOffset);
+            this.notes, this.denominator, this.exists, this.colOffset, this.keyOffset,
+            this.playheadBeat);
         this.bus.send(new EditorGridChanged(slots, this.exists));
     }
 
@@ -60,9 +68,15 @@ public class EditorGridCalculator implements IEventBusSubscriber {
                 this.keyOffset = keyOffset;
                 this.recompute();
             }
+            case EditorPlaybackPosition(double beat) -> {
+                this.playheadBeat = beat;
+                this.recompute();
+            }
+            case EditorPagerMode(boolean active) -> this.pagerMode = active;
             case RequestEditorGridRepaint() -> this.recompute();
             case PageSelected(int n) -> {
                 this.pageActive = Page.isEditorPage(n);
+                this.pagerMode = false;
                 this.recompute();
             }
             default -> { }

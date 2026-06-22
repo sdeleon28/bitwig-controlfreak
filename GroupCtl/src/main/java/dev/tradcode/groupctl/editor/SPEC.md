@@ -52,6 +52,16 @@ one directional data flow to produce the correct output again.
 Separate concerns require separate classes: bitwig state tracking, computation,
 painting, hardware event handling.
 
+## Playback
+
+Adding a note auditions it immediately through the clip's track, but only while
+the transport is stopped — during playback the clip already sounds it.
+
+A play cursor sweeps the grid: the clip's playing step is mapped to the beat
+under the cursor, the column spanning it lights up (notes there flash brighter),
+and the column clears when playback stops. The step is clip-relative, so the
+cursor tracks the clip wherever it sits in the arranger.
+
 ## Advanced paging
 
 As we go into higher resolutions, paging becomes more cumbersome, so let's

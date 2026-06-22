@@ -133,7 +133,6 @@
     [ ] log color number on pad press
     [ ] copy from js palette
 [ ] using palette as reference filter pad color by velocity (lower -> dimmer, higher -> brighter)
-[ ] play note back on add
 [ ] growl resolution and page
 [X] support 16 notes (two vertical pages)
 [ ] horizontal slice
@@ -149,7 +148,6 @@
         [ ] humanize velocity amount
             [ ] should work for multi-select
 [ ] change presets on the fly
-[ ] keep resolution across page changes
 [X] midi editor vertical paging
     [X] make midi editor a 2 page long program
     [X] midi editor page 1 (global page 3) corresponds to the top part of the grid
@@ -159,8 +157,8 @@
 [X] midi editor horizontal paging (see Advanced Paging in SPEC.md)
     [X] replaced with grid-based paging
 [ ] resolution change changes bitwig resolution to match
-[ ] playhead feedback UI
-[ ] selecting page moves the playhead
+[X] play note back when you add it (if not playing)
+[X] playhead feedback UI
 [ ] loop buttons
     [ ] user 2
         [ ] set loop region to currently selected page
