@@ -1,5 +1,6 @@
 package dev.tradcode.groupctl.editor;
 
+import dev.tradcode.groupctl.editor.events.ClearEditorGridCache;
 import dev.tradcode.groupctl.editor.events.EditorGridChanged;
 import dev.tradcode.groupctl.editor.events.EditorSlot;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -103,6 +104,22 @@ class EditorGridPainterTest {
         long afterFirst = bus.count(PaintPad.class);
 
         bus.send(new ClearLaunchpad());
+        bus.send(new EditorGridChanged(grid(Map.of()), true));
+
+        assertEquals(afterFirst + 64, bus.count(PaintPad.class));
+    }
+
+    @Test
+    void clearingTheCacheForcesAFullRepaintEvenWhenTheGridIsUnchanged() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridPainter(bus);
+
+        bus.send(new EditorGridChanged(grid(Map.of()), true));
+        long afterFirst = bus.count(PaintPad.class);
+
+        // The page picker overlay painted these pads behind the painter's back,
+        // so a stale cache would dedup the restore away; clearing it must not.
+        bus.send(new ClearEditorGridCache());
         bus.send(new EditorGridChanged(grid(Map.of()), true));
 
         assertEquals(afterFirst + 64, bus.count(PaintPad.class));

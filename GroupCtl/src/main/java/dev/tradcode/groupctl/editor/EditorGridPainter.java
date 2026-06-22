@@ -1,5 +1,6 @@
 package dev.tradcode.groupctl.editor;
 
+import dev.tradcode.groupctl.editor.events.ClearEditorGridCache;
 import dev.tradcode.groupctl.editor.events.EditorGridChanged;
 import dev.tradcode.groupctl.editor.events.EditorSlot;
 import java.util.Arrays;
@@ -33,6 +34,7 @@ public class EditorGridPainter implements IEventBusSubscriber {
     public void on(Event event) {
         switch (event) {
             case ClearLaunchpad() -> Arrays.fill(this.painted, UNKNOWN);
+            case ClearEditorGridCache() -> Arrays.fill(this.painted, UNKNOWN);
             case EditorGridChanged(var slots, var clipExists) -> {
                 int n = Math.min(slots.size(), EditorConstants.PAGE_SIZE);
                 for (int i = 0; i < n; i++) {

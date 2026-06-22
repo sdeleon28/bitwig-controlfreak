@@ -1,5 +1,6 @@
 package dev.tradcode.groupctl.editor;
 
+import dev.tradcode.groupctl.editor.events.ClearEditorGridCache;
 import dev.tradcode.groupctl.editor.events.EditorClipChanged;
 import dev.tradcode.groupctl.editor.events.EditorPageChanged;
 import dev.tradcode.groupctl.editor.events.EditorPagerMode;
@@ -63,7 +64,7 @@ public class EditorPageSelectorCtl implements IEventBusSubscriber {
     }
 
     private void restoreGrid() {
-        this.bus.send(new RequestEditorGridRepaint());
+        this.bus.send(new ClearEditorGridCache(), new RequestEditorGridRepaint());
     }
 
     private void flash() {
