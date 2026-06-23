@@ -19,13 +19,11 @@ row | note | instrument
   8 | A#4  | Crash 2
   7 | G#4  | Crash 1
   6 | F3   | China
-  5 | D#3  | Ride Bell
+  5 | D#4  | Ride Bell
   4 | C#4  | Ride
   3 | B3   | Tom 3
   2 | G#3  | Tom 2
   1 | F#3  | Tom 1
-
-H4 -> F#2
 
 ## editor page 2 (global page 4)
 
@@ -38,4 +36,4 @@ row | note | instrument
   4 | D#3  | Snare 2
   3 | C#3  | Snare 1
   2 | D3   | Kick 2       
-  1 | D3   | Kick 1       
+  1 | C3   | Kick 1       

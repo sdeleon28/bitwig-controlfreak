@@ -32,6 +32,14 @@ public final class EditorConstants {
      */
     public static final int BASE_KEY = 36;
 
+    /**
+     * Keys read from the clip, starting at {@link #BASE_KEY}. Wider than the
+     * chromatic {@link #KEY_RANGE} because the GGD drum map scatters voices up to
+     * B4 (MIDI 83); the window must cover every key either mapping can address so
+     * onsets outside the chromatic octave still reach the grid.
+     */
+    public static final int READ_KEY_RANGE = 48; // [36, 84)
+
     public static final int CHANNEL = 0;
     public static final int VELOCITY = 127;
 

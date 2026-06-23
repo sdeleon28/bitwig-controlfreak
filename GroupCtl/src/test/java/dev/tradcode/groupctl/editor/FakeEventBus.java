@@ -6,8 +6,8 @@ import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 
-class FakeEventBus implements IEventBus {
-    final ArrayList<Event> events = new ArrayList<>();
+public class FakeEventBus implements IEventBus {
+    public final ArrayList<Event> events = new ArrayList<>();
     private final ArrayList<IEventBusSubscriber> subs = new ArrayList<>();
 
     public void subscribe(IEventBusSubscriber sub) {
@@ -22,14 +22,14 @@ class FakeEventBus implements IEventBus {
         }
     }
 
-    <T extends Event> T last(Class<T> type) {
+    public <T extends Event> T last(Class<T> type) {
         for (int i = events.size() - 1; i >= 0; i--)
             if (type.isInstance(events.get(i)))
                 return type.cast(events.get(i));
         return null;
     }
 
-    <T extends Event> long count(Class<T> type) {
+    public <T extends Event> long count(Class<T> type) {
         return events.stream().filter(type::isInstance).count();
     }
 }

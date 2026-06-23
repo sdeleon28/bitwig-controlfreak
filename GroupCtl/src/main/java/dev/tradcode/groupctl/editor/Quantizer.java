@@ -23,11 +23,22 @@ public class Quantizer {
      */
     public List<EditorSlot> apply(List<EditorNote> notes, int denominator, boolean exists,
                                   int colOffset, int keyOffset, double playheadBeat) {
+        return apply(notes, denominator, exists, colOffset,
+            GridGeometry.chromaticRowKeys(keyOffset), playheadBeat);
+    }
+
+    /**
+     * {@code rowKeys} gives the MIDI key shown on each grid row, top row first.
+     * The chromatic editor fills it from {@link GridGeometry}; a drum map (e.g.
+     * GGD) supplies its own scattered keys. Quantizing is otherwise identical.
+     */
+    public List<EditorSlot> apply(List<EditorNote> notes, int denominator, boolean exists,
+                                  int colOffset, int[] rowKeys, double playheadBeat) {
         double beatsPerStep = GridGeometry.beatsPerStep(denominator);
         int firstCol = colOffset;
         List<EditorSlot> slots = new ArrayList<>(EditorConstants.PAGE_SIZE);
         for (int row = 0; row < EditorConstants.GRID_ROWS; row++) {
-            int key = GridGeometry.keyForRow(row, keyOffset);
+            int key = rowKeys[row];
             for (int col = 0; col < EditorConstants.GRID_COLS; col++) {
                 double startBeat = (firstCol + col) * beatsPerStep;
                 double endBeat = startBeat + beatsPerStep;

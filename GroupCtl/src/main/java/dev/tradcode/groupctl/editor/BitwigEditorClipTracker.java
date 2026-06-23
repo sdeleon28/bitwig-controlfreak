@@ -1,6 +1,7 @@
 package dev.tradcode.groupctl.editor;
 
 import dev.tradcode.groupctl.editor.events.EditorClipChanged;
+import dev.tradcode.groupctl.editor.events.EditorClipTrackChanged;
 import dev.tradcode.groupctl.editor.events.EditorNote;
 import dev.tradcode.groupctl.editor.events.EditorPlaybackPosition;
 import dev.tradcode.groupctl.editor.events.PlaybackUpdate;
@@ -22,14 +23,16 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
     ControllerHost host;
     IEventBus bus;
     Clip clip;
-    boolean[][] onsets = new boolean[EditorConstants.READ_STEPS][EditorConstants.KEY_RANGE];
-    double[][] velocities = new double[EditorConstants.READ_STEPS][EditorConstants.KEY_RANGE];
+    boolean[][] onsets = new boolean[EditorConstants.READ_STEPS][EditorConstants.READ_KEY_RANGE];
+    double[][] velocities = new double[EditorConstants.READ_STEPS][EditorConstants.READ_KEY_RANGE];
     boolean exists = false;
     double lengthBeats = EditorConstants.READ_BEATS;
     boolean dirty = false;
     int playingStep = -1;
     boolean playheadDirty = false;
     boolean isPlaying = false;
+    String trackName = "";
+    boolean trackDirty = false;
 
     protected BitwigEditorClipTracker(IEventBus bus, ControllerHost host) {
         this.bus = bus;
@@ -39,9 +42,13 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
         if (host == null)
             return;
         this.clip = host.createArrangerCursorClip(
-            EditorConstants.READ_STEPS, EditorConstants.KEY_RANGE);
+            EditorConstants.READ_STEPS, EditorConstants.READ_KEY_RANGE);
         this.clip.setStepSize(EditorConstants.FINE_STEP_BEATS);
         this.clip.scrollToKey(EditorConstants.BASE_KEY);
+        this.clip.getTrack().name().addValueObserver(name -> {
+            this.trackName = name;
+            this.trackDirty = true;
+        });
         this.clip.exists().addValueObserver(v -> {
             this.exists = v;
             this.dirty = true;
@@ -54,7 +61,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
             int x = ns.x();
             int y = ns.y();
             if (x < 0 || x >= EditorConstants.READ_STEPS
-                || y < 0 || y >= EditorConstants.KEY_RANGE)
+                || y < 0 || y >= EditorConstants.READ_KEY_RANGE)
                 return;
             // Only onsets light a pad; sustained continuations are ignored
             // (note lengths don't matter for percussion).
@@ -79,7 +86,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
                 int x = stepFor(beat);
                 int y = key - EditorConstants.BASE_KEY;
                 if (x >= 0 && x < EditorConstants.READ_STEPS
-                    && y >= 0 && y < EditorConstants.KEY_RANGE) {
+                    && y >= 0 && y < EditorConstants.READ_KEY_RANGE) {
                     this.clip.setStep(EditorConstants.CHANNEL, x, y,
                         EditorConstants.VELOCITY, EditorConstants.FINE_STEP_BEATS);
                     // Audition the note the moment it lands, but only when the
@@ -91,7 +98,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
             case RequestClearNotes(int key, double startBeat, double endBeat)
             when this.clip != null -> {
                 int y = key - EditorConstants.BASE_KEY;
-                if (y < 0 || y >= EditorConstants.KEY_RANGE)
+                if (y < 0 || y >= EditorConstants.READ_KEY_RANGE)
                     return;
                 int from = stepFor(startBeat);
                 int to = stepFor(endBeat);
@@ -102,7 +109,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
             case RequestSetVelocity(int key, double startBeat, double endBeat, double velocity)
             when this.clip != null -> {
                 int y = key - EditorConstants.BASE_KEY;
-                if (y < 0 || y >= EditorConstants.KEY_RANGE)
+                if (y < 0 || y >= EditorConstants.READ_KEY_RANGE)
                     return;
                 int from = stepFor(startBeat);
                 int to = stepFor(endBeat);
@@ -121,6 +128,12 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
     }
 
     public void flush() {
+        // Publish the track name before the clip geometry so whichever mapper it
+        // selects has settled its row keys by the time the notes arrive.
+        if (this.trackDirty) {
+            this.bus.send(new EditorClipTrackChanged(this.trackName));
+            this.trackDirty = false;
+        }
         // The playhead ticks far more often than the notes change; keep it on its
         // own dirty flag so a moving cursor never republishes the clip geometry.
         if (this.playheadDirty) {
@@ -132,7 +145,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
             return;
         List<EditorNote> notes = new ArrayList<>();
         for (int x = 0; x < EditorConstants.READ_STEPS; x++)
-            for (int y = 0; y < EditorConstants.KEY_RANGE; y++)
+            for (int y = 0; y < EditorConstants.READ_KEY_RANGE; y++)
                 if (this.onsets[x][y])
                     notes.add(new EditorNote(
                         EditorConstants.BASE_KEY + y,

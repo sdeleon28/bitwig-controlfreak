@@ -3,11 +3,11 @@ package dev.tradcode.groupctl.editor;
 import dev.tradcode.groupctl.editor.events.EditorClipChanged;
 import dev.tradcode.groupctl.editor.events.EditorColumnOffsetChanged;
 import dev.tradcode.groupctl.editor.events.EditorGridChanged;
-import dev.tradcode.groupctl.editor.events.EditorKeyOffsetChanged;
 import dev.tradcode.groupctl.editor.events.EditorNote;
 import dev.tradcode.groupctl.editor.events.EditorPagerMode;
 import dev.tradcode.groupctl.editor.events.EditorPlaybackPosition;
 import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
+import dev.tradcode.groupctl.editor.events.EditorRowKeysChanged;
 import dev.tradcode.groupctl.editor.events.EditorSlot;
 import dev.tradcode.groupctl.editor.events.RequestEditorGridRepaint;
 import java.util.ArrayList;
@@ -26,11 +26,14 @@ public class EditorGridCalculator implements IEventBusSubscriber {
     boolean exists = false;
     List<EditorNote> notes = new ArrayList<>();
     int denominator = EditorConstants.DEFAULT_DENOMINATOR;
-    int keyOffset = 0;
     int colOffset = 0;
     double playheadBeat = -1.0;
     boolean pageActive = false;
     boolean pagerMode = false;
+    // Which key sits on each grid row is the active mapper's call, not ours; we
+    // hold its latest answer and quantize notes onto it. Null until a mapper has
+    // spoken, which keeps us silent before there is anything meaningful to paint.
+    int[] rowKeys = null;
 
     public EditorGridCalculator(IEventBus bus) {
         this.bus = bus;
@@ -41,10 +44,10 @@ public class EditorGridCalculator implements IEventBusSubscriber {
         // While the page picker overlays the grid, stay silent: a playhead tick
         // would otherwise repaint the note grid over the overlay. The picker asks
         // for a fresh repaint when it dismisses.
-        if (!this.pageActive || this.pagerMode)
+        if (!this.pageActive || this.pagerMode || this.rowKeys == null)
             return;
         List<EditorSlot> slots = this.quantizer.apply(
-            this.notes, this.denominator, this.exists, this.colOffset, this.keyOffset,
+            this.notes, this.denominator, this.exists, this.colOffset, this.rowKeys,
             this.playheadBeat);
         this.bus.send(new EditorGridChanged(slots, this.exists));
     }
@@ -64,8 +67,8 @@ public class EditorGridCalculator implements IEventBusSubscriber {
                 this.colOffset = colOffset;
                 this.recompute();
             }
-            case EditorKeyOffsetChanged(int keyOffset) -> {
-                this.keyOffset = keyOffset;
+            case EditorRowKeysChanged(int[] rowKeys) -> {
+                this.rowKeys = rowKeys;
                 this.recompute();
             }
             case EditorPlaybackPosition(double beat) -> {

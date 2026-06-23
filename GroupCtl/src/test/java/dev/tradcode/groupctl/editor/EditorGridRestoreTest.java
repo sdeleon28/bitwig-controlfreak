@@ -1,6 +1,8 @@
 package dev.tradcode.groupctl.editor;
 
+import dev.tradcode.groupctl.editor.chromatic.Chromatic;
 import dev.tradcode.groupctl.editor.events.EditorClipChanged;
+import dev.tradcode.groupctl.editor.events.EditorClipTrackChanged;
 import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -52,8 +54,11 @@ class EditorGridRestoreTest {
         new EditorGridCalculator(bus);
         new EditorGridPainter(bus);
         new EditorPageSelectorCtl(bus, scheduler);
+        new EditorMappingSelector(bus);
+        new Chromatic(bus);
 
         bus.send(new PageSelected(EDITOR));
+        bus.send(new EditorClipTrackChanged("a track")); // the default mapper publishes its keys
         bus.send(new EditorClipChanged(true, THREE_PAGE_CLIP, List.of())); // empty grid: every cell off
 
         bus.send(new EditorResolutionChanged(16)); // flashes the page count over the dark grid

@@ -25,6 +25,14 @@ public final class GridGeometry {
         return EditorConstants.BASE_KEY + keyOffset + (EditorConstants.GRID_ROWS - 1 - row);
     }
 
+    /** The keys for all eight grid rows at this offset, top row first. */
+    public static int[] chromaticRowKeys(int keyOffset) {
+        int[] keys = new int[EditorConstants.GRID_ROWS];
+        for (int row = 0; row < EditorConstants.GRID_ROWS; row++)
+            keys[row] = keyForRow(row, keyOffset);
+        return keys;
+    }
+
     /**
      * Pages needed to cover a clip of the given length, never more than the read
      * window can display. A clip shorter than one page still has a single page.

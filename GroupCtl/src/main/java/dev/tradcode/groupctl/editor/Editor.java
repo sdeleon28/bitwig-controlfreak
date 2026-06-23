@@ -4,6 +4,8 @@ import com.bitwig.extension.controller.api.ControllerHost;
 
 import dev.tradcode.groupctl.BitwigScheduler;
 import dev.tradcode.groupctl.Scheduler;
+import dev.tradcode.groupctl.editor.chromatic.Chromatic;
+import dev.tradcode.groupctl.editor.ggd.Ggd;
 import dev.tradcode.groupctl.events.IEventBus;
 
 public class Editor {
@@ -15,6 +17,12 @@ public class Editor {
 
         // Calculation
         new EditorGridCalculator(bus);
+
+        // Row mapping: a selector arbitrates between independent mapper packages.
+        // Removing either mapper line below disables that mapping wholesale.
+        new EditorMappingSelector(bus);
+        new Ggd(bus);
+        new Chromatic(bus);
 
         // Painting
         new EditorGridPainter(bus);
