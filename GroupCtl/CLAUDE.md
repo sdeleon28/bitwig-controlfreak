@@ -64,6 +64,20 @@ each `Ctl` repaint from that broadcast; the incoming controller overwrites what
 the outgoing one left. Clearing your own region as the first step of painting
 *your own* content is fine — the rule is about blanking to yield.
 
+### Isolating features in orthogonal packages
+
+A feature should live in its own package behind a single entrypoint, talking to
+the rest of the system only through the event bus, so that deleting the one line
+that constructs its entrypoint removes the feature whole — no other file needs to
+change and nothing left behind references it.
+
+Independent features must not know about each other.
+
+The base subsystem owns only what every feature needs (the protocol events, the
+coordinator, shared geometry). It never imports a feature package. This keeps the
+coupling a one-way fan-in: features depend on the base, the base depends on no
+feature, and features never depend on each other.
+
 ## Testing
 
 Test behaviour through the event bus, the same way the rest of the system talks
