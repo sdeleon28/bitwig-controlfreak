@@ -241,4 +241,120 @@ class TwisterVolPanCtlTest {
 
         assertTrue(bus.events.stream().noneMatch(e -> e instanceof SetTrackVolume));
     }
+
+    @Test
+    void selectingGroupPaintsGroupColorAtEncoder16() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterVolPanCtl(bus);
+        bus.send(new SchemaChanged(schema()));
+        bus.send(new BitwigTrackSelected(GROUP_ID));
+
+        assertEquals(123, ledAt(bus, 16)); // group color (blue) at the 16th encoder
+    }
+
+    @Test
+    void soloedGroupPaintsEncoder16Yellow() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterVolPanCtl(bus);
+        var s = schema();
+        s.get(0).solo = true; // the group itself is soloed
+        bus.send(new SchemaChanged(s));
+        bus.send(new BitwigTrackSelected(GROUP_ID));
+
+        assertEquals(66, ledAt(bus, 16));
+    }
+
+    @Test
+    void groupVolumePaintsRingAt16() {
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new VolumeUpdated(GROUP_ID, 0.5));
+
+        assertEquals(64, ringAt(bus, 16)); // round(0.5 * 127)
+    }
+
+    @Test
+    void groupPanPaintsRingAt16InPanMode() {
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new PanModeSelected());
+        bus.send(new PanUpdated(GROUP_ID, 1.0));
+
+        assertEquals(127, ringAt(bus, 16));
+    }
+
+    @Test
+    void turningEncoder16SetsGroupVolume() {
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new EncoderTurned(16, 127));
+
+        var cmd = bus.events.stream()
+            .filter(e -> e instanceof SetTrackVolume)
+            .map(e -> (SetTrackVolume) e)
+            .findFirst()
+            .orElse(null);
+        assertNotNull(cmd);
+        assertEquals(GROUP_ID, cmd.id());
+        assertEquals(1.0, cmd.v(), 1e-9);
+    }
+
+    @Test
+    void turningEncoder16SetsGroupPanInPanMode() {
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new PanModeSelected());
+        bus.send(new EncoderTurned(16, 0));
+
+        var cmd = bus.events.stream()
+            .filter(e -> e instanceof SetTrackPan)
+            .map(e -> (SetTrackPan) e)
+            .findFirst()
+            .orElse(null);
+        assertNotNull(cmd);
+        assertEquals(GROUP_ID, cmd.id());
+        assertEquals(0.0, cmd.v(), 1e-9);
+    }
+
+    @Test
+    void holdingEncoder16SolosGroup() {
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new EncoderButtonPressed(16));
+
+        var cmd = soloCmd(bus);
+        assertNotNull(cmd);
+        assertEquals(GROUP_ID, cmd.trackId());
+        assertTrue(cmd.solo());
+    }
+
+    @Test
+    void releasingEncoder16UnsolosGroup() {
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new EncoderButtonReleased(16));
+
+        var cmd = soloCmd(bus);
+        assertNotNull(cmd);
+        assertEquals(GROUP_ID, cmd.trackId());
+        assertFalse(cmd.solo());
+    }
+
+    @Test
+    void groupEncoderDoesNotMoveGroupWhileInactive() {
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new RequestFxSelectTrack(0, "verb"));
+        bus.events.clear();
+        bus.send(new EncoderTurned(16, 127));
+
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof SetTrackVolume));
+    }
 }

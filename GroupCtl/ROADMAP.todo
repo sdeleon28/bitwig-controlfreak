@@ -8,6 +8,14 @@
 [X] longrpress solo to clear solo
 [X] longpress rec arm to clear arm
 [X] make refs behave like in the js implementation
+[X] each group should have a special 16 encoder in TrackCtl
+    [X] group volume
+    [X] group pan
+    [X] group solo hold
+[ ] master RCs
+[ ] groups Ctl
+[ ] device toggle on off in pad menu
+[ ] launchpad 
 
 ## send feature
 
@@ -170,6 +178,9 @@
         [ ] pressing again starts
     [ ] move stop gesture to pressing both user 2 and mixer at the same time
 [ ] make it work for GGD
+[ ] try out faster animations
+[X] update advanced paging docs
+[ ] resurrect alternative side-buttons resolution, strategy pattern, feature flagged
 
 # frequalizer
 

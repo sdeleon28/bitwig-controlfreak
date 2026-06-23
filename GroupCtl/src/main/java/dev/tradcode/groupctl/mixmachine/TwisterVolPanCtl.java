@@ -12,6 +12,7 @@ import dev.tradcode.groupctl.events.EncoderButtonReleased;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
+import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.PanModeSelected;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
@@ -24,6 +25,7 @@ import dev.tradcode.groupctl.events.VolModeSelected;
  * the selected group.
  */
 public class TwisterVolPanCtl extends TwisterTrackCtl {
+    int GROUP_POSITION = 16;
     VolPanMode volPanMode = VolPanMode.VOL;
 
     public TwisterVolPanCtl(IEventBus bus) {
@@ -45,6 +47,54 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
                 )
             )
         );
+    }
+
+    @Override
+    protected void paint() {
+        super.paint();
+        this.paintGroupLed();
+    }
+
+    @Override
+    protected void paintRings() {
+        super.paintRings();
+        this.paintGroupRing();
+    }
+
+    private void paintGroupLed() {
+        if (!isActive()) return;
+        var g = this.selectedGroup();
+        if (g == null) return;
+        var color = g.solo ? SOLO_COLOR : this.bwToTwisterColor(g.color);
+        this.bus.send(new PaintEncoder(GROUP_POSITION, color));
+    }
+
+    private void paintGroupRing() {
+        if (!isActive()) return;
+        var g = this.selectedGroup();
+        if (g == null) return;
+        this.bus.send(
+            new SetEncoderValue(
+                GROUP_POSITION,
+                (int) Math.round(
+                    ((this.volPanMode == VolPanMode.VOL) ? g.volume : g.pan) * 127
+                )
+            )
+        );
+    }
+
+    private void setGroupSolo(boolean solo) {
+        if (!isActive()) return;
+        var g = this.selectedGroup();
+        if (g != null)
+            this.bus.send(new RequestSetSolo(g.id, g.name, solo));
+    }
+
+    private void announceGroupPress() {
+        if (!isActive()) return;
+        var g = this.selectedGroup();
+        if (g != null)
+            this.bus.send(new TrackEncoderPressed(g.name));
     }
 
     private void setSoloAt(int n, boolean solo) {
@@ -81,6 +131,14 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
             case RequestFxSelectTrack(int id, String name) -> this.active = false;
             case VolumeUpdated(int id, double v) -> {
                 if (this.volPanMode != VolPanMode.VOL) return;
+                if (id == this.selectedGroupId) {
+                    var g = this.selectedGroup();
+                    if (g != null) {
+                        g.volume = v;
+                        this.paintGroupRing();
+                    }
+                    return;
+                }
                 this.tracksInSelectedGroup()
                     .stream()
                     .filter(t -> t.id == id)
@@ -92,6 +150,14 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
             }
             case PanUpdated(int id, double v) -> {
                 if (this.volPanMode != VolPanMode.PAN) return;
+                if (id == this.selectedGroupId) {
+                    var g = this.selectedGroup();
+                    if (g != null) {
+                        g.pan = v;
+                        this.paintGroupRing();
+                    }
+                    return;
+                }
                 this.tracksInSelectedGroup()
                     .stream()
                     .filter(t -> t.id == id)
@@ -103,6 +169,16 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
             }
             case EncoderTurned(int n, int v) -> {
                 if (!isActive()) return;
+                if (n == GROUP_POSITION) {
+                    var g = this.selectedGroup();
+                    if (g != null)
+                        this.bus.send(
+                            (this.volPanMode == VolPanMode.VOL)
+                                ? new SetTrackVolume(g.id, ((double) v) / 127.0)
+                                : new SetTrackPan(g.id, ((double) v) / 127.0)
+                        );
+                    return;
+                }
                 this.tracksInSelectedGroup()
                     .stream()
                     .filter(t -> t.getPosition() == n)
@@ -114,10 +190,18 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
                     ));
             }
             case EncoderButtonPressed(int n) -> {
-                this.setSoloAt(n, true);
-                this.announcePress(n);
+                if (n == GROUP_POSITION) {
+                    this.setGroupSolo(true);
+                    this.announceGroupPress();
+                } else {
+                    this.setSoloAt(n, true);
+                    this.announcePress(n);
+                }
             }
-            case EncoderButtonReleased(int n) -> this.setSoloAt(n, false);
+            case EncoderButtonReleased(int n) -> {
+                if (n == GROUP_POSITION) this.setGroupSolo(false);
+                else this.setSoloAt(n, false);
+            }
             case VolModeSelected() -> {
                 this.volPanMode = VolPanMode.VOL;
                 this.paintRings();

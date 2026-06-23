@@ -59,6 +59,10 @@ public abstract class TrackCtl implements IEventBusSubscriber {
             .orElse(null);
     }
 
+    protected BitwigTrack selectedGroup() {
+        return this.getTrackById(this.selectedGroupId);
+    }
+
     protected String trackNameById(int id) {
         var t = this.getTrackById(id);
         return t == null ? null : t.name;
