@@ -23,6 +23,9 @@ public class Explorer {
         new ResolutionCtl(bus);
         new TransportTogglesCtl(bus);
 
+        // Growls
+        new ExplorerGrowler(bus, host);
+
         // Bitwig trackers
         this.markersTracker = new BitwigMarkersTracker(bus, host);
         this.playbackTracker = new BitwigPlaybackTracker(bus, host);

@@ -20,7 +20,7 @@ public class GroupCtlExtension extends ControllerExtension
    LaunchpadOutput launchpadOut;
    TwisterInput twisterIn;
    TwisterOutput twisterOut;
-   Growler growler;
+   PagerGrowler pagerGrowler;
    Pager pager;
    Explorer explorer;
    Editor editor;
@@ -48,10 +48,10 @@ public class GroupCtlExtension extends ControllerExtension
       pluginLogger = new PluginLogger(eventBus, host);
       twisterIn = new TwisterInput(eventBus, host.getMidiInPort(1));
       twisterOut = new TwisterOutput(eventBus, host.getMidiOutPort(1));
-      growler = new Growler(eventBus, host);
       launchpadIn = new LaunchpadInput(eventBus, host.getMidiInPort(0), host);
       launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
       pager = new Pager(eventBus);
+      pagerGrowler = new PagerGrowler(eventBus, host);
       explorer = new Explorer(eventBus, host);
       editor = new Editor(eventBus, host);
       mixMachine = new MixMachine(eventBus, host);

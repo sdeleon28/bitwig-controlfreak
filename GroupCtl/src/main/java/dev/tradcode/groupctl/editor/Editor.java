@@ -38,6 +38,9 @@ public class Editor {
         new TwisterMidiContextCtl(bus);
         new PlaybackHandler(bus);
 
+        // Growls
+        new EditorGrowler(bus, host);
+
         // Bitwig trackers
         this.clipTracker = new BitwigEditorClipTracker(bus, host);
         this.playbackTracker = new BitwigPlaybackTracker(bus, host);

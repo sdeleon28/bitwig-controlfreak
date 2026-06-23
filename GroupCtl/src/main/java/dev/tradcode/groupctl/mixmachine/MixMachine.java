@@ -22,6 +22,7 @@ public class MixMachine {
     VolPanCtl volPanCtl;
     PadModeCtl padModeCtl;
     ClearActionsCtl clearActionsCtl;
+    MixMachineGrowler growler;
     Frequalizer frequalizer;
 
     public MixMachine(IEventBus bus, ControllerHost host) {
@@ -41,6 +42,7 @@ public class MixMachine {
         volPanCtl = new VolPanCtl(bus);
         padModeCtl = new PadModeCtl(bus);
         clearActionsCtl = new ClearActionsCtl(bus);
+        growler = new MixMachineGrowler(bus, host);
         frequalizer = new Frequalizer(bus, host);
     }
 
