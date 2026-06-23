@@ -64,11 +64,48 @@ cursor tracks the clip wherever it sits in the arranger.
 
 ## Advanced paging
 
-As we go into higher resolutions, paging becomes more cumbersome, so let's
-design an internal paging mechanism to keep it simple to interact with the
-pages and see how many pages there are in the current resolution.
+As we go into higher resolutions, paging becomes more cumbersome, so we have an
+internal paging mechanism to keep it simple to interact with the pages and see
+how many pages there are in the current resolution.
 
-We'll use the side buttons for this feature, but only temporarily:
+### How it behaves now (the main grid as a page picker)
+
+The page count and picker live on the **main 8x8 grid**, not the side buttons.
+The side buttons are only the left/right arrows.
+
+* The two side arrows page left/right one page at a time. Their paint reflects
+  reachability: an arrow lights only when there's a page to go to in its
+  direction.
+  * The page change fires on button **up** (release), not button down. This
+    frees the down edge so pressing both arrows together can arm a mode instead
+    of paging.
+  * Paging scrolls the column window one column at a time, mirroring the
+    vertical scroll animation (`EditorHorizontalPager`).
+* **Horizontal pager mode** is armed by holding both arrows down at once.
+  * While the mode is on, the 8x8 grid becomes a page picker: every reachable
+    page is laid across the pads in reading order (page 0 top-left, filling
+    rightwards then down) with the current page painted brightest.
+  * Tapping a pad jumps to that page and leaves the mode.
+  * Both arrows blink while the mode is on.
+  * You leave the mode by tapping a page pad or by pressing either arrow (a
+    single arrow press while in mode just drops the mode without paging).
+* **Resolution change** briefly flashes the same grid page-picker layout as a
+  size indicator (for about as long as the scroll animation lasts), then the
+  note view returns. The grid is always restored by asking
+  `EditorGridCalculator` to repaint, never by blanking pads.
+
+The page count is derived from `GridGeometry.totalPages(denominator,
+lengthBeats)` — the same resolution and clip length the pagers read — so the
+layout is correct regardless of which event publishes first.
+
+Owners: `EditorPageCtl` (arrows + arming the mode), `EditorPageSelectorCtl`
+(the grid page picker + resolution flash), `EditorHorizontalPager` (the actual
+column-window paging and animation).
+
+### Alternative mechanism (side buttons) — not currently implemented
+
+The original design put the page indicator on the **side buttons** instead of
+the main grid. Kept here as an alternative we may want to recreate:
 
 * Flash the amount of pages and highlight current page with a different color
   in the side buttons
