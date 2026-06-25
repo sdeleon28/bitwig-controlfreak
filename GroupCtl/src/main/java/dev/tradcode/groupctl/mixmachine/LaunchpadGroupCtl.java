@@ -2,7 +2,6 @@ package dev.tradcode.groupctl.mixmachine;
 
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.mixmachine.events.MasterRcSelected;
 import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -152,11 +151,12 @@ public class LaunchpadGroupCtl implements IEventBusSubscriber {
                 if (track != null && track.isGroup) {
                     this.selectedGroupId = trackId;
                     this.paint();
+                } else if (track == null) {
+                    // a selection outside our groups (e.g. the master track)
+                    // clears the group highlight
+                    this.selectedGroupId = -1;
+                    this.paint();
                 }
-            }
-            case MasterRcSelected() -> {
-                this.selectedGroupId = -1;
-                this.paint();
             }
             case PageSelected(int n) -> {
                 this.pageActive = n == 0;

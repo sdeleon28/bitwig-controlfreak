@@ -12,7 +12,6 @@ import dev.tradcode.groupctl.events.PaintPad;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.mixmachine.events.MasterRcSelected;
 import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
 
 class LaunchpadGroupCtlTest {
@@ -51,14 +50,15 @@ class LaunchpadGroupCtlTest {
     }
 
     @Test
-    void masterSelectionClearsTheGroupBlink() {
+    void selectionOutsideGroupsClearsTheGroupBlink() {
+        // the master track (an id not in our schema) is the real driver of this
         FakeEventBus bus = new FakeEventBus();
         new LaunchpadGroupCtl(bus);
         bus.send(new SchemaChanged(oneGroup()));
         bus.send(new BitwigTrackSelected(GROUP_ID));
         assertEquals(new BlinkPad(GROUP_PAD, BLUE_LP), lastPadEvent(bus, GROUP_PAD));
 
-        bus.send(new MasterRcSelected());
+        bus.send(new BitwigTrackSelected(9999));
 
         assertEquals(new PaintPad(GROUP_PAD, BLUE_LP), lastPadEvent(bus, GROUP_PAD));
     }

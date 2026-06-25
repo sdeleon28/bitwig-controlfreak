@@ -167,6 +167,20 @@ class TwisterVolPanCtlTest {
         assertTrue(bus.events.stream().noneMatch(e -> e instanceof SetTrackVolume));
     }
 
+    @Test
+    void selectingTrackOutsideGroupsReleasesEncoders() {
+        // selecting the master track (an id not in our schema) must drop the
+        // group context so vol/pan stops driving the encoders
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new BitwigTrackSelected(9999));
+        bus.events.clear();
+        bus.send(new EncoderTurned(1, 127));
+
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof SetTrackVolume));
+    }
+
     private static RequestSetSolo soloCmd(FakeEventBus bus) {
         return bus.events.stream()
             .filter(e -> e instanceof RequestSetSolo)

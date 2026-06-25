@@ -9,13 +9,14 @@ import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
-import dev.tradcode.groupctl.events.RequestSelectTrack;
-import dev.tradcode.groupctl.mixmachine.events.MasterRcSelected;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.RequestSelectMaster;
 
 class LaunchpadMasterRcCtlTest {
 
     static final int PAD = 48;
     static final int WHITE = 3;
+    static final int MASTER_ID = BitwigMasterRcTracker.MASTER_ID;
 
     /** Last paint/blink event targeting the master pad, or null. */
     private static Event lastPadEvent(FakeEventBus bus) {
@@ -38,7 +39,7 @@ class LaunchpadMasterRcCtlTest {
     }
 
     @Test
-    void clickSelectsBlinksAndAnnounces() {
+    void clickOnlyRequestsSelectionAndDoesNotSelfActivate() {
         FakeEventBus bus = new FakeEventBus();
         new LaunchpadMasterRcCtl(bus);
         bus.send(new PageSelected(Page.GROUPCTL.getValue()));
@@ -46,19 +47,32 @@ class LaunchpadMasterRcCtlTest {
 
         bus.send(new PadClicked(PAD));
 
-        assertEquals(1, bus.count(MasterRcSelected.class));
+        assertEquals(1, bus.count(RequestSelectMaster.class));
+        // the pad must not blink until Bitwig confirms the selection
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof BlinkPad));
+    }
+
+    @Test
+    void blinksWhenBitwigConfirmsMasterSelected() {
+        FakeEventBus bus = new FakeEventBus();
+        new LaunchpadMasterRcCtl(bus);
+        bus.send(new PageSelected(Page.GROUPCTL.getValue()));
+        bus.clear();
+
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+
         assertEquals(new BlinkPad(PAD, WHITE), lastPadEvent(bus));
     }
 
     @Test
-    void selectingATrackRevertsToSolid() {
+    void revertsToSolidWhenAnotherTrackSelected() {
         FakeEventBus bus = new FakeEventBus();
         new LaunchpadMasterRcCtl(bus);
         bus.send(new PageSelected(Page.GROUPCTL.getValue()));
-        bus.send(new PadClicked(PAD)); // selected -> blinking
+        bus.send(new BitwigTrackSelected(MASTER_ID)); // blinking
         bus.clear();
 
-        bus.send(new RequestSelectTrack(11, "bass (1)"));
+        bus.send(new BitwigTrackSelected(10));
 
         assertEquals(new PaintPad(PAD, WHITE), lastPadEvent(bus));
     }
@@ -72,6 +86,6 @@ class LaunchpadMasterRcCtlTest {
 
         bus.send(new PadClicked(PAD));
 
-        assertEquals(0, bus.count(MasterRcSelected.class));
+        assertEquals(0, bus.count(RequestSelectMaster.class));
     }
 }

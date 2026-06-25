@@ -10,23 +10,30 @@ import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintEncoder;
-import dev.tradcode.groupctl.events.RequestFxSelectTrack;
-import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.mixmachine.events.MasterRcSelected;
 import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcExistsChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcValueChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.SetMasterRcValue;
 
+/**
+ * Twister program: the bottom 8 encoders (positions 1..8) show and edit the
+ * first page of the master track's remote controls. Activation follows the
+ * master track's selection ({@link BitwigTrackSelected} carrying the master
+ * sentinel id); like every other twister program it yields the encoders when a
+ * device is selected.
+ */
 public class TwisterMasterRcCtl implements IEventBusSubscriber {
     static int RC_COUNT = 8;
-    static int RC_COLOR = 25;
+    static int RC_COLOR = 19; // twister blinding cyan
 
     IEventBus bus;
-    boolean selected = false;
+    boolean masterSelected = false;
     boolean editorPageActive = false;
+    boolean deviceBorrowed = false;
     double[] values = new double[RC_COUNT];
+    boolean[] exists = new boolean[RC_COUNT];
 
     Map<Integer, Integer> POSITIONS_TO_IDS = Map.ofEntries(
         Map.entry(1, 4), Map.entry(2, 5), Map.entry(3, 6), Map.entry(4, 7),
@@ -39,7 +46,7 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
     }
 
     private boolean isActive() {
-        return this.selected && !this.editorPageActive;
+        return this.masterSelected && !this.editorPageActive && !this.deviceBorrowed;
     }
 
     private int positionToId(int n) {
@@ -65,8 +72,15 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
     private void paint() {
         if (!isActive()) return;
         this.clearLeds();
-        for (int n = 1; n <= RC_COUNT; n++)
-            this.bus.send(new PaintEncoder(n, RC_COLOR));
+        for (int id = 0; id < RC_COUNT; id++)
+            this.paintLed(id);
+    }
+
+    private void paintLed(int id) {
+        if (!isActive()) return;
+        this.bus.send(
+            new PaintEncoder(this.idToPosition(id), this.exists[id] ? RC_COLOR : 0)
+        );
     }
 
     private void paintRing(int id) {
@@ -91,14 +105,12 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
-            case MasterRcSelected() -> {
-                this.selected = true;
+            case BitwigTrackSelected(int id) -> {
+                this.masterSelected = id == BitwigMasterRcTracker.MASTER_ID;
+                this.deviceBorrowed = false;
                 this.activate();
             }
-            case BitwigTrackSelected(int n) -> this.selected = false;
-            case RequestSelectTrack(int id, String name) -> this.selected = false;
-            case RequestFxSelectTrack(int id, String name) -> this.selected = false;
-            case RequestSelectDevice(int n) -> this.selected = false;
+            case RequestSelectDevice(int n) -> this.deviceBorrowed = true;
             case PageSelected(int n) -> {
                 this.editorPageActive = Page.isEditorPage(n);
                 if (isActive()) this.activate();
@@ -107,6 +119,11 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
                 if (id < 0 || id >= RC_COUNT) return;
                 this.values[id] = v;
                 this.paintRing(id);
+            }
+            case MasterRcExistsChanged(int id, boolean e) -> {
+                if (id < 0 || id >= RC_COUNT) return;
+                this.exists[id] = e;
+                this.paintLed(id);
             }
             case EncoderTurned(int n, int v) -> {
                 if (!isActive()) return;

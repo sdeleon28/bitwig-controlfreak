@@ -8,12 +8,15 @@ import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintPad;
-import dev.tradcode.groupctl.events.RequestFxSelectTrack;
-import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.mixmachine.events.MasterRcSelected;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.RequestSelectMaster;
 
+/**
+ * Owns the special master-RC pad in the group quadrant (the corner pad reserved
+ * out of {@code LaunchpadGroupCtl}). Tapping it merely <em>requests</em> that
+ * Bitwig select the master track; the pad's lit state then follows the resulting
+ * {@link BitwigTrackSelected}, exactly like a group pad follows track selection.
+ */
 public class LaunchpadMasterRcCtl implements IEventBusSubscriber {
     static int PAD = 48;
     static int WHITE = 3;
@@ -34,23 +37,14 @@ public class LaunchpadMasterRcCtl implements IEventBusSubscriber {
         );
     }
 
-    private void deselect() {
-        if (!this.selected) return;
-        this.selected = false;
-        this.paint();
-    }
-
     public void on(Event event) {
         switch (event) {
-            case PadClicked(int n) when this.pageActive && n == PAD -> {
-                this.selected = true;
-                this.bus.send(new MasterRcSelected());
+            case PadClicked(int n) when this.pageActive && n == PAD ->
+                this.bus.send(new RequestSelectMaster());
+            case BitwigTrackSelected(int id) -> {
+                this.selected = id == BitwigMasterRcTracker.MASTER_ID;
                 this.paint();
             }
-            case BitwigTrackSelected(int n) -> this.deselect();
-            case RequestSelectTrack(int id, String name) -> this.deselect();
-            case RequestFxSelectTrack(int id, String name) -> this.deselect();
-            case RequestSelectDevice(int n) -> this.deselect();
             case PageSelected(int n) -> {
                 this.pageActive = n == Page.GROUPCTL.getValue();
                 this.paint();

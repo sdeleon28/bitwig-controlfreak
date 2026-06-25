@@ -91,6 +91,11 @@ public abstract class TrackCtl implements IEventBusSubscriber {
                     this.selectedGroupId = id;
                     this.paint();
                     this.groupUpdated();
+                } else if (track == null) {
+                    // a selection outside our tracks (e.g. the master track)
+                    // leaves no group context to show
+                    this.selectedGroupId = -1;
+                    this.paint();
                 }
             }
             default -> { }

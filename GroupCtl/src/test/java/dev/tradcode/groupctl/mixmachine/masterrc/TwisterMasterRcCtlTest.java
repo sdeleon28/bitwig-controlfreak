@@ -9,12 +9,28 @@ import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.mixmachine.events.MasterRcSelected;
 import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcExistsChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcValueChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.SetMasterRcValue;
 
 class TwisterMasterRcCtlTest {
+
+    static final int MASTER_ID = BitwigMasterRcTracker.MASTER_ID;
+    static final int CYAN = 19;
+
+    private static void allRcsExist(FakeEventBus bus) {
+        for (int id = 0; id < 8; id++)
+            bus.send(new MasterRcExistsChanged(id, true));
+    }
+
+    /** Last LED color painted to encoder {@code pos}, or null if untouched. */
+    private static Integer ledAt(FakeEventBus bus, int pos) {
+        Integer last = null;
+        for (var e : bus.events)
+            if (e instanceof PaintEncoder pe && pe.n() == pos) last = pe.color();
+        return last;
+    }
 
     private static boolean wroteRc(FakeEventBus bus) {
         return bus.events.stream().anyMatch(e -> e instanceof SetMasterRcValue);
@@ -28,7 +44,7 @@ class TwisterMasterRcCtlTest {
     }
 
     @Test
-    void inactiveUntilSelected() {
+    void inactiveUntilMasterSelected() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
 
@@ -38,21 +54,30 @@ class TwisterMasterRcCtlTest {
     }
 
     @Test
-    void selectionLightsBottomEightEncoders() {
+    void detectedRcsLightCyanAcrossTheBottomEightEncoders() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
+        allRcsExist(bus);
 
-        bus.send(new MasterRcSelected());
+        bus.send(new BitwigTrackSelected(MASTER_ID));
 
-        // bottom 8 encoders (positions 1..8) lit
-        for (int n = 1; n <= 8; n++) {
-            final int pos = n;
-            assertTrue(
-                bus.events.stream().anyMatch(
-                    e -> e instanceof PaintEncoder pe && pe.n() == pos && pe.color() != 0),
-                "encoder " + pos + " should be lit"
-            );
-        }
+        // bottom 8 encoders (positions 1..8) lit cyan
+        for (int n = 1; n <= 8; n++)
+            assertEquals(CYAN, ledAt(bus, n), "encoder " + n + " should be cyan");
+    }
+
+    @Test
+    void onlyDetectedRcsAreLit() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        // only RC id 0 (position 5) exists
+        bus.send(new MasterRcExistsChanged(0, true));
+
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+
+        assertEquals(CYAN, ledAt(bus, 5), "the detected RC must be cyan");
+        // RC id 1 (position 6) is not detected -> dark
+        assertEquals(0, ledAt(bus, 6), "an undetected RC must stay dark");
     }
 
     @Test
@@ -65,7 +90,7 @@ class TwisterMasterRcCtlTest {
         bus.send(new MasterRcValueChanged(0, 1.0));
         bus.clear();
 
-        bus.send(new MasterRcSelected());
+        bus.send(new BitwigTrackSelected(MASTER_ID));
 
         // RC id 0 maps to position 5
         assertTrue(bus.events.stream().anyMatch(
@@ -76,7 +101,7 @@ class TwisterMasterRcCtlTest {
     void encoderTurnWritesMasterRcAfterSelection() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
-        bus.send(new MasterRcSelected());
+        bus.send(new BitwigTrackSelected(MASTER_ID));
         bus.clear();
 
         // position 5 maps to RC id 0
@@ -92,7 +117,7 @@ class TwisterMasterRcCtlTest {
     void valueChangePaintsRingAtMappedPosition() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
-        bus.send(new MasterRcSelected());
+        bus.send(new BitwigTrackSelected(MASTER_ID));
         bus.clear();
 
         // RC id 0 maps to position 5
@@ -103,10 +128,10 @@ class TwisterMasterRcCtlTest {
     }
 
     @Test
-    void trackSelectionReleasesEncoders() {
+    void selectingAnotherTrackReleasesEncoders() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
-        bus.send(new MasterRcSelected());
+        bus.send(new BitwigTrackSelected(MASTER_ID));
         bus.send(new BitwigTrackSelected(10));
         bus.clear();
 
@@ -116,23 +141,29 @@ class TwisterMasterRcCtlTest {
     }
 
     @Test
-    void deviceSelectionReleasesEncoders() {
+    void deviceSelectionYieldsEncodersAndReSelectingMasterReclaimsThem() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
-        bus.send(new MasterRcSelected());
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+
+        // a device borrows the encoders even though master stays selected
         bus.send(new RequestSelectDevice(0));
         bus.clear();
-
         bus.send(new EncoderTurned(5, 127));
+        assertFalse(wroteRc(bus), "device RC must own the encoders while a device is selected");
 
-        assertFalse(wroteRc(bus));
+        // re-tapping the master pad re-announces the selection (the tracker
+        // re-emits BitwigTrackSelected since Bitwig won't), reclaiming them
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+        bus.send(new EncoderTurned(5, 127));
+        assertTrue(wroteRc(bus), "re-selecting master reclaims the encoders from device RC");
     }
 
     @Test
     void editorPageSuppressesEncodersThenRestores() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
-        bus.send(new MasterRcSelected());
+        bus.send(new BitwigTrackSelected(MASTER_ID));
 
         bus.send(new PageSelected(Page.EDITOR.getValue()));
         bus.clear();
