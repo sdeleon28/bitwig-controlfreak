@@ -2,6 +2,7 @@ package dev.tradcode.groupctl.mixmachine;
 
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.MasterRcSelected;
 import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,9 +34,9 @@ public class LaunchpadGroupCtl implements IEventBusSubscriber {
         // row 3
         Map.entry(35, 9),  Map.entry(36, 10),
         Map.entry(37, 11), Map.entry(38, 12),
-        // row 4
+        // row 4 — pad 16 (note 48) is reserved for the master-RC pad
         Map.entry(45, 13), Map.entry(46, 14),
-        Map.entry(47, 15), Map.entry(48, 16)
+        Map.entry(47, 15)
     );
 
     public LaunchpadGroupCtl(IEventBus bus) {
@@ -152,6 +153,10 @@ public class LaunchpadGroupCtl implements IEventBusSubscriber {
                     this.selectedGroupId = trackId;
                     this.paint();
                 }
+            }
+            case MasterRcSelected() -> {
+                this.selectedGroupId = -1;
+                this.paint();
             }
             case PageSelected(int n) -> {
                 this.pageActive = n == 0;

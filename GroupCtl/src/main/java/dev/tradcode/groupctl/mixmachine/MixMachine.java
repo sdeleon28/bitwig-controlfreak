@@ -4,6 +4,7 @@ import com.bitwig.extension.controller.api.ControllerHost;
 
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.mixmachine.frequalizer.Frequalizer;
+import dev.tradcode.groupctl.mixmachine.masterrc.MasterRc;
 
 public class MixMachine {
     BitwigSchemaTracker schemaTracker;
@@ -24,6 +25,7 @@ public class MixMachine {
     ClearActionsCtl clearActionsCtl;
     MixMachineGrowler growler;
     Frequalizer frequalizer;
+    MasterRc masterRc;
 
     public MixMachine(IEventBus bus, ControllerHost host) {
         schemaTracker = new BitwigSchemaTracker(host, bus);
@@ -44,6 +46,7 @@ public class MixMachine {
         clearActionsCtl = new ClearActionsCtl(bus);
         growler = new MixMachineGrowler(bus, host);
         frequalizer = new Frequalizer(bus, host);
+        masterRc = new MasterRc(bus, host);
     }
 
     public void flush() {
