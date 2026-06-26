@@ -22,8 +22,8 @@
     [X] while we're at it, we can enable DeviceCtl for Master
     [X] make encoder press growl out the corresponding param
         [X] use a package internal growler (see others)
-    [-] BUG: Tempo encoder cyen LED only lights up after second tap on the master pad
-[ ] groups Ctl
+    [X] BUG: Tempo encoder cyen LED only lights up after second tap on the master pad
+[X] groups Ctl
 [ ] device toggle on off in pad menu
 [ ] launchpad 
 

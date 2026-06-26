@@ -371,4 +371,29 @@ class TwisterVolPanCtlTest {
 
         assertTrue(bus.events.stream().noneMatch(e -> e instanceof SetTrackVolume));
     }
+
+    // The master track arrives as an ordinary selection (an id that is none of
+    // our groups, so selectedGroupId becomes -1). VolPanCtl must yield the
+    // encoders to the master RC program rather than stay active and later blank
+    // the surface when an unrelated event triggers a repaint — the bug where the
+    // master's device resolving wiped the tempo encoder's cyan LED.
+    @Test
+    void yieldsToANonGroupSelectionAndStaysSilentOnLaterRepaints() {
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new BitwigTrackSelected(Integer.MIN_VALUE));
+        bus.events.clear();
+
+        // a later repaint trigger: had we stayed active this would clearLeds and
+        // stomp whatever the master RC program painted.
+        var changed = schema();
+        changed.add(leaf(99, "another (3)"));
+        bus.send(new SchemaChanged(changed));
+
+        assertTrue(
+            bus.events.stream().noneMatch(e -> e instanceof PaintEncoder),
+            "VolPanCtl must not paint or clear encoders after yielding to a non-group selection"
+        );
+    }
 }

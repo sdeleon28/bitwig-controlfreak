@@ -120,8 +120,12 @@ public class TwisterVolPanCtl extends TwisterTrackCtl {
         super.on(event);
         switch (event) {
             case BitwigTrackSelected(int n) -> {
-                this.active = true;
-                this.refresh();
+                // The master sentinel arrives as an ordinary selection but is not
+                // one of our groups, so super.on leaves selectedGroupId == -1.
+                // Yield the encoders to the master RC program instead of staying
+                // active and later blanking its paint.
+                this.active = this.selectedGroupId != -1;
+                if (this.active) this.refresh();
             }
             case RequestSelectTrack(int trackId, String name) -> {
                 if (trackId != this.selectedGroupId) return;
