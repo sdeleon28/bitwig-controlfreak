@@ -47,7 +47,8 @@ public class Quantizer {
                     : List.of();
                 boolean playing = exists && playheadBeat >= startBeat && playheadBeat < endBeat;
                 slots.add(new EditorSlot(
-                    !onsets.isEmpty(), key, startBeat, endBeat, velocityOf(onsets), playing));
+                    !onsets.isEmpty(), key, startBeat, endBeat, velocityOf(onsets), playing,
+                    anySelected(onsets)));
             }
         }
         return slots;
@@ -63,6 +64,13 @@ public class Quantizer {
         if (onsets.size() == 1)
             return onsets.get(0).velocity();
         return 1.0;
+    }
+
+    private static boolean anySelected(List<EditorNote> onsets) {
+        for (EditorNote n : onsets)
+            if (n.selected())
+                return true;
+        return false;
     }
 
     private static List<EditorNote> onsetsIn(List<EditorNote> notes, int key,

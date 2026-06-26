@@ -62,6 +62,26 @@ under the cursor, the column spanning it lights up (notes there flash brighter),
 and the column clears when playback stops. The step is clip-relative, so the
 cursor tracks the clip wherever it sits in the arranger.
 
+## Note context (context-aware Twister)
+
+Holding a lit pad brings up context-aware Twister encoders (velocity today) that
+operate on notes. Bitwig's own note selection is the single source of truth:
+
+* Holding pads is equivalent to *temporarily selecting* those notes. The hold
+  gesture (`PadContextCtl`) only translates held pads into a `RequestSelectNotes`
+  that asks the clip tracker to make the Bitwig selection exactly those notes;
+  releasing the last pad clears the selection. It keeps no projection of its own
+  beyond the in-flight gesture.
+* The clip tracker mirrors `NoteStep.isIsSelected()` back out through the normal
+  clip → grid pipeline, so a selected note flows into `EditorSlot.selected()`.
+* Selected pads paint red (`EditorGridPainter`) and the Twister context
+  (`TwisterMidiContextCtl`) arms from the selected slots. Because both read the
+  round-tripped selection, manually selecting notes in Bitwig also lights the
+  pads and arms the encoders — the gesture is just one way to drive selection.
+* Bitwig has no per-note deselect, so the tracker rebuilds the whole selection
+  on each request (clear on the first cell, add the rest) and clears by selecting
+  an empty cell with `clearCurrentSelection`.
+
 ## Advanced paging
 
 As we go into higher resolutions, paging becomes more cumbersome, so we have an

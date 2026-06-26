@@ -1,13 +1,13 @@
 package dev.tradcode.groupctl.editor;
 
-import dev.tradcode.groupctl.editor.events.NoteCell;
-import dev.tradcode.groupctl.editor.events.RequestEndNoteContext;
-import dev.tradcode.groupctl.editor.events.RequestNoteContext;
+import dev.tradcode.groupctl.editor.events.EditorGridChanged;
+import dev.tradcode.groupctl.editor.events.EditorPagerMode;
+import dev.tradcode.groupctl.editor.events.EditorSlot;
 import dev.tradcode.groupctl.editor.events.RequestSetVelocity;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -29,8 +29,16 @@ class TwisterMidiContextCtlTest {
         return ctl;
     }
 
-    private static void arm(FakeEventBus bus, NoteCell... cells) {
-        bus.send(new RequestNoteContext(List.of(cells)));
+    private static EditorSlot selected(int key, double startBeat, double endBeat, double velocity) {
+        return new EditorSlot(true, key, startBeat, endBeat, velocity, false, true);
+    }
+
+    /** Broadcasts a grid where the given slots are selected, padding the rest unlit. */
+    private static void selectInGrid(FakeEventBus bus, EditorSlot... selected) {
+        List<EditorSlot> slots = new ArrayList<>();
+        for (int i = 0; i < EditorConstants.PAGE_SIZE; i++)
+            slots.add(i < selected.length ? selected[i] : new EditorSlot(false, 36, 0.0, 0.5));
+        bus.send(new EditorGridChanged(slots, true));
     }
 
     private static List<RequestSetVelocity> velocityWrites(FakeEventBus bus) {
@@ -41,11 +49,11 @@ class TwisterMidiContextCtlTest {
     }
 
     @Test
-    void armingASingleCellShowsItsVelocity() {
+    void selectingASingleCellShowsItsVelocity() {
         FakeEventBus bus = new FakeEventBus();
         onEditorPage(bus);
 
-        arm(bus, new NoteCell(36, 0.0, 0.5, 0.5));
+        selectInGrid(bus, selected(36, 0.0, 0.5, 0.5));
 
         PaintEncoder led = bus.last(PaintEncoder.class);
         assertNotNull(led);
@@ -58,11 +66,11 @@ class TwisterMidiContextCtlTest {
     }
 
     @Test
-    void armingMultipleCellsDefaultsRingToFull() {
+    void selectingMultipleCellsDefaultsRingToFull() {
         FakeEventBus bus = new FakeEventBus();
         onEditorPage(bus);
 
-        arm(bus, new NoteCell(36, 0.0, 0.5, 0.2), new NoteCell(36, 0.5, 1.0, 0.9));
+        selectInGrid(bus, selected(36, 0.0, 0.5, 0.2), selected(36, 0.5, 1.0, 0.9));
 
         SetEncoderValue ring = bus.last(SetEncoderValue.class);
         assertEquals(127, ring.v()); // multiple notes -> full velocity baseline
@@ -72,7 +80,7 @@ class TwisterMidiContextCtlTest {
     void turningWritesVelocityToTheSingleCell() {
         FakeEventBus bus = new FakeEventBus();
         onEditorPage(bus);
-        arm(bus, new NoteCell(36, 0.0, 0.5, 0.5));
+        selectInGrid(bus, selected(36, 0.0, 0.5, 0.5));
 
         bus.send(new EncoderTurned(ENC, 127));
 
@@ -85,10 +93,10 @@ class TwisterMidiContextCtlTest {
     }
 
     @Test
-    void turningWritesTheSameVelocityToEveryHeldCell() {
+    void turningWritesTheSameVelocityToEverySelectedCell() {
         FakeEventBus bus = new FakeEventBus();
         onEditorPage(bus);
-        arm(bus, new NoteCell(36, 0.0, 0.5, 0.2), new NoteCell(38, 1.0, 1.5, 0.9));
+        selectInGrid(bus, selected(36, 0.0, 0.5, 0.2), selected(38, 1.0, 1.5, 0.9));
 
         bus.send(new EncoderTurned(ENC, 64));
 
@@ -103,10 +111,25 @@ class TwisterMidiContextCtlTest {
     }
 
     @Test
+    void reBroadcastingTheSameSelectionDoesNotSnapTheRingBack() {
+        FakeEventBus bus = new FakeEventBus();
+        onEditorPage(bus);
+        selectInGrid(bus, selected(36, 0.0, 0.5, 0.5));
+        long ringWrites = bus.count(SetEncoderValue.class);
+
+        // A playhead tick (or our own velocity round-trip) re-broadcasts the grid
+        // with the same cell selected, possibly at a new velocity. The ring must
+        // not be re-set or it would fight the user's turn.
+        selectInGrid(bus, selected(36, 0.0, 0.5, 0.9));
+
+        assertEquals(ringWrites, bus.count(SetEncoderValue.class));
+    }
+
+    @Test
     void ignoresTurnsOnOtherEncoders() {
         FakeEventBus bus = new FakeEventBus();
         onEditorPage(bus);
-        arm(bus, new NoteCell(36, 0.0, 0.5, 0.5));
+        selectInGrid(bus, selected(36, 0.0, 0.5, 0.5));
 
         bus.send(new EncoderTurned(ENC + 1, 127));
 
@@ -114,7 +137,7 @@ class TwisterMidiContextCtlTest {
     }
 
     @Test
-    void ignoresTurnsWhileNotArmed() {
+    void ignoresTurnsWhileNothingSelected() {
         FakeEventBus bus = new FakeEventBus();
         onEditorPage(bus);
 
@@ -129,19 +152,19 @@ class TwisterMidiContextCtlTest {
         new TwisterMidiContextCtl(bus);
         bus.send(new PageSelected(OTHER));
 
-        arm(bus, new NoteCell(36, 0.0, 0.5, 0.5));
+        selectInGrid(bus, selected(36, 0.0, 0.5, 0.5));
         bus.send(new EncoderTurned(ENC, 127));
 
         assertEquals(0, velocityWrites(bus).size());
     }
 
     @Test
-    void endingTheContextClearsAndDisarms() {
+    void losingTheSelectionClearsAndDisarms() {
         FakeEventBus bus = new FakeEventBus();
         onEditorPage(bus);
-        arm(bus, new NoteCell(36, 0.0, 0.5, 0.5));
+        selectInGrid(bus, selected(36, 0.0, 0.5, 0.5));
 
-        bus.send(new RequestEndNoteContext());
+        selectInGrid(bus); // grid with nothing selected
 
         PaintEncoder led = bus.last(PaintEncoder.class);
         assertEquals(ENC, led.n());
@@ -158,9 +181,21 @@ class TwisterMidiContextCtlTest {
     void leavingTheEditorPageDisarms() {
         FakeEventBus bus = new FakeEventBus();
         onEditorPage(bus);
-        arm(bus, new NoteCell(36, 0.0, 0.5, 0.5));
+        selectInGrid(bus, selected(36, 0.0, 0.5, 0.5));
 
         bus.send(new PageSelected(OTHER));
+        bus.send(new EncoderTurned(ENC, 100));
+
+        assertEquals(0, velocityWrites(bus).size());
+    }
+
+    @Test
+    void enteringPagerModeDisarms() {
+        FakeEventBus bus = new FakeEventBus();
+        onEditorPage(bus);
+        selectInGrid(bus, selected(36, 0.0, 0.5, 0.5));
+
+        bus.send(new EditorPagerMode(true));
         bus.send(new EncoderTurned(ENC, 100));
 
         assertEquals(0, velocityWrites(bus).size());

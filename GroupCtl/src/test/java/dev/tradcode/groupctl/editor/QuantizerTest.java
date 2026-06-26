@@ -151,6 +151,22 @@ class QuantizerTest {
     }
 
     @Test
+    void marksACellSelectedWhenAnyOnsetInItIsSelected() {
+        List<EditorSlot> g = new Quantizer().apply(List.of(
+            new EditorNote(36, 0.0, 0.5, true)
+        ), 8, true, 0);
+        assertTrue(g.get(idx(BOTTOM, 0)).selected());
+    }
+
+    @Test
+    void leavesACellUnselectedWhenNoOnsetInItIsSelected() {
+        List<EditorSlot> g = new Quantizer().apply(List.of(
+            new EditorNote(36, 0.0, 0.5, false)
+        ), 8, true, 0);
+        assertFalse(g.get(idx(BOTTOM, 0)).selected());
+    }
+
+    @Test
     void nothingIsLitWhenNoClipExists() {
         List<EditorSlot> g = new Quantizer().apply(List.of(new EditorNote(36, 0.0)), 8, false, 0);
         for (EditorSlot s : g)

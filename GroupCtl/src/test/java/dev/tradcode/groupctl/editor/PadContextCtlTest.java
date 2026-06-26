@@ -3,11 +3,11 @@ package dev.tradcode.groupctl.editor;
 import dev.tradcode.groupctl.editor.events.EditorGridChanged;
 import dev.tradcode.groupctl.editor.events.EditorPagerMode;
 import dev.tradcode.groupctl.editor.events.EditorSlot;
-import dev.tradcode.groupctl.editor.events.RequestEndNoteContext;
-import dev.tradcode.groupctl.editor.events.RequestNoteContext;
+import dev.tradcode.groupctl.editor.events.RequestSelectNotes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +19,6 @@ import dev.tradcode.groupctl.events.PadClicked;
 import dev.tradcode.groupctl.events.PadLongPressed;
 import dev.tradcode.groupctl.events.PadLongPressStarted;
 import dev.tradcode.groupctl.events.PageSelected;
-import dev.tradcode.groupctl.events.PaintPad;
 
 class PadContextCtlTest {
 
@@ -36,14 +35,6 @@ class PadContextCtlTest {
         return slots;
     }
 
-    /** Final pad color pushed to {@code note}, or null if untouched. */
-    private static Integer padColor(FakeEventBus bus, int note) {
-        Integer c = null;
-        for (var e : bus.events)
-            if (e instanceof PaintPad p && p.n() == note) c = p.color();
-        return c;
-    }
-
     private static PadContextCtl onEditor(FakeEventBus bus, Map<Integer, EditorSlot> overrides) {
         var ctl = new PadContextCtl(bus);
         bus.send(new PageSelected(EDITOR));
@@ -52,24 +43,23 @@ class PadContextCtlTest {
     }
 
     @Test
-    void holdingLitPadArmsTheNoteContextAndLightsRed() {
+    void holdingLitPadSelectsItsNote() {
         FakeEventBus bus = new FakeEventBus();
         onEditor(bus, Map.of(0, new EditorSlot(true, 36, 0.0, 0.5, 0.6)));
 
         bus.send(new PadLongPressStarted(EditorConstants.PADS.get(0)));
 
-        RequestNoteContext req = bus.last(RequestNoteContext.class);
+        RequestSelectNotes req = bus.last(RequestSelectNotes.class);
         assertNotNull(req);
         assertEquals(1, req.cells().size());
         assertEquals(36, req.cells().get(0).key());
         assertEquals(0.0, req.cells().get(0).startBeat());
         assertEquals(0.5, req.cells().get(0).endBeat());
         assertEquals(0.6, req.cells().get(0).velocity(), 1e-9);
-        assertEquals(EditorColors.ACTIVE_CONTEXT, padColor(bus, EditorConstants.PADS.get(0)));
     }
 
     @Test
-    void holdingMultiplePadsAddsThemAllToTheContext() {
+    void holdingMultiplePadsSelectsThemAll() {
         FakeEventBus bus = new FakeEventBus();
         onEditor(bus, Map.of(
             0, new EditorSlot(true, 36, 0.0, 0.5, 0.6),
@@ -79,14 +69,12 @@ class PadContextCtlTest {
         bus.send(new PadLongPressStarted(EditorConstants.PADS.get(0)));
         bus.send(new PadLongPressStarted(EditorConstants.PADS.get(1)));
 
-        RequestNoteContext req = bus.last(RequestNoteContext.class);
+        RequestSelectNotes req = bus.last(RequestSelectNotes.class);
         assertEquals(2, req.cells().size());
-        assertEquals(EditorColors.ACTIVE_CONTEXT, padColor(bus, EditorConstants.PADS.get(0)));
-        assertEquals(EditorColors.ACTIVE_CONTEXT, padColor(bus, EditorConstants.PADS.get(1)));
     }
 
     @Test
-    void releasingOneOfSeveralKeepsTheRest() {
+    void releasingOneOfSeveralKeepsTheRestSelected() {
         FakeEventBus bus = new FakeEventBus();
         onEditor(bus, Map.of(
             0, new EditorSlot(true, 36, 0.0, 0.5, 0.6),
@@ -97,39 +85,42 @@ class PadContextCtlTest {
 
         bus.send(new PadLongPressed(EditorConstants.PADS.get(0)));
 
-        RequestNoteContext req = bus.last(RequestNoteContext.class);
+        RequestSelectNotes req = bus.last(RequestSelectNotes.class);
         assertEquals(1, req.cells().size());
         assertEquals(0.5, req.cells().get(0).startBeat());
-        assertNull(bus.last(RequestEndNoteContext.class));
-        // the released pad goes back to its note color
-        assertEquals(EditorColors.NOTE, padColor(bus, EditorConstants.PADS.get(0)));
     }
 
     @Test
-    void releasingTheLastHeldPadEndsTheContext() {
+    void releasingTheLastHeldPadClearsTheSelection() {
         FakeEventBus bus = new FakeEventBus();
         onEditor(bus, Map.of(0, new EditorSlot(true, 36, 0.0, 0.5, 0.6)));
         bus.send(new PadLongPressStarted(EditorConstants.PADS.get(0)));
 
         bus.send(new PadLongPressed(EditorConstants.PADS.get(0)));
 
-        assertNotNull(bus.last(RequestEndNoteContext.class));
-        assertEquals(EditorColors.NOTE, padColor(bus, EditorConstants.PADS.get(0)));
+        RequestSelectNotes req = bus.last(RequestSelectNotes.class);
+        assertTrue(req.cells().isEmpty());
     }
 
     @Test
-    void redFeedbackIsReassertedAfterAGridRepaint() {
+    void aVanishedHeldNoteResyncsTheSelection() {
         FakeEventBus bus = new FakeEventBus();
-        onEditor(bus, Map.of(0, new EditorSlot(true, 36, 0.0, 0.5, 0.6)));
+        onEditor(bus, Map.of(
+            0, new EditorSlot(true, 36, 0.0, 0.5, 0.6),
+            1, new EditorSlot(true, 36, 0.5, 1.0, 0.7)
+        ));
         bus.send(new PadLongPressStarted(EditorConstants.PADS.get(0)));
+        bus.send(new PadLongPressStarted(EditorConstants.PADS.get(1)));
 
-        // A velocity turn round-trips to a grid repaint, which would otherwise
-        // wipe the red feedback.
+        // The note under pad 0 disappears (e.g. cleared elsewhere); the grid
+        // repaints without it, and the selection must drop to just pad 1.
         bus.send(new EditorGridChanged(grid(Map.of(
-            0, new EditorSlot(true, 36, 0.0, 0.5, 0.9)
+            1, new EditorSlot(true, 36, 0.5, 1.0, 0.7)
         )), true));
 
-        assertEquals(EditorColors.ACTIVE_CONTEXT, padColor(bus, EditorConstants.PADS.get(0)));
+        RequestSelectNotes req = bus.last(RequestSelectNotes.class);
+        assertEquals(1, req.cells().size());
+        assertEquals(0.5, req.cells().get(0).startBeat());
     }
 
     @Test
@@ -140,19 +131,31 @@ class PadContextCtlTest {
 
         bus.send(new PadLongPressStarted(EditorConstants.PADS.get(0)));
 
-        assertNull(bus.last(RequestNoteContext.class));
+        assertNull(bus.last(RequestSelectNotes.class));
     }
 
     @Test
-    void enteringPagerModeReleasesAnyHeldContext() {
+    void enteringPagerModeClearsTheSelection() {
         FakeEventBus bus = new FakeEventBus();
         onEditor(bus, Map.of(0, new EditorSlot(true, 36, 0.0, 0.5, 0.6)));
         bus.send(new PadLongPressStarted(EditorConstants.PADS.get(0)));
-        assertNotNull(bus.last(RequestNoteContext.class));
+        assertEquals(1, bus.last(RequestSelectNotes.class).cells().size());
 
         bus.send(new EditorPagerMode(true));
 
-        assertNotNull(bus.last(RequestEndNoteContext.class));
+        assertTrue(bus.last(RequestSelectNotes.class).cells().isEmpty());
+    }
+
+    @Test
+    void leavingTheEditorPageClearsTheSelection() {
+        FakeEventBus bus = new FakeEventBus();
+        onEditor(bus, Map.of(0, new EditorSlot(true, 36, 0.0, 0.5, 0.6)));
+        bus.send(new PadLongPressStarted(EditorConstants.PADS.get(0)));
+        assertEquals(1, bus.last(RequestSelectNotes.class).cells().size());
+
+        bus.send(new PageSelected(0));
+
+        assertTrue(bus.last(RequestSelectNotes.class).cells().isEmpty());
     }
 
     @Test
@@ -162,8 +165,7 @@ class PadContextCtlTest {
 
         bus.send(new PadLongPressStarted(EditorConstants.PADS.get(0)));
 
-        assertNull(bus.last(RequestNoteContext.class));
-        assertNull(padColor(bus, EditorConstants.PADS.get(0)));
+        assertNull(bus.last(RequestSelectNotes.class));
     }
 
     @Test
@@ -176,7 +178,7 @@ class PadContextCtlTest {
 
         bus.send(new PadLongPressStarted(EditorConstants.PADS.get(0)));
 
-        assertNull(bus.last(RequestNoteContext.class));
+        assertNull(bus.last(RequestSelectNotes.class));
     }
 
     @Test
@@ -190,17 +192,16 @@ class PadContextCtlTest {
 
         bus.send(new PadLongPressStarted(EditorConstants.PADS.get(0)));
 
-        assertNull(bus.last(RequestNoteContext.class));
+        assertNull(bus.last(RequestSelectNotes.class));
     }
 
     @Test
-    void shortTapNeitherArmsNorEndsTheContext() {
+    void shortTapNeitherSelectsNorClears() {
         FakeEventBus bus = new FakeEventBus();
         onEditor(bus, Map.of(0, new EditorSlot(true, 36, 0.0, 0.5, 0.6)));
 
         bus.send(new PadClicked(EditorConstants.PADS.get(0)));
 
-        assertNull(bus.last(RequestNoteContext.class));
-        assertNull(bus.last(RequestEndNoteContext.class));
+        assertNull(bus.last(RequestSelectNotes.class));
     }
 }

@@ -26,6 +26,8 @@ public class EditorGridPainter implements IEventBusSubscriber {
     }
 
     private static int colorFor(EditorSlot s) {
+        if (s.selected())
+            return EditorColors.ACTIVE_CONTEXT;
         if (s.playing())
             return s.lit() ? EditorColors.PLAYHEAD_NOTE : EditorColors.PLAYHEAD;
         return s.lit() ? EditorColors.NOTE : 0;

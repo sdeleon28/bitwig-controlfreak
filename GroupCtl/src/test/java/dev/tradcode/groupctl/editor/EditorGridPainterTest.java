@@ -56,6 +56,20 @@ class EditorGridPainterTest {
     }
 
     @Test
+    void paintsSelectedPadsRedEvenUnderThePlayhead() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridPainter(bus);
+
+        bus.send(new EditorGridChanged(grid(Map.of(
+            0, new EditorSlot(true, 36, 0, 0.5, 0.6, false, true), // selected
+            8, new EditorSlot(true, 36, 0, 0.5, 0.6, true, true)   // selected + playing
+        )), true));
+
+        assertEquals(EditorColors.ACTIVE_CONTEXT, lastPaintPad(bus, EditorConstants.PADS.get(0)));
+        assertEquals(EditorColors.ACTIVE_CONTEXT, lastPaintPad(bus, EditorConstants.PADS.get(8)));
+    }
+
+    @Test
     void paintsAllSixtyFourPads() {
         FakeEventBus bus = new FakeEventBus();
         new EditorGridPainter(bus);
