@@ -15,6 +15,7 @@ import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcExistsChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcValueChanged;
+import dev.tradcode.groupctl.mixmachine.masterrc.events.RequestNudgeTempo;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.SetMasterRcValue;
 
 /**
@@ -23,10 +24,15 @@ import dev.tradcode.groupctl.mixmachine.masterrc.events.SetMasterRcValue;
  * master track's selection ({@link BitwigTrackSelected} carrying the master
  * sentinel id); like every other twister program it yields the encoders when a
  * device is selected.
+ *
+ * RC 0 is mapped to Tempo: its encoder nudges the transport by whole BPM steps
+ * ({@link RequestNudgeTempo}) instead of writing a normalized value, so each
+ * detent is exactly 1 BPM regardless of the parameter's range.
  */
 public class TwisterMasterRcCtl implements IEventBusSubscriber {
     static int RC_COUNT = 8;
     static int RC_COLOR = 19; // twister blinding cyan
+    static int TEMPO_RC_ID = 0;
 
     IEventBus bus;
     boolean masterSelected = false;
@@ -34,6 +40,7 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
     boolean deviceBorrowed = false;
     double[] values = new double[RC_COUNT];
     boolean[] exists = new boolean[RC_COUNT];
+    int lastTempoPos = -1;
 
     Map<Integer, Integer> POSITIONS_TO_IDS = Map.ofEntries(
         Map.entry(1, 4), Map.entry(2, 5), Map.entry(3, 6), Map.entry(4, 7),
@@ -99,8 +106,19 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
 
     private void activate() {
         if (!isActive()) return;
+        this.lastTempoPos = -1;
         this.paint();
         this.paintRings();
+    }
+
+    private void nudgeTempo(int pos) {
+        if (this.lastTempoPos == -1) {
+            this.lastTempoPos = pos;
+            return;
+        }
+        int delta = pos - this.lastTempoPos;
+        this.lastTempoPos = pos;
+        if (delta != 0) this.bus.send(new RequestNudgeTempo(delta));
     }
 
     public void on(Event event) {
@@ -129,6 +147,10 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
                 if (!isActive()) return;
                 int id = this.positionToId(n);
                 if (id < 0) return;
+                if (id == TEMPO_RC_ID) {
+                    this.nudgeTempo(v);
+                    return;
+                }
                 this.bus.send(new SetMasterRcValue(id, (double) v / 127.0));
             }
             default -> { }

@@ -18,8 +18,10 @@
     [X] make Master selection state the source of truth
     [X] tap to reclaim
     [X] color detected RCs cyan
-    [ ] special case for tempo, step=1 encoder override (like js impl)
-    [ ] while we're at it, we can enable DeviceCtl for Master
+    [X] special case for tempo, step=1 encoder override (like js impl)
+    [X] while we're at it, we can enable DeviceCtl for Master
+    [-] make encoder press growl out the corresponding param
+        [-] use a package internal growler (see others)
 [ ] groups Ctl
 [ ] device toggle on off in pad menu
 [ ] launchpad 
