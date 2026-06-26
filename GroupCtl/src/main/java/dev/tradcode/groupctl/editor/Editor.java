@@ -35,6 +35,7 @@ public class Editor {
         new EditorHorizontalPager(bus, scheduler);
         new EditorNoteHandler(bus);
         new PadContextCtl(bus);
+        new HorizontalSliceCtl(bus);
         new TwisterMidiContextCtl(bus);
         new PlaybackHandler(bus);
 

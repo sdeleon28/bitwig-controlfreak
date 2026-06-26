@@ -4,15 +4,15 @@ import dev.tradcode.groupctl.editor.events.PlaybackUpdate;
 import dev.tradcode.groupctl.editor.events.RequestStartPlayback;
 import dev.tradcode.groupctl.editor.events.RequestStopPlayback;
 
-import dev.tradcode.groupctl.events.BlinkPad;
+import dev.tradcode.groupctl.events.BlinkTopButton;
 import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PageSelected;
-import dev.tradcode.groupctl.events.PaintSideButton;
-import dev.tradcode.groupctl.events.SideButton;
-import dev.tradcode.groupctl.events.SideButtonClick;
+import dev.tradcode.groupctl.events.PaintTopButton;
+import dev.tradcode.groupctl.events.TopButton;
+import dev.tradcode.groupctl.events.TopButtonClick;
 
 public class PlaybackHandler implements IEventBusSubscriber {
     IEventBus bus;
@@ -28,9 +28,9 @@ public class PlaybackHandler implements IEventBusSubscriber {
         if (!this.pageActive)
             return;
         if (this.isPlaying)
-            this.bus.send(new BlinkPad(SideButton.STOP.getValue(), EditorColors.STOP_COLOR));
+            this.bus.send(new BlinkTopButton(TopButton.MIXER, EditorColors.STOP_COLOR));
         else
-            this.bus.send(new PaintSideButton(SideButton.STOP, 0));
+            this.bus.send(new PaintTopButton(TopButton.MIXER, 0));
     }
 
     public void on(Event event) {
@@ -43,7 +43,7 @@ public class PlaybackHandler implements IEventBusSubscriber {
                 this.isPlaying = isPlaying;
                 this.paint();
             }
-            case SideButtonClick(var btn) when this.pageActive && btn == SideButton.STOP -> {
+            case TopButtonClick(var btn) when this.pageActive && btn == TopButton.MIXER -> {
                 if (this.isPlaying)
                     this.bus.send(new RequestStopPlayback());
                 else

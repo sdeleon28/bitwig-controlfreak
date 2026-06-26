@@ -9,49 +9,49 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.junit.jupiter.api.Test;
 
-import dev.tradcode.groupctl.events.BlinkPad;
+import dev.tradcode.groupctl.events.BlinkTopButton;
 import dev.tradcode.groupctl.events.PageSelected;
-import dev.tradcode.groupctl.events.PaintSideButton;
-import dev.tradcode.groupctl.events.SideButton;
-import dev.tradcode.groupctl.events.SideButtonClick;
+import dev.tradcode.groupctl.events.PaintTopButton;
+import dev.tradcode.groupctl.events.TopButton;
+import dev.tradcode.groupctl.events.TopButtonClick;
 
 class PlaybackHandlerTest {
 
     private static final int EDITOR = EditorConstants.PAGE_INDEX;
 
     @Test
-    void blinksStopButtonWhilePlayingOnTheEditorPage() {
+    void blinksTransportButtonWhilePlayingOnTheEditorPage() {
         FakeEventBus bus = new FakeEventBus();
         new PlaybackHandler(bus);
         bus.send(new PageSelected(EDITOR));
 
         bus.send(new PlaybackUpdate(true));
-        BlinkPad blink = bus.last(BlinkPad.class);
+        BlinkTopButton blink = bus.last(BlinkTopButton.class);
         assertNotNull(blink);
-        assertEquals(SideButton.STOP.getValue(), blink.n());
+        assertEquals(TopButton.MIXER, blink.btn());
         assertEquals(EditorColors.STOP_COLOR, blink.color());
     }
 
     @Test
-    void turnsStopButtonOffWhenNotPlaying() {
+    void turnsTransportButtonOffWhenNotPlaying() {
         FakeEventBus bus = new FakeEventBus();
         new PlaybackHandler(bus);
         bus.send(new PageSelected(EDITOR));
 
         bus.send(new PlaybackUpdate(false));
-        PaintSideButton off = bus.last(PaintSideButton.class);
+        PaintTopButton off = bus.last(PaintTopButton.class);
         assertNotNull(off);
-        assertEquals(SideButton.STOP, off.btn());
+        assertEquals(TopButton.MIXER, off.btn());
         assertEquals(0, off.color());
     }
 
     @Test
-    void doesNotPaintStopButtonOffPageEvenWhilePlaying() {
+    void doesNotPaintTransportButtonOffPageEvenWhilePlaying() {
         FakeEventBus bus = new FakeEventBus();
         new PlaybackHandler(bus);
 
         bus.send(new PlaybackUpdate(true));
-        assertNull(bus.last(BlinkPad.class));
+        assertNull(bus.last(BlinkTopButton.class));
     }
 
     @Test
@@ -61,7 +61,7 @@ class PlaybackHandlerTest {
         bus.send(new PageSelected(EDITOR));
         bus.send(new PlaybackUpdate(false));
 
-        bus.send(new SideButtonClick(SideButton.STOP));
+        bus.send(new TopButtonClick(TopButton.MIXER));
         assertNotNull(bus.last(RequestStartPlayback.class));
         assertNull(bus.last(RequestStopPlayback.class));
     }
@@ -73,28 +73,28 @@ class PlaybackHandlerTest {
         bus.send(new PageSelected(EDITOR));
         bus.send(new PlaybackUpdate(true));
 
-        bus.send(new SideButtonClick(SideButton.STOP));
+        bus.send(new TopButtonClick(TopButton.MIXER));
         assertNotNull(bus.last(RequestStopPlayback.class));
         assertNull(bus.last(RequestStartPlayback.class));
     }
 
     @Test
-    void ignoresStopButtonWhenNotOnTheEditorPage() {
+    void ignoresTransportButtonWhenNotOnTheEditorPage() {
         FakeEventBus bus = new FakeEventBus();
         new PlaybackHandler(bus);
 
-        bus.send(new SideButtonClick(SideButton.STOP));
+        bus.send(new TopButtonClick(TopButton.MIXER));
         assertNull(bus.last(RequestStartPlayback.class));
         assertNull(bus.last(RequestStopPlayback.class));
     }
 
     @Test
-    void ignoresOtherSideButtons() {
+    void ignoresOtherTopButtons() {
         FakeEventBus bus = new FakeEventBus();
         new PlaybackHandler(bus);
         bus.send(new PageSelected(EDITOR));
 
-        bus.send(new SideButtonClick(SideButton.MUTE));
+        bus.send(new TopButtonClick(TopButton.SESSION));
         assertNull(bus.last(RequestStartPlayback.class));
         assertNull(bus.last(RequestStopPlayback.class));
     }

@@ -153,7 +153,16 @@
 [ ] using palette as reference filter pad color by velocity (lower -> dimmer, higher -> brighter)
 [X] growl resolution and page
 [X] support 16 notes (two vertical pages)
-[ ] horizontal slice
+[X] horizontal slice feature
+    [X] pressing a side button selects all notes in that row
+    [X] if there are no notes in the row
+        [X] blink all pads in that row
+            [X] pressing blinking pad fills row @ current resolution
+                [X] new notes remain selected
+    [X] move editor play/stop off the STOP side button (now MIXER top button)
+[ ] bulk delete feature
+[ ] bulk move feature
+[ ] follow the playhead
 [ ] expand note context feature set
     [ ] top 2 rows should map to RCs
     [ ] bottom note controls

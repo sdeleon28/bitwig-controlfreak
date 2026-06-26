@@ -4,6 +4,7 @@ public final class EditorColors {
     private EditorColors() { }
 
     public static final int NOTE = 69;             // lit pad: a note falls here (very nice!)
+    public static final int SLICE_FILL = 69;       // green: blinks across an empty row, tap to fill it
     public static final int ACTIVE_CONTEXT = 5;    // red: pad held as the Twister velocity context
     public static final int RESOLUTION_COLOR = 41; // cyan, mirrors the explorer resolution LEDs
     public static final int PAGE_COLOR = 49;       // purple, mirrors the explorer page LEDs
