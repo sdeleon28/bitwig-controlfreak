@@ -10,6 +10,7 @@ import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.RequestSelectMaster;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcExistsChanged;
+import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcNameChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcValueChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.SetMasterRcValue;
 
@@ -45,6 +46,9 @@ public class BitwigMasterRcTracker implements IEventBusSubscriber {
             );
             rc.exists().addValueObserver(
                 e -> this.bus.send(new MasterRcExistsChanged(j, e))
+            );
+            rc.name().addValueObserver(
+                name -> this.bus.send(new MasterRcNameChanged(j, name))
             );
         }
     }

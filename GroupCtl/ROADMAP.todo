@@ -20,8 +20,9 @@
     [X] color detected RCs cyan
     [X] special case for tempo, step=1 encoder override (like js impl)
     [X] while we're at it, we can enable DeviceCtl for Master
-    [-] make encoder press growl out the corresponding param
-        [-] use a package internal growler (see others)
+    [X] make encoder press growl out the corresponding param
+        [X] use a package internal growler (see others)
+    [-] BUG: Tempo encoder cyen LED only lights up after second tap on the master pad
 [ ] groups Ctl
 [ ] device toggle on off in pad menu
 [ ] launchpad 

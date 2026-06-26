@@ -11,6 +11,7 @@ public class MasterRc {
     public MasterRc(IEventBus bus, ControllerHost host) {
         new LaunchpadMasterRcCtl(bus);
         new TwisterMasterRcCtl(bus);
+        new MasterRcGrowler(bus, host);
         this.tracker = new BitwigMasterRcTracker(bus, host);
         this.tempoTracker = new BitwigTempoTracker(bus, host);
     }

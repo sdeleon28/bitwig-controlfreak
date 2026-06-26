@@ -4,13 +4,16 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
 import dev.tradcode.groupctl.Page;
+import dev.tradcode.groupctl.events.EncoderButtonPressed;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcEncoderPressed;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcExistsChanged;
+import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcNameChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcValueChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.RequestNudgeTempo;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.SetMasterRcValue;
@@ -48,6 +51,13 @@ class TwisterMasterRcCtlTest {
         RequestNudgeTempo last = null;
         for (var e : bus.events)
             if (e instanceof RequestNudgeTempo n) last = n;
+        return last;
+    }
+
+    private static MasterRcEncoderPressed lastPress(FakeEventBus bus) {
+        MasterRcEncoderPressed last = null;
+        for (var e : bus.events)
+            if (e instanceof MasterRcEncoderPressed p) last = p;
         return last;
     }
 
@@ -232,5 +242,49 @@ class TwisterMasterRcCtlTest {
 
         assertEquals(0, bus.count(RequestNudgeTempo.class),
             "reclaiming master re-baselines the tempo encoder");
+    }
+
+    @Test
+    void encoderPressGrowlsTheCorrespondingParamName() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        allRcsExist(bus);
+        bus.send(new MasterRcNameChanged(1, "Reverb"));
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+        bus.clear();
+
+        // position 6 maps to RC id 1
+        bus.send(new EncoderButtonPressed(6));
+
+        var press = lastPress(bus);
+        assertNotNull(press);
+        assertEquals("Reverb", press.name());
+        assertEquals("Reverb", press.toString());
+    }
+
+    @Test
+    void encoderPressIsSilentWhileInactive() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        allRcsExist(bus);
+        bus.send(new MasterRcNameChanged(1, "Reverb"));
+
+        bus.send(new EncoderButtonPressed(6));
+
+        assertNull(lastPress(bus), "the program must not growl when another owns the encoders");
+    }
+
+    @Test
+    void undetectedRcDoesNotGrowlOnPress() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        // only RC id 0 exists; RC id 1 (position 6) does not
+        bus.send(new MasterRcExistsChanged(0, true));
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+        bus.clear();
+
+        bus.send(new EncoderButtonPressed(6));
+
+        assertNull(lastPress(bus), "pressing an empty RC encoder must stay silent");
     }
 }

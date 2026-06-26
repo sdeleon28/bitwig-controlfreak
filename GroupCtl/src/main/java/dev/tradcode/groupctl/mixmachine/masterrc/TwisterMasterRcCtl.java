@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import dev.tradcode.groupctl.Page;
+import dev.tradcode.groupctl.events.EncoderButtonPressed;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
@@ -13,7 +14,9 @@ import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcEncoderPressed;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcExistsChanged;
+import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcNameChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcValueChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.RequestNudgeTempo;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.SetMasterRcValue;
@@ -40,6 +43,7 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
     boolean deviceBorrowed = false;
     double[] values = new double[RC_COUNT];
     boolean[] exists = new boolean[RC_COUNT];
+    String[] names = new String[RC_COUNT];
     int lastTempoPos = -1;
 
     Map<Integer, Integer> POSITIONS_TO_IDS = Map.ofEntries(
@@ -142,6 +146,16 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
                 if (id < 0 || id >= RC_COUNT) return;
                 this.exists[id] = e;
                 this.paintLed(id);
+            }
+            case MasterRcNameChanged(int id, String name) -> {
+                if (id < 0 || id >= RC_COUNT) return;
+                this.names[id] = name;
+            }
+            case EncoderButtonPressed(int n) -> {
+                if (!isActive()) return;
+                int id = this.positionToId(n);
+                if (id < 0 || !this.exists[id] || this.names[id] == null) return;
+                this.bus.send(new MasterRcEncoderPressed(this.names[id]));
             }
             case EncoderTurned(int n, int v) -> {
                 if (!isActive()) return;
