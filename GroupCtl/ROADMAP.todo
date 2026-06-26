@@ -12,7 +12,7 @@
     [X] group volume
     [X] group pan
     [X] group solo hold
-[-] master mode
+[X] master mode
     [X] special pad 16
     [X] light up encoders by default
     [X] make Master selection state the source of truth
@@ -24,8 +24,8 @@
         [X] use a package internal growler (see others)
     [X] BUG: Tempo encoder cyen LED only lights up after second tap on the master pad
 [X] groups Ctl
-[ ] device toggle on off in pad menu
-[ ] launchpad 
+[X] device toggle on off in pad menu
+[X] while in device RC mode (not custom, like frequalizer, or plugin) make encoder 16 the track volume / pan / solo control (and paint it)
 
 ## send feature
 

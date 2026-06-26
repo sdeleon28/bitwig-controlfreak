@@ -3,6 +3,7 @@ package dev.tradcode.groupctl.mixmachine;
 import com.bitwig.extension.controller.api.ControllerHost;
 
 import dev.tradcode.groupctl.events.IEventBus;
+import dev.tradcode.groupctl.mixmachine.devicedetail.DeviceDetail;
 import dev.tradcode.groupctl.mixmachine.frequalizer.Frequalizer;
 import dev.tradcode.groupctl.mixmachine.masterrc.MasterRc;
 
@@ -26,6 +27,7 @@ public class MixMachine {
     MixMachineGrowler growler;
     Frequalizer frequalizer;
     MasterRc masterRc;
+    DeviceDetail deviceDetail;
 
     public MixMachine(IEventBus bus, ControllerHost host) {
         schemaTracker = new BitwigSchemaTracker(host, bus);
@@ -47,6 +49,7 @@ public class MixMachine {
         growler = new MixMachineGrowler(bus, host);
         frequalizer = new Frequalizer(bus, host);
         masterRc = new MasterRc(bus, host);
+        deviceDetail = new DeviceDetail(bus, host);
     }
 
     public void flush() {
