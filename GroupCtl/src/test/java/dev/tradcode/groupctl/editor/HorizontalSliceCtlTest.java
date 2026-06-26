@@ -1,21 +1,21 @@
 package dev.tradcode.groupctl.editor;
 
-import dev.tradcode.groupctl.editor.events.EditorGridChanged;
+import dev.tradcode.groupctl.editor.events.EditorClipChanged;
+import dev.tradcode.groupctl.editor.events.EditorNote;
 import dev.tradcode.groupctl.editor.events.EditorPagerMode;
-import dev.tradcode.groupctl.editor.events.EditorSlot;
+import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
+import dev.tradcode.groupctl.editor.events.EditorRowKeysChanged;
 import dev.tradcode.groupctl.editor.events.NoteCell;
 import dev.tradcode.groupctl.editor.events.RequestEditorGridRepaint;
 import dev.tradcode.groupctl.editor.events.RequestSelectNotes;
-import dev.tradcode.groupctl.editor.events.RequestSetNote;
+import dev.tradcode.groupctl.editor.events.RequestSetNotes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -31,26 +31,15 @@ class HorizontalSliceCtlTest {
     private static final int EDITOR = EditorConstants.PAGE_INDEX;
     private static final int COLS = EditorConstants.GRID_COLS;
 
-    // A full grid where every cell carries its row's key and a 1/8-note start
-    // beat, unlit unless overridden. Mirrors what the calculator broadcasts so
-    // the Ctl reads real keys and beats off the slots.
-    private static List<EditorSlot> grid(Map<Integer, EditorSlot> lit) {
-        List<EditorSlot> slots = new ArrayList<>();
-        for (int i = 0; i < EditorConstants.PAGE_SIZE; i++) {
-            if (lit.containsKey(i)) {
-                slots.add(lit.get(i));
-                continue;
-            }
-            int row = i / COLS;
-            int col = i % COLS;
-            double start = col * 0.5;
-            slots.add(new EditorSlot(false, GridGeometry.keyForRow(row), start, start + 0.5));
-        }
-        return slots;
+    private static int[] chromaticRowKeys() {
+        int[] keys = new int[EditorConstants.GRID_ROWS];
+        for (int r = 0; r < keys.length; r++)
+            keys[r] = GridGeometry.keyForRow(r); // top row first, matching the side buttons
+        return keys;
     }
 
-    private static EditorSlot litNote(int key, double startBeat) {
-        return new EditorSlot(true, key, startBeat, startBeat + 0.5, 1.0);
+    private static EditorNote note(int key, double beat) {
+        return new EditorNote(key, beat, 1.0, false);
     }
 
     private static <T extends Event> List<T> allOf(FakeEventBus bus, Class<T> type) {
@@ -61,39 +50,42 @@ class HorizontalSliceCtlTest {
         return out;
     }
 
-    private static FakeEventBus onEditorWith(Map<Integer, EditorSlot> lit) {
+    private static FakeEventBus onEditor(double lengthBeats, int denominator, List<EditorNote> notes) {
         FakeEventBus bus = new FakeEventBus();
         new HorizontalSliceCtl(bus);
         bus.send(new PageSelected(EDITOR));
-        bus.send(new EditorGridChanged(grid(lit), true));
+        bus.send(new EditorRowKeysChanged(chromaticRowKeys()));
+        bus.send(new EditorResolutionChanged(denominator));
+        bus.send(new EditorClipChanged(true, lengthBeats, notes));
         return bus;
     }
 
     @Test
-    void sideButtonSelectsEveryLitNoteInItsRow() {
-        // Row 7 (bottom, C1 = 36) maps to the RECORD_ARM side button.
-        int row7Key = GridGeometry.keyForRow(7);
-        FakeEventBus bus = onEditorWith(Map.of(
-            56, litNote(row7Key, 0.0),
-            58, litNote(row7Key, 1.0)
+    void sideButtonSelectsEveryNoteOnThatKeyAcrossTheWholeClip() {
+        int row7Key = GridGeometry.keyForRow(7); // bottom row, RECORD_ARM
+        // Notes sit far past the page the grid shows (4 beats at 1/8); selection
+        // must still reach them. A note on a different key must be left alone.
+        FakeEventBus bus = onEditor(32.0, 8, List.of(
+            note(row7Key, 0.0),
+            note(row7Key, 8.0),
+            note(row7Key, 30.0),
+            note(GridGeometry.keyForRow(0), 2.0)
         ));
 
         bus.send(new SideButtonClick(SideButton.RECORD_ARM));
 
         RequestSelectNotes sel = bus.last(RequestSelectNotes.class);
         assertNotNull(sel);
-        assertEquals(2, sel.cells().size());
+        assertEquals(3, sel.cells().size());
         assertTrue(sel.cells().stream().allMatch(c -> c.key() == row7Key));
-        assertTrue(sel.cells().stream().anyMatch(c -> c.startBeat() == 0.0));
-        assertTrue(sel.cells().stream().anyMatch(c -> c.startBeat() == 1.0));
+        assertTrue(sel.cells().stream().anyMatch(c -> c.startBeat() == 30.0));
         assertEquals(0, bus.count(BlinkPad.class));
     }
 
     @Test
     void stopButtonMapsToRowFour() {
-        // STOP sits fifth from the top, so it now drives grid row 4.
         int row4Key = GridGeometry.keyForRow(4);
-        FakeEventBus bus = onEditorWith(Map.of(32, litNote(row4Key, 0.0)));
+        FakeEventBus bus = onEditor(8.0, 8, List.of(note(row4Key, 0.0)));
 
         bus.send(new SideButtonClick(SideButton.STOP));
 
@@ -104,8 +96,8 @@ class HorizontalSliceCtlTest {
     }
 
     @Test
-    void sideButtonOnAnEmptyRowBlinksAllItsPads() {
-        FakeEventBus bus = onEditorWith(Map.of());
+    void sideButtonOnAnEmptyKeyBlinksAllPadsInItsRow() {
+        FakeEventBus bus = onEditor(8.0, 8, List.of());
 
         bus.send(new SideButtonClick(SideButton.VOLUME)); // top row, row 0
 
@@ -116,53 +108,65 @@ class HorizontalSliceCtlTest {
             assertEquals(EditorColors.SLICE_FILL, blinks.get(col).color());
         }
         assertNull(bus.last(RequestSelectNotes.class));
-        assertNull(bus.last(RequestSetNote.class));
+        assertNull(bus.last(RequestSetNotes.class));
     }
 
     @Test
-    void tappingABlinkingPadFillsTheWholeRowAtTheCurrentResolution() {
-        FakeEventBus bus = onEditorWith(Map.of());
+    void tappingABlinkingPadFillsTheWholeClipAtTheCurrentResolution() {
+        FakeEventBus bus = onEditor(8.0, 8, List.of()); // 8 beats, 1/8 -> 0.5 beat step
         bus.send(new SideButtonClick(SideButton.VOLUME)); // arm row 0
 
         bus.send(new PadClicked(EditorConstants.PADS.get(3))); // any pad in row 0
 
-        List<RequestSetNote> sets = allOf(bus, RequestSetNote.class);
-        assertEquals(COLS, sets.size());
+        RequestSetNotes set = bus.last(RequestSetNotes.class);
+        assertNotNull(set);
+        assertEquals(16, set.cells().size()); // 8 beats / 0.5
         int row0Key = GridGeometry.keyForRow(0);
-        for (int col = 0; col < COLS; col++) {
-            assertEquals(row0Key, sets.get(col).key());
-            assertEquals(col * 0.5, sets.get(col).beat());
-        }
+        assertTrue(set.cells().stream().allMatch(c -> c.key() == row0Key));
+        assertEquals(0.0, set.cells().get(0).startBeat());
+        assertEquals(7.5, set.cells().get(15).startBeat());
     }
 
     @Test
-    void filledNotesStaySelected() {
-        FakeEventBus bus = onEditorWith(Map.of());
+    void fillSpanIsCappedAtTheReadWindow() {
+        // A clip far longer than the read window only fills what the window covers.
+        FakeEventBus bus = onEditor(200.0, 4, List.of()); // 1/4 -> 1 beat step
         bus.send(new SideButtonClick(SideButton.VOLUME));
 
         bus.send(new PadClicked(EditorConstants.PADS.get(0)));
 
-        // The selection request is the final word, so the fresh row stays lit red.
-        Event lastSelectOrSet = bus.events.get(bus.events.size() - 1);
-        assertTrue(lastSelectOrSet instanceof RequestSelectNotes);
-        RequestSelectNotes sel = (RequestSelectNotes) lastSelectOrSet;
-        assertEquals(COLS, sel.cells().size());
+        RequestSetNotes set = bus.last(RequestSetNotes.class);
+        assertEquals((int) EditorConstants.READ_BEATS, set.cells().size()); // 64 beats at 1 each
+    }
+
+    @Test
+    void filledNotesStaySelected() {
+        FakeEventBus bus = onEditor(8.0, 8, List.of());
+        bus.send(new SideButtonClick(SideButton.VOLUME));
+
+        bus.send(new PadClicked(EditorConstants.PADS.get(0)));
+
+        // The select request is the last word so the new row ends up lit red, and
+        // it covers exactly the notes we just created.
+        Event last = bus.events.get(bus.events.size() - 1);
+        assertTrue(last instanceof RequestSelectNotes);
+        assertEquals(16, ((RequestSelectNotes) last).cells().size());
     }
 
     @Test
     void tappingOutsideTheArmedRowCancelsWithoutFilling() {
-        FakeEventBus bus = onEditorWith(Map.of());
+        FakeEventBus bus = onEditor(8.0, 8, List.of());
         bus.send(new SideButtonClick(SideButton.VOLUME)); // arm row 0
 
         bus.send(new PadClicked(EditorConstants.PADS.get(56))); // row 7 pad
 
         assertNotNull(bus.last(RequestEditorGridRepaint.class));
-        assertEquals(0, bus.count(RequestSetNote.class));
+        assertEquals(0, bus.count(RequestSetNotes.class));
     }
 
     @Test
     void pressingTheArmedRowButtonAgainCancelsTheBlink() {
-        FakeEventBus bus = onEditorWith(Map.of());
+        FakeEventBus bus = onEditor(8.0, 8, List.of());
         bus.send(new SideButtonClick(SideButton.VOLUME)); // arm
         long blinksAfterArm = bus.count(BlinkPad.class);
 
@@ -175,7 +179,7 @@ class HorizontalSliceCtlTest {
     @Test
     void selectingAPopulatedRowDropsAnExistingBlink() {
         int row7Key = GridGeometry.keyForRow(7);
-        FakeEventBus bus = onEditorWith(Map.of(56, litNote(row7Key, 0.0)));
+        FakeEventBus bus = onEditor(8.0, 8, List.of(note(row7Key, 0.0)));
         bus.send(new SideButtonClick(SideButton.VOLUME)); // arm empty row 0
 
         bus.send(new SideButtonClick(SideButton.RECORD_ARM)); // row 7 has a note
@@ -189,7 +193,8 @@ class HorizontalSliceCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new HorizontalSliceCtl(bus);
         bus.send(new PageSelected(EDITOR));
-        bus.send(new EditorGridChanged(grid(Map.of()), false)); // no clip
+        bus.send(new EditorRowKeysChanged(chromaticRowKeys()));
+        bus.send(new EditorClipChanged(false, 8.0, List.of())); // no clip
 
         bus.send(new SideButtonClick(SideButton.VOLUME));
 
@@ -201,7 +206,8 @@ class HorizontalSliceCtlTest {
     void ignoresSideButtonsOffTheEditorPage() {
         FakeEventBus bus = new FakeEventBus();
         new HorizontalSliceCtl(bus);
-        bus.send(new EditorGridChanged(grid(Map.of()), true));
+        bus.send(new EditorRowKeysChanged(chromaticRowKeys()));
+        bus.send(new EditorClipChanged(true, 8.0, List.of()));
 
         bus.send(new SideButtonClick(SideButton.VOLUME));
 
@@ -210,11 +216,24 @@ class HorizontalSliceCtlTest {
 
     @Test
     void ignoresSideButtonsWhileInPagerMode() {
-        FakeEventBus bus = onEditorWith(Map.of());
+        FakeEventBus bus = onEditor(8.0, 8, List.of());
         bus.send(new EditorPagerMode(true));
 
         bus.send(new SideButtonClick(SideButton.VOLUME));
 
         assertEquals(0, bus.count(BlinkPad.class));
+    }
+
+    @Test
+    void ignoresSideButtonsBeforeAMapperHasSetRowKeys() {
+        FakeEventBus bus = new FakeEventBus();
+        new HorizontalSliceCtl(bus);
+        bus.send(new PageSelected(EDITOR));
+        bus.send(new EditorClipChanged(true, 8.0, List.of())); // no EditorRowKeysChanged yet
+
+        bus.send(new SideButtonClick(SideButton.VOLUME));
+
+        assertEquals(0, bus.count(BlinkPad.class));
+        assertNull(bus.last(RequestSelectNotes.class));
     }
 }

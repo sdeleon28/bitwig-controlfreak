@@ -9,6 +9,7 @@ import dev.tradcode.groupctl.editor.events.PlaybackUpdate;
 import dev.tradcode.groupctl.editor.events.RequestClearNotes;
 import dev.tradcode.groupctl.editor.events.RequestSelectNotes;
 import dev.tradcode.groupctl.editor.events.RequestSetNote;
+import dev.tradcode.groupctl.editor.events.RequestSetNotes;
 import dev.tradcode.groupctl.editor.events.RequestSetVelocity;
 import java.util.ArrayList;
 import java.util.List;
@@ -138,6 +139,24 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
                 for (int x = from; x < to; x++)
                     if (x >= 0 && x < EditorConstants.READ_STEPS)
                         this.clip.clearStep(EditorConstants.CHANNEL, x, y);
+            }
+            case RequestSetNotes(var cells) when this.clip != null -> {
+                boolean auditioned = false;
+                for (NoteCell cell : cells) {
+                    int x = stepFor(cell.startBeat());
+                    int y = cell.key() - EditorConstants.BASE_KEY;
+                    if (x < 0 || x >= EditorConstants.READ_STEPS
+                        || y < 0 || y >= EditorConstants.READ_KEY_RANGE)
+                        continue;
+                    this.clip.setStep(EditorConstants.CHANNEL, x, y,
+                        EditorConstants.VELOCITY, EditorConstants.FINE_STEP_BEATS);
+                    // One audition for the whole stroke; a per-note playNote would
+                    // stack dozens of voices on the same key.
+                    if (!this.isPlaying && !auditioned) {
+                        this.clip.getTrack().playNote(cell.key(), EditorConstants.VELOCITY);
+                        auditioned = true;
+                    }
+                }
             }
             case RequestSelectNotes(var cells) when this.clip != null -> this.applySelection(cells);
             case RequestSetVelocity(int key, double startBeat, double endBeat, double velocity)

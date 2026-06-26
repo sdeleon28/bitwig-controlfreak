@@ -1,12 +1,14 @@
 package dev.tradcode.groupctl.editor;
 
-import dev.tradcode.groupctl.editor.events.EditorGridChanged;
+import dev.tradcode.groupctl.editor.events.EditorClipChanged;
+import dev.tradcode.groupctl.editor.events.EditorNote;
 import dev.tradcode.groupctl.editor.events.EditorPagerMode;
-import dev.tradcode.groupctl.editor.events.EditorSlot;
+import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
+import dev.tradcode.groupctl.editor.events.EditorRowKeysChanged;
 import dev.tradcode.groupctl.editor.events.NoteCell;
 import dev.tradcode.groupctl.editor.events.RequestEditorGridRepaint;
 import dev.tradcode.groupctl.editor.events.RequestSelectNotes;
-import dev.tradcode.groupctl.editor.events.RequestSetNote;
+import dev.tradcode.groupctl.editor.events.RequestSetNotes;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,19 +23,24 @@ import dev.tradcode.groupctl.events.SideButton;
 import dev.tradcode.groupctl.events.SideButtonClick;
 
 /**
- * Turns the side buttons into horizontal row operations. A side button aligns
- * with the grid row at the same height: pressing it selects every note already
- * in that row. When the row is empty there is nothing to select, so the row
- * blinks instead — an invitation to tap any of its pads and fill the whole row
- * at the current resolution, leaving the fresh notes selected. The selection and
- * the notes live in Bitwig; this class owns only the in-flight blink.
+ * Turns the side buttons into horizontal row operations spanning the whole clip.
+ * A side button aligns with the grid row at the same height: pressing it selects
+ * every note already on that row's key, anywhere in the clip — not just the
+ * stretch the current page shows. When the key is empty there is nothing to
+ * select, so the row blinks instead: tapping any of its pads fills the entire
+ * clip on that key at the current resolution and leaves the fresh notes selected.
+ * The notes and the selection live in Bitwig; this class owns only the in-flight
+ * blink and the clip facts it needs to compute a row.
  */
 public class HorizontalSliceCtl implements IEventBusSubscriber {
     IEventBus bus;
     boolean pageActive = false;
     boolean clipExists = false;
     boolean pagerMode = false;
-    List<EditorSlot> grid = new ArrayList<>();
+    int denominator = EditorConstants.DEFAULT_DENOMINATOR;
+    double lengthBeats = EditorConstants.READ_BEATS;
+    List<EditorNote> notes = new ArrayList<>();
+    int[] rowKeys = null;
     int armedRow = -1;
 
     public HorizontalSliceCtl(IEventBus bus) {
@@ -41,26 +48,39 @@ public class HorizontalSliceCtl implements IEventBusSubscriber {
         this.bus.subscribe(this);
     }
 
-    private List<EditorSlot> rowSlots(int row) {
-        int start = row * EditorConstants.GRID_COLS;
-        if (start < 0 || start + EditorConstants.GRID_COLS > this.grid.size())
-            return List.of();
-        return this.grid.subList(start, start + EditorConstants.GRID_COLS);
+    private int keyForRow(int row) {
+        if (this.rowKeys == null || row < 0 || row >= this.rowKeys.length)
+            return -1;
+        return this.rowKeys[row];
     }
 
-    private boolean rowHasNotes(int row) {
-        for (EditorSlot s : this.rowSlots(row))
-            if (s.lit())
+    private boolean keyHasNotes(int key) {
+        for (EditorNote n : this.notes)
+            if (n.key() == key)
                 return true;
         return false;
     }
 
-    private void selectRow(int row) {
+    private List<NoteCell> notesOnKey(int key) {
+        double step = GridGeometry.beatsPerStep(this.denominator);
         List<NoteCell> cells = new ArrayList<>();
-        for (EditorSlot s : this.rowSlots(row))
-            if (s.lit())
-                cells.add(new NoteCell(s.key(), s.startBeat(), s.endBeat(), s.velocity()));
-        this.bus.send(new RequestSelectNotes(cells));
+        for (EditorNote n : this.notes)
+            if (n.key() == key)
+                cells.add(new NoteCell(n.key(), n.beat(), n.beat() + step, n.velocity()));
+        return cells;
+    }
+
+    private List<NoteCell> fillCells(int key) {
+        double step = GridGeometry.beatsPerStep(this.denominator);
+        double span = Math.min(this.lengthBeats, EditorConstants.READ_BEATS);
+        List<NoteCell> cells = new ArrayList<>();
+        for (double beat = 0.0; beat < span - 1e-9; beat += step)
+            cells.add(new NoteCell(key, beat, beat + step, EditorConstants.VELOCITY));
+        return cells;
+    }
+
+    private void selectRow(int key) {
+        this.bus.send(new RequestSelectNotes(this.notesOnKey(key)));
     }
 
     private void armRow(int row) {
@@ -72,11 +92,8 @@ public class HorizontalSliceCtl implements IEventBusSubscriber {
 
     private void fillRow(int row) {
         this.armedRow = -1;
-        List<NoteCell> cells = new ArrayList<>();
-        for (EditorSlot s : this.rowSlots(row)) {
-            this.bus.send(new RequestSetNote(s.key(), s.startBeat()));
-            cells.add(new NoteCell(s.key(), s.startBeat(), s.endBeat(), EditorConstants.VELOCITY));
-        }
+        List<NoteCell> cells = this.fillCells(this.keyForRow(row));
+        this.bus.send(new RequestSetNotes(cells));
         this.bus.send(new RequestSelectNotes(cells));
     }
 
@@ -89,9 +106,12 @@ public class HorizontalSliceCtl implements IEventBusSubscriber {
 
     private void handleSideButton(SideButton btn) {
         int row = btn.ordinal();
-        if (this.rowHasNotes(row)) {
+        int key = this.keyForRow(row);
+        if (key < 0)
+            return;
+        if (this.keyHasNotes(key)) {
             this.disarm();
-            this.selectRow(row);
+            this.selectRow(key);
         } else if (this.armedRow == row) {
             this.disarm();
         } else {
@@ -114,10 +134,13 @@ public class HorizontalSliceCtl implements IEventBusSubscriber {
                 this.pageActive = Page.isEditorPage(n);
                 this.armedRow = -1;
             }
-            case EditorGridChanged(var slots, var clipExists) -> {
-                this.grid = slots;
-                this.clipExists = clipExists;
+            case EditorClipChanged(boolean exists, double lengthBeats, var notes) -> {
+                this.clipExists = exists;
+                this.lengthBeats = lengthBeats;
+                this.notes = notes;
             }
+            case EditorResolutionChanged(int denominator) -> this.denominator = denominator;
+            case EditorRowKeysChanged(int[] rowKeys) -> this.rowKeys = rowKeys;
             case EditorPagerMode(boolean active) -> {
                 this.pagerMode = active;
                 if (active)

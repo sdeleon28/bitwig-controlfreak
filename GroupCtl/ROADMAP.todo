@@ -160,8 +160,10 @@
             [X] pressing blinking pad fills row @ current resolution
                 [X] new notes remain selected
     [X] move editor play/stop off the STOP side button (now MIXER top button)
-[ ] bulk delete feature
+[X] make it so it selects in the entire clip, not just the section
+[-] bulk delete feature
 [ ] bulk move feature
+[ ] BUG: playhead erases blinking slice
 [ ] follow the playhead
 [ ] expand note context feature set
     [ ] top 2 rows should map to RCs
