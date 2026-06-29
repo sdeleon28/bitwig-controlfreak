@@ -188,7 +188,6 @@
 [X] update advanced paging docs
 [ ] resurrect alternative side-buttons resolution, strategy pattern, feature flagged
 [X] BUG: editor length hardcoded to 1 bar (should be as long as the selected clip)
-[-] BUG: when i press both arrows and it gives me the page selector, choosing a page sends a note (need to gate the note handler)
 [X] selection UX
     [X] remove all hold to select behavior
         [X] but keep "context-aware" twister program that modifies velocity on selected notes
@@ -202,7 +201,8 @@
         [X] no hold behavior - one click selects, one click de-selects
         [X] clicking mixer again goes back into normal mode
         [X] this should work in both pages of the editor
-[ ] BUG: playhead erases blinking slice
+[X] BUG: when i press both arrows and it gives me the page selector, choosing a page sends a note (need to gate the note handler)
+[X] BUG: playhead erases blinking slice
 
 # frequalizer
 

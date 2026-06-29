@@ -8,6 +8,7 @@ import dev.tradcode.groupctl.editor.events.EditorPagerMode;
 import dev.tradcode.groupctl.editor.events.EditorPlaybackPosition;
 import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
 import dev.tradcode.groupctl.editor.events.EditorRowKeysChanged;
+import dev.tradcode.groupctl.editor.events.EditorSliceArmed;
 import dev.tradcode.groupctl.editor.events.EditorSlot;
 import dev.tradcode.groupctl.editor.events.RequestEditorGridRepaint;
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ public class EditorGridCalculator implements IEventBusSubscriber {
     double playheadBeat = -1.0;
     boolean pageActive = false;
     boolean pagerMode = false;
+    boolean sliceArmed = false;
     // Which key sits on each grid row is the active mapper's call, not ours; we
     // hold its latest answer and quantize notes onto it. Null until a mapper has
     // spoken, which keeps us silent before there is anything meaningful to paint.
@@ -41,10 +43,10 @@ public class EditorGridCalculator implements IEventBusSubscriber {
     }
 
     private void recompute() {
-        // While the page picker overlays the grid, stay silent: a playhead tick
-        // would otherwise repaint the note grid over the overlay. The picker asks
-        // for a fresh repaint when it dismisses.
-        if (!this.pageActive || this.pagerMode || this.rowKeys == null)
+        // While an overlay owns the grid, stay silent: a playhead tick would
+        // otherwise repaint the note grid over the page picker or the blinking
+        // slice. The overlay asks for a fresh repaint when it dismisses.
+        if (!this.pageActive || this.pagerMode || this.sliceArmed || this.rowKeys == null)
             return;
         List<EditorSlot> slots = this.quantizer.apply(
             this.notes, this.denominator, this.exists, this.colOffset, this.rowKeys,
@@ -76,10 +78,12 @@ public class EditorGridCalculator implements IEventBusSubscriber {
                 this.recompute();
             }
             case EditorPagerMode(boolean active) -> this.pagerMode = active;
+            case EditorSliceArmed(boolean active) -> this.sliceArmed = active;
             case RequestEditorGridRepaint() -> this.recompute();
             case PageSelected(int n) -> {
                 this.pageActive = Page.isEditorPage(n);
                 this.pagerMode = false;
+                this.sliceArmed = false;
                 this.recompute();
             }
             default -> { }

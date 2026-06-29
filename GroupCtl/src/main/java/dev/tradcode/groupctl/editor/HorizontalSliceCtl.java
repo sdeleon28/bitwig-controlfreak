@@ -1,10 +1,12 @@
 package dev.tradcode.groupctl.editor;
 
+import dev.tradcode.groupctl.editor.events.ClearEditorGridCache;
 import dev.tradcode.groupctl.editor.events.EditorClipChanged;
 import dev.tradcode.groupctl.editor.events.EditorNote;
 import dev.tradcode.groupctl.editor.events.EditorPagerMode;
 import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
 import dev.tradcode.groupctl.editor.events.EditorRowKeysChanged;
+import dev.tradcode.groupctl.editor.events.EditorSliceArmed;
 import dev.tradcode.groupctl.editor.events.NoteCell;
 import dev.tradcode.groupctl.editor.events.RequestEditorGridRepaint;
 import dev.tradcode.groupctl.editor.events.RequestSelectNotes;
@@ -83,15 +85,25 @@ public class HorizontalSliceCtl implements IEventBusSubscriber {
         this.bus.send(new RequestSelectNotes(this.notesOnKey(key)));
     }
 
-    private void armRow(int row) {
+    // The armed row blinks via the flash MIDI channel, an overlay the grid
+    // painter knows nothing about. Announcing arm/disarm lets the calculator stay
+    // silent while we own those pads, so a playhead tick can't repaint over them.
+    private void setArmed(int row) {
+        boolean was = this.armedRow >= 0;
         this.armedRow = row;
+        if ((row >= 0) != was)
+            this.bus.send(new EditorSliceArmed(row >= 0));
+    }
+
+    private void armRow(int row) {
+        this.setArmed(row);
         int start = row * EditorConstants.GRID_COLS;
         for (int col = 0; col < EditorConstants.GRID_COLS; col++)
             this.bus.send(new BlinkPad(EditorConstants.PADS.get(start + col), EditorColors.SLICE_FILL));
     }
 
     private void fillRow(int row) {
-        this.armedRow = -1;
+        this.setArmed(-1);
         List<NoteCell> cells = this.fillCells(this.keyForRow(row));
         this.bus.send(new RequestSetNotes(cells));
         this.bus.send(new RequestSelectNotes(cells));
@@ -100,8 +112,11 @@ public class HorizontalSliceCtl implements IEventBusSubscriber {
     private void disarm() {
         if (this.armedRow < 0)
             return;
-        this.armedRow = -1;
-        this.bus.send(new RequestEditorGridRepaint());
+        this.setArmed(-1);
+        // Clear the cache so the repaint repaints every pad: the blinking pads
+        // live on the flash channel, off the painter's radar, and only an
+        // unconditional static-colour repaint stops them flashing.
+        this.bus.send(new ClearEditorGridCache(), new RequestEditorGridRepaint());
     }
 
     private void handleSideButton(SideButton btn) {
@@ -132,7 +147,7 @@ public class HorizontalSliceCtl implements IEventBusSubscriber {
         switch (event) {
             case PageSelected(int n) -> {
                 this.pageActive = Page.isEditorPage(n);
-                this.armedRow = -1;
+                this.setArmed(-1);
             }
             case EditorClipChanged(boolean exists, double lengthBeats, var notes) -> {
                 this.clipExists = exists;
@@ -144,7 +159,7 @@ public class HorizontalSliceCtl implements IEventBusSubscriber {
             case EditorPagerMode(boolean active) -> {
                 this.pagerMode = active;
                 if (active)
-                    this.armedRow = -1;
+                    this.setArmed(-1);
             }
             case SideButtonClick(var btn) when this.pageActive && this.clipExists && !this.pagerMode ->
                 this.handleSideButton(btn);

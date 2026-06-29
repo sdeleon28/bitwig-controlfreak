@@ -111,9 +111,13 @@ public class EditorPageSelectorCtl implements IEventBusSubscriber {
                 if (i < 0 || i >= this.totalPages())
                     return;
                 int delta = i - this.page;
-                this.bus.send(new EditorPagerMode(false));
                 if (delta != 0)
                     this.bus.send(new RequestEditorPage(delta, true));
+                // Leave pager mode on the next tick, not reentrantly: this same
+                // PadClicked is still being dispatched to the note handler, whose
+                // only guard is pager mode. Flipping it off now would re-arm that
+                // handler mid-dispatch and the tap would also edit a note.
+                this.scheduler.schedule(() -> this.bus.send(new EditorPagerMode(false)), 0);
             }
             case PageSelected(int n) -> {
                 this.pageActive = Page.isEditorPage(n);

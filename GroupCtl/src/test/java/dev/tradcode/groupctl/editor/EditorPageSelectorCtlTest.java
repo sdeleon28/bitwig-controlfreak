@@ -1,11 +1,15 @@
 package dev.tradcode.groupctl.editor;
 
 import dev.tradcode.groupctl.editor.events.EditorClipChanged;
+import dev.tradcode.groupctl.editor.events.EditorGridChanged;
 import dev.tradcode.groupctl.editor.events.EditorPageChanged;
 import dev.tradcode.groupctl.editor.events.EditorPagerMode;
 import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
+import dev.tradcode.groupctl.editor.events.EditorSlot;
+import dev.tradcode.groupctl.editor.events.RequestClearNotes;
 import dev.tradcode.groupctl.editor.events.RequestEditorGridRepaint;
 import dev.tradcode.groupctl.editor.events.RequestEditorPage;
+import dev.tradcode.groupctl.editor.events.RequestSetNote;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -82,7 +86,8 @@ class EditorPageSelectorCtlTest {
     @Test
     void tappingAPagePadJumpsToItAndExitsMode() {
         FakeEventBus bus = new FakeEventBus();
-        new EditorPageSelectorCtl(bus, new RecordingScheduler());
+        RecordingScheduler scheduler = new RecordingScheduler();
+        new EditorPageSelectorCtl(bus, scheduler);
 
         enterThreePageEditor(bus);
         bus.send(new EditorPagerMode(true));
@@ -90,13 +95,17 @@ class EditorPageSelectorCtlTest {
         bus.send(new PadClicked(padAt(2))); // jump to page 2
 
         assertEquals(2, bus.last(RequestEditorPage.class).delta());
+        // The mode leaves on the next tick, not reentrantly, so the tap can't
+        // also slip through to the note handler.
+        scheduler.runAll();
         assertTrue(modeEndedLast(bus));
     }
 
     @Test
     void tappingTheCurrentPageJustExitsMode() {
         FakeEventBus bus = new FakeEventBus();
-        new EditorPageSelectorCtl(bus, new RecordingScheduler());
+        RecordingScheduler scheduler = new RecordingScheduler();
+        new EditorPageSelectorCtl(bus, scheduler);
 
         enterThreePageEditor(bus);
         bus.send(new EditorPagerMode(true));
@@ -104,7 +113,34 @@ class EditorPageSelectorCtlTest {
         bus.send(new PadClicked(padAt(0))); // already on page 0
 
         assertNull(bus.last(RequestEditorPage.class));
+        scheduler.runAll();
         assertTrue(modeEndedLast(bus));
+    }
+
+    @Test
+    void tappingAPageDoesNotLeakIntoTheNoteEditor() {
+        FakeEventBus bus = new FakeEventBus();
+        RecordingScheduler scheduler = new RecordingScheduler();
+        // Wired in Editor.java order: the page selector subscribes before the
+        // note handler, so a reentrant mode-off would re-arm the note handler
+        // while this very tap is still being dispatched to it.
+        new EditorPageSelectorCtl(bus, scheduler);
+        new EditorNoteHandler(bus);
+
+        enterThreePageEditor(bus);
+        // A lit note sits under the pad we tap; a leaked tap would erase it.
+        List<EditorSlot> slots = new ArrayList<>();
+        for (int i = 0; i < EditorConstants.PAGE_SIZE; i++)
+            slots.add(new EditorSlot(false, 36, 0.0, 0.5));
+        slots.set(2, new EditorSlot(true, 36, 0.0, 0.5));
+        bus.send(new EditorGridChanged(slots, true));
+        bus.send(new EditorPagerMode(true));
+
+        bus.send(new PadClicked(padAt(2))); // pick page 2 from the overlay
+
+        assertNull(bus.last(RequestSetNote.class));
+        assertNull(bus.last(RequestClearNotes.class));
+        assertEquals(2, bus.last(RequestEditorPage.class).delta());
     }
 
     @Test

@@ -183,6 +183,24 @@ class EditorGridCalculatorTest {
     }
 
     @Test
+    void staysSilentUnderTheBlinkingSlice() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorGridCalculator(bus);
+
+        enter(bus, LOW);
+        bus.send(new EditorClipChanged(true, FULL, List.of()));
+        bus.send(new dev.tradcode.groupctl.editor.events.EditorSliceArmed(true));
+        long before = bus.count(EditorGridChanged.class);
+
+        bus.send(new EditorPlaybackPosition(0.6)); // a tick must not repaint over the blink
+        assertEquals(before, bus.count(EditorGridChanged.class));
+
+        bus.send(new dev.tradcode.groupctl.editor.events.EditorSliceArmed(false));
+        bus.send(new EditorPlaybackPosition(0.6)); // disarmed: the grid lives again
+        assertTrue(bus.count(EditorGridChanged.class) > before);
+    }
+
+    @Test
     void stopsBroadcastingAfterLeavingThePage() {
         FakeEventBus bus = new FakeEventBus();
         new EditorGridCalculator(bus);

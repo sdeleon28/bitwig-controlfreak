@@ -1,15 +1,18 @@
 package dev.tradcode.groupctl.editor;
 
+import dev.tradcode.groupctl.editor.events.ClearEditorGridCache;
 import dev.tradcode.groupctl.editor.events.EditorClipChanged;
 import dev.tradcode.groupctl.editor.events.EditorNote;
 import dev.tradcode.groupctl.editor.events.EditorPagerMode;
 import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
 import dev.tradcode.groupctl.editor.events.EditorRowKeysChanged;
+import dev.tradcode.groupctl.editor.events.EditorSliceArmed;
 import dev.tradcode.groupctl.editor.events.NoteCell;
 import dev.tradcode.groupctl.editor.events.RequestEditorGridRepaint;
 import dev.tradcode.groupctl.editor.events.RequestSelectNotes;
 import dev.tradcode.groupctl.editor.events.RequestSetNotes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -186,6 +189,33 @@ class HorizontalSliceCtlTest {
 
         assertNotNull(bus.last(RequestEditorGridRepaint.class));
         assertEquals(1, bus.last(RequestSelectNotes.class).cells().size());
+    }
+
+    @Test
+    void armingARowAnnouncesTheOverlay() {
+        FakeEventBus bus = onEditor(8.0, 8, List.of());
+
+        bus.send(new SideButtonClick(SideButton.VOLUME)); // arm empty row 0
+
+        EditorSliceArmed armed = bus.last(EditorSliceArmed.class);
+        assertNotNull(armed);
+        assertTrue(armed.active());
+    }
+
+    @Test
+    void cancellingTheBlinkAnnouncesAndForcesAFullRepaint() {
+        FakeEventBus bus = onEditor(8.0, 8, List.of());
+        bus.send(new SideButtonClick(SideButton.VOLUME)); // arm
+
+        bus.send(new SideButtonClick(SideButton.VOLUME)); // cancel
+
+        EditorSliceArmed armed = bus.last(EditorSliceArmed.class);
+        assertNotNull(armed);
+        assertFalse(armed.active());
+        // The blink rides the flash channel, invisible to the painter's cache, so
+        // only a cache-clearing full repaint can stop it flashing.
+        assertNotNull(bus.last(ClearEditorGridCache.class));
+        assertNotNull(bus.last(RequestEditorGridRepaint.class));
     }
 
     @Test
