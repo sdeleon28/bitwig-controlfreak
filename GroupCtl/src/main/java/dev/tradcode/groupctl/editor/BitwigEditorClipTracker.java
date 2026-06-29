@@ -57,7 +57,7 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
             this.exists = v;
             this.dirty = true;
         });
-        this.clip.getLoopLength().addValueObserver(v -> {
+        this.clip.getPlayStop().addValueObserver(v -> {
             this.lengthBeats = v;
             this.dirty = true;
         });
