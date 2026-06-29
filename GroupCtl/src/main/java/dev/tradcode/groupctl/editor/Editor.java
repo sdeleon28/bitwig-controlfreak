@@ -4,8 +4,11 @@ import com.bitwig.extension.controller.api.ControllerHost;
 
 import dev.tradcode.groupctl.BitwigScheduler;
 import dev.tradcode.groupctl.Scheduler;
+import dev.tradcode.groupctl.editor.animatedscroll.AnimatedScroll;
 import dev.tradcode.groupctl.editor.chromatic.Chromatic;
+import dev.tradcode.groupctl.editor.followplayhead.FollowPlayhead;
 import dev.tradcode.groupctl.editor.ggd.Ggd;
+import dev.tradcode.groupctl.editor.instantscroll.InstantScroll;
 import dev.tradcode.groupctl.events.IEventBus;
 
 public class Editor {
@@ -32,12 +35,15 @@ public class Editor {
         new EditorPageCtl(bus);
         new EditorPageSelectorCtl(bus, scheduler);
         new EditorVerticalPager(bus, scheduler);
-        new EditorHorizontalPager(bus, scheduler);
+        new EditorHorizontalPager(bus);
+        new AnimatedScroll(bus, scheduler);
+        new InstantScroll(bus);
         new EditorNoteHandler(bus);
         new PadContextCtl(bus);
         new HorizontalSliceCtl(bus);
         new TwisterMidiContextCtl(bus);
         new PlaybackHandler(bus);
+        new FollowPlayhead(bus);
 
         // Growls
         new EditorGrowler(bus, host);

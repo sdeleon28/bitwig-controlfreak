@@ -1,20 +1,18 @@
 package dev.tradcode.groupctl.editor;
 
 import dev.tradcode.groupctl.editor.events.EditorClipChanged;
-import dev.tradcode.groupctl.editor.events.EditorColumnOffsetChanged;
 import dev.tradcode.groupctl.editor.events.EditorPageChanged;
 import dev.tradcode.groupctl.editor.events.EditorResolutionChanged;
+import dev.tradcode.groupctl.editor.events.RequestColumnScroll;
 import dev.tradcode.groupctl.editor.events.RequestEditorPage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import dev.tradcode.groupctl.Scheduler;
-import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.PageSelected;
 
 class EditorHorizontalPagerTest {
@@ -22,31 +20,6 @@ class EditorHorizontalPagerTest {
     private static final int EDITOR = EditorConstants.PAGE_INDEX;
     private static final int BOTTOM = EditorConstants.PAGE_INDEX_BOTTOM;
     private static final int COLS = EditorConstants.GRID_COLS;
-    private static final double FULL = EditorConstants.READ_BEATS;
-
-    /** Captures scheduled frames so the test decides when (and whether) they fire. */
-    private static final class RecordingScheduler implements Scheduler {
-        final List<Long> delays = new ArrayList<>();
-        private final List<Runnable> tasks = new ArrayList<>();
-
-        public void schedule(Runnable task, long delayMs) {
-            this.delays.add(delayMs);
-            this.tasks.add(task);
-        }
-
-        void runAll() {
-            for (Runnable t : new ArrayList<>(this.tasks))
-                t.run();
-        }
-    }
-
-    private static List<Integer> colOffsets(FakeEventBus bus) {
-        List<Integer> result = new ArrayList<>();
-        for (Event e : bus.events)
-            if (e instanceof EditorColumnOffsetChanged c)
-                result.add(c.colOffset());
-        return result;
-    }
 
     private static int lastPage(FakeEventBus bus) {
         return bus.last(EditorPageChanged.class).page();
@@ -56,14 +29,18 @@ class EditorHorizontalPagerTest {
         return bus.last(EditorPageChanged.class).totalPages();
     }
 
-    private static EditorHorizontalPager pager(FakeEventBus bus, RecordingScheduler scheduler) {
-        return new EditorHorizontalPager(bus, scheduler);
+    private static RequestColumnScroll lastScroll(FakeEventBus bus) {
+        return bus.last(RequestColumnScroll.class);
+    }
+
+    private static EditorHorizontalPager pager(FakeEventBus bus) {
+        return new EditorHorizontalPager(bus);
     }
 
     @Test
     void reportsTheTotalPageCountForTheResolution() {
         FakeEventBus bus = new FakeEventBus();
-        pager(bus, new RecordingScheduler());
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR));            // 1/8 -> 16 pages over the 64-beat window
         assertEquals(16, lastTotal(bus));
@@ -78,7 +55,7 @@ class EditorHorizontalPagerTest {
     @Test
     void boundsThePageCountToTheClipLength() {
         FakeEventBus bus = new FakeEventBus();
-        pager(bus, new RecordingScheduler());
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR));
         bus.send(new EditorClipChanged(true, 2.0, List.of())); // a 2-beat clip fits in one 4-beat page
@@ -88,7 +65,7 @@ class EditorHorizontalPagerTest {
     @Test
     void keepsTheClipBoundWhenZoomingIn() {
         FakeEventBus bus = new FakeEventBus();
-        pager(bus, new RecordingScheduler());
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR));
         bus.send(new EditorClipChanged(true, 2.0, List.of()));
@@ -99,22 +76,22 @@ class EditorHorizontalPagerTest {
     @Test
     void cannotPageBeyondAShortClip() {
         FakeEventBus bus = new FakeEventBus();
-        pager(bus, new RecordingScheduler());
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR));
         bus.send(new EditorClipChanged(true, 2.0, List.of()));   // single page
-        bus.send(new RequestEditorPage(1));
+        bus.send(new RequestEditorPage(1, true));
         assertEquals(0, lastPage(bus));
     }
 
     @Test
     void clampsThePageWhenTheClipShrinks() {
         FakeEventBus bus = new FakeEventBus();
-        pager(bus, new RecordingScheduler());
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR));
         bus.send(new EditorResolutionChanged(32));     // 8 pages over the read window
-        bus.send(new RequestEditorPage(7));            // last page
+        bus.send(new RequestEditorPage(7, true));      // last page
         assertEquals(7, lastPage(bus));
 
         bus.send(new EditorClipChanged(true, 1.0, List.of()));   // 1-beat clip -> one page
@@ -125,25 +102,25 @@ class EditorHorizontalPagerTest {
     @Test
     void clampsPagingToTheAvailableRange() {
         FakeEventBus bus = new FakeEventBus();
-        pager(bus, new RecordingScheduler());
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR)); // 1/8 -> 16 pages (0..15)
 
-        bus.send(new RequestEditorPage(-1)); // can't go before the first page
+        bus.send(new RequestEditorPage(-1, true)); // can't go before the first page
         assertEquals(0, lastPage(bus));
 
-        bus.send(new RequestEditorPage(50)); // can't go past the last page
+        bus.send(new RequestEditorPage(50, true)); // can't go past the last page
         assertEquals(15, lastPage(bus));
     }
 
     @Test
     void clampsThePageWhenResolutionCoarsens() {
         FakeEventBus bus = new FakeEventBus();
-        pager(bus, new RecordingScheduler());
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR));
         bus.send(new EditorResolutionChanged(32)); // 64 pages
-        bus.send(new RequestEditorPage(63));       // last page
+        bus.send(new RequestEditorPage(63, true)); // last page
         assertEquals(63, lastPage(bus));
 
         bus.send(new EditorResolutionChanged(4));  // 8 pages -> clamp to 7
@@ -153,12 +130,10 @@ class EditorHorizontalPagerTest {
     @Test
     void keepsTheHorizontalPageOnReentry() {
         FakeEventBus bus = new FakeEventBus();
-        RecordingScheduler scheduler = new RecordingScheduler();
-        pager(bus, scheduler);
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR));
-        bus.send(new RequestEditorPage(1));
-        scheduler.runAll();
+        bus.send(new RequestEditorPage(1, true));
         assertEquals(1, lastPage(bus));
 
         bus.send(new PageSelected(0));
@@ -169,12 +144,10 @@ class EditorHorizontalPagerTest {
     @Test
     void keepsTheHorizontalPageWhenHoppingBetweenEditorPages() {
         FakeEventBus bus = new FakeEventBus();
-        RecordingScheduler scheduler = new RecordingScheduler();
-        pager(bus, scheduler);
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR));
-        bus.send(new RequestEditorPage(1));
-        scheduler.runAll();
+        bus.send(new RequestEditorPage(1, true));
         assertEquals(1, lastPage(bus));
 
         bus.send(new PageSelected(BOTTOM));
@@ -184,82 +157,71 @@ class EditorHorizontalPagerTest {
     @Test
     void announcesTheDestinationPageImmediatelyWhenPaging() {
         FakeEventBus bus = new FakeEventBus();
-        pager(bus, new RecordingScheduler());
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR));
-        bus.send(new RequestEditorPage(1)); // no frames run yet
+        bus.send(new RequestEditorPage(1, true));
         assertEquals(1, lastPage(bus));
     }
 
     @Test
-    void scrollsTheColumnOffsetOneColumnAtATime() {
+    void snapsToTheColumnBoundaryInstantlyOnEntry() {
         FakeEventBus bus = new FakeEventBus();
-        RecordingScheduler scheduler = new RecordingScheduler();
-        pager(bus, scheduler);
-
-        bus.send(new PageSelected(EDITOR)); // snap to column 0
-        bus.send(new RequestEditorPage(1)); // animate 0 -> 8
-        scheduler.runAll();
-
-        assertEquals(List.of(0, 1, 2, 3, 4, 5, 6, 7, COLS), colOffsets(bus));
-    }
-
-    @Test
-    void schedulesEachScrollFrameLaterThanTheLast() {
-        FakeEventBus bus = new FakeEventBus();
-        RecordingScheduler scheduler = new RecordingScheduler();
-        pager(bus, scheduler);
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR));
-        bus.send(new RequestEditorPage(1));
-
-        assertEquals(COLS, scheduler.delays.size(), "one frame per column crossed");
-        for (int i = 1; i < scheduler.delays.size(); i++)
-            assertTrue(scheduler.delays.get(i) > scheduler.delays.get(i - 1),
-                "frames must be spaced out in time");
+        RequestColumnScroll scroll = lastScroll(bus);
+        assertEquals(0, scroll.targetOffset());
+        assertFalse(scroll.animate(), "a fresh entry snaps, it does not animate");
     }
 
     @Test
-    void snapsToTheColumnBoundaryOnEntryWithoutAnimating() {
+    void requestsAColumnScrollToThePageBoundaryWhenPaging() {
         FakeEventBus bus = new FakeEventBus();
-        RecordingScheduler scheduler = new RecordingScheduler();
-        pager(bus, scheduler);
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR));
-
-        assertEquals(List.of(0), colOffsets(bus));
-        assertTrue(scheduler.delays.isEmpty(), "a fresh entry should not animate");
+        bus.send(new RequestEditorPage(1, true));
+        assertEquals(COLS, lastScroll(bus).targetOffset());
     }
 
     @Test
-    void abandonsAnInFlightScrollWhenLeavingTheEditor() {
-        FakeEventBus bus = new FakeEventBus();
-        RecordingScheduler scheduler = new RecordingScheduler();
-        pager(bus, scheduler);
+    void carriesThePagingAnimateFlagThroughToTheScroll() {
+        FakeEventBus animated = new FakeEventBus();
+        pager(animated);
+        animated.send(new PageSelected(EDITOR));
+        animated.send(new RequestEditorPage(1, true));
+        assertTrue(lastScroll(animated).animate());
 
-        bus.send(new PageSelected(EDITOR)); // snap to 0
-        bus.send(new RequestEditorPage(1)); // schedule 0 -> 8
-        bus.send(new PageSelected(0));      // leave before any frame fires
-        scheduler.runAll();
-
-        assertEquals(List.of(0), colOffsets(bus), "queued frames must not paint after leaving");
+        FakeEventBus instant = new FakeEventBus();
+        pager(instant);
+        instant.send(new PageSelected(EDITOR));
+        instant.send(new RequestEditorPage(1, false));
+        assertFalse(lastScroll(instant).animate());
     }
 
     @Test
-    void snapsToThePageBoundaryOnReentryAfterPaging() {
+    void snapsInstantlyWhenTheClipShrinksUnderTheCurrentPage() {
         FakeEventBus bus = new FakeEventBus();
-        RecordingScheduler scheduler = new RecordingScheduler();
-        pager(bus, scheduler);
+        pager(bus);
 
         bus.send(new PageSelected(EDITOR));
-        bus.send(new RequestEditorPage(1));
-        scheduler.runAll();                 // settle on column 8
-        int framesScheduled = scheduler.delays.size();
+        bus.send(new RequestEditorPage(3, true)); // column offset 24
+        bus.send(new EditorClipChanged(true, 1.0, List.of())); // 1-beat clip -> single page
 
-        bus.send(new PageSelected(0));
-        bus.send(new PageSelected(EDITOR)); // re-enter onto the kept page
+        RequestColumnScroll scroll = lastScroll(bus);
+        assertEquals(0, scroll.targetOffset());
+        assertFalse(scroll.animate());
+    }
 
-        assertEquals(COLS, colOffsets(bus).get(colOffsets(bus).size() - 1));
-        assertEquals(framesScheduled, scheduler.delays.size(), "re-entry snaps, it does not animate");
+    @Test
+    void doesNotRequestAScrollWhenPagingIsClamped() {
+        FakeEventBus bus = new FakeEventBus();
+        pager(bus);
+
+        bus.send(new PageSelected(EDITOR));
+        long before = bus.count(RequestColumnScroll.class);
+        bus.send(new RequestEditorPage(-1, true)); // already on page 0
+        assertEquals(before, bus.count(RequestColumnScroll.class));
     }
 }

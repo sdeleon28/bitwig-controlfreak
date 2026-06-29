@@ -2,4 +2,4 @@ package dev.tradcode.groupctl.editor.events;
 
 import dev.tradcode.groupctl.events.Event;
 
-public record RequestEditorPage(int delta, boolean animate) implements Event { }
+public record RequestColumnScroll(int targetOffset, boolean animate) implements Event { }

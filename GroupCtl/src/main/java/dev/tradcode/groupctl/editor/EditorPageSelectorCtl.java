@@ -113,7 +113,7 @@ public class EditorPageSelectorCtl implements IEventBusSubscriber {
                 int delta = i - this.page;
                 this.bus.send(new EditorPagerMode(false));
                 if (delta != 0)
-                    this.bus.send(new RequestEditorPage(delta));
+                    this.bus.send(new RequestEditorPage(delta, true));
             }
             case PageSelected(int n) -> {
                 this.pageActive = Page.isEditorPage(n);

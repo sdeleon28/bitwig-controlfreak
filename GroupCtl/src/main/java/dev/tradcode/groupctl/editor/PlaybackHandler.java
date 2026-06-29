@@ -5,7 +5,6 @@ import dev.tradcode.groupctl.editor.events.RequestStartPlayback;
 import dev.tradcode.groupctl.editor.events.RequestStopPlayback;
 
 import dev.tradcode.groupctl.events.BlinkTopButton;
-import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
@@ -36,7 +35,9 @@ public class PlaybackHandler implements IEventBusSubscriber {
     public void on(Event event) {
         switch (event) {
             case PageSelected(int n) -> {
-                this.pageActive = Page.isEditorPage(n);
+                // Transport lives only on the second editor page; the first hands
+                // MIXER to the preset pager (editor.midipresets).
+                this.pageActive = n == EditorConstants.PAGE_INDEX_BOTTOM;
                 this.paint();
             }
             case PlaybackUpdate(boolean isPlaying) -> {

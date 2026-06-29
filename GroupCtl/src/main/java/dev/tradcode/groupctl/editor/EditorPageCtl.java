@@ -85,9 +85,9 @@ public class EditorPageCtl implements IEventBusSubscriber {
         if (wasConsumed || this.mode)
             return;
         if (left && this.page > 0)
-            this.bus.send(new RequestEditorPage(-1));
+            this.bus.send(new RequestEditorPage(-1, true));
         else if (!left && this.page < this.totalPages - 1)
-            this.bus.send(new RequestEditorPage(1));
+            this.bus.send(new RequestEditorPage(1, true));
     }
 
     private void resetGesture() {

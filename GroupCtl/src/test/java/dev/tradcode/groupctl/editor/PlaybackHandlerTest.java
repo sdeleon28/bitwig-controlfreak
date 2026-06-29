@@ -17,7 +17,7 @@ import dev.tradcode.groupctl.events.TopButtonClick;
 
 class PlaybackHandlerTest {
 
-    private static final int EDITOR = EditorConstants.PAGE_INDEX;
+    private static final int EDITOR = EditorConstants.PAGE_INDEX_BOTTOM;
 
     @Test
     void blinksTransportButtonWhilePlayingOnTheEditorPage() {

@@ -161,10 +161,7 @@
                 [X] new notes remain selected
     [X] move editor play/stop off the STOP side button (now MIXER top button)
 [X] make it so it selects in the entire clip, not just the section
-[-] bulk delete feature
-[ ] bulk move feature
 [ ] BUG: playhead erases blinking slice
-[ ] follow the playhead
 [ ] expand note context feature set
     [ ] top 2 rows should map to RCs
     [ ] bottom note controls
@@ -176,7 +173,7 @@
         [ ] pan
         [ ] humanize velocity amount
             [ ] should work for multi-select
-[ ] change presets on the fly
+[X] follow the playhead (user 2)
 [X] midi editor vertical paging
     [X] make midi editor a 2 page long program
     [X] midi editor page 1 (global page 3) corresponds to the top part of the grid
@@ -188,17 +185,6 @@
 [ ] resolution change changes bitwig resolution to match
 [X] play note back when you add it (if not playing)
 [X] playhead feedback UI
-[ ] loop buttons
-    [ ] user 2
-        [ ] set loop region to currently selected page
-        [ ] force loop on
-        [ ] pressing again starts
-    [ ] mixer
-        [ ] set loop region to currently selected item
-        [ ] force loop on
-        [ ] pressing again starts
-    [ ] move stop gesture to pressing both user 2 and mixer at the same time
-[ ] make it work for GGD
 [ ] try out faster animations
 [X] update advanced paging docs
 [ ] resurrect alternative side-buttons resolution, strategy pattern, feature flagged
