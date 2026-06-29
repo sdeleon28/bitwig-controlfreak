@@ -189,10 +189,11 @@
 [ ] resurrect alternative side-buttons resolution, strategy pattern, feature flagged
 [X] BUG: editor length hardcoded to 1 bar (should be as long as the selected clip)
 [ ] BUG: when i press both arrows and it gives me the page selector, choosing a page sends a note (need to gate the note handler)
-[ ] selection UX
-    [ ] remove all hold to select behavior
-        [ ] but keep "context-aware" twister program that modifies velocity on selected notes
-        [ ] also keep different coloring for selected vs not-selected
+[-] selection UX
+    [X] remove all hold to select behavior
+        [X] but keep "context-aware" twister program that modifies velocity on selected notes
+        [X] also keep different coloring for selected vs not-selected
+            -> responds to selection from bitwig itself instead of gesture
     [ ] remove playback controls from mixer button
     [ ] mirror design from explorer where we engage and disengage selection mode
         [ ] similar but not the same
