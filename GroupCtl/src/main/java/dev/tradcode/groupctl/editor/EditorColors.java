@@ -8,8 +8,10 @@ public final class EditorColors {
     public static final int ACTIVE_CONTEXT = 5;    // red: pad held as the Twister velocity context
     public static final int RESOLUTION_COLOR = 41; // cyan, mirrors the explorer resolution LEDs
     public static final int PAGE_COLOR = 49;       // purple, mirrors the explorer page LEDs
-    public static final int STOP_COLOR = 7;        // dim red, blinks while playing (mirrors explorer)
     public static final int VELOCITY_ENCODER_COLOR = 64; // twister green, marks the armed velocity encoder
+
+    public static final int SELECT_IDLE = NOTE;            // matches grid notes: MIXER button, selection mode available
+    public static final int SELECT_ACTIVE = ACTIVE_CONTEXT; // red: MIXER button, selection mode engaged
 
     public static final int PAGE_DOT = 49;         // purple: a reachable page on the grid page picker
     public static final int PAGE_DOT_CURRENT = 3;  // white: the current page on the grid page picker

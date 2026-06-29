@@ -55,32 +55,45 @@ painting, hardware event handling.
 ## Playback
 
 Adding a note auditions it immediately through the clip's track, but only while
-the transport is stopped — during playback the clip already sounds it.
+the transport is stopped — during playback the clip already sounds it. The
+transport itself is driven from Bitwig / the main controller; the editor has no
+play/stop button of its own.
 
 A play cursor sweeps the grid: the clip's playing step is mapped to the beat
 under the cursor, the column spanning it lights up (notes there flash brighter),
 and the column clears when playback stops. The step is clip-relative, so the
 cursor tracks the clip wherever it sits in the arranger.
 
-## Note context (context-aware Twister)
+## Selection and note context (context-aware Twister)
 
-Holding a lit pad brings up context-aware Twister encoders (velocity today) that
-operate on notes. Bitwig's own note selection is the single source of truth:
+Selected notes light their pads red (`EditorGridPainter`) and arm the
+context-aware Twister encoders (velocity today) that operate on them
+(`TwisterMidiContextCtl`). Bitwig's own note selection is the single source of
+truth: the clip tracker mirrors `NoteStep.isIsSelected()` back out through the
+normal clip → grid pipeline into `EditorSlot.selected()`, so both the painter and
+the Twister read the round-tripped selection. Selecting notes in Bitwig directly
+lights the pads and arms the encoders just the same.
 
-* Holding pads is equivalent to *temporarily selecting* those notes. The hold
-  gesture (`PadContextCtl`) only translates held pads into a `RequestSelectNotes`
-  that asks the clip tracker to make the Bitwig selection exactly those notes;
-  releasing the last pad clears the selection. It keeps no projection of its own
-  beyond the in-flight gesture.
-* The clip tracker mirrors `NoteStep.isIsSelected()` back out through the normal
-  clip → grid pipeline, so a selected note flows into `EditorSlot.selected()`.
-* Selected pads paint red (`EditorGridPainter`) and the Twister context
-  (`TwisterMidiContextCtl`) arms from the selected slots. Because both read the
-  round-tripped selection, manually selecting notes in Bitwig also lights the
-  pads and arms the encoders — the gesture is just one way to drive selection.
-* Bitwig has no per-note deselect, so the tracker rebuilds the whole selection
-  on each request (clear on the first cell, add the rest) and clears by selecting
-  an empty cell with `clearCurrentSelection`.
+Selection mode is driven from the **MIXER** top button on both editor pages,
+mirroring the explorer's `SelectionCtl` (`EditorSelectionCtl`):
+
+* The button is red when idle and white while engaged. Tapping it toggles the
+  mode; leaving the editor exits it. Switching between the two editor pages keeps
+  it on.
+* While engaged, tapping a lit pad toggles that note's selection additively — a
+  tap on an unselected note adds it, a tap on a selected note removes it — so a
+  multi-note selection is gathered one tap at a time. The Twister velocity
+  encoder then edits every selected note (defaulting to full velocity when more
+  than one is selected). `EditorNoteHandler` stands down while the mode is
+  engaged, so taps select rather than add or erase notes.
+* `EditorSelectionCtl` keeps no projection of which notes are selected; it only
+  emits a `RequestToggleNoteSelection` for the tapped cell. Because Bitwig has no
+  per-note deselect, the clip tracker rebuilds the whole selection from its full
+  view on each toggle (clear on the first cell, add the rest), which also
+  preserves notes selected on the other vertical page. It clears by selecting an
+  empty cell.
+* The side-button horizontal slice (`HorizontalSliceCtl`) drives selection the
+  same way, through `RequestSelectNotes`.
 
 ## Advanced paging
 

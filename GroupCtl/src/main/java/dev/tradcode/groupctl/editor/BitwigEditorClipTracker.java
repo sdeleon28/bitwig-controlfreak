@@ -11,6 +11,7 @@ import dev.tradcode.groupctl.editor.events.RequestSelectNotes;
 import dev.tradcode.groupctl.editor.events.RequestSetNote;
 import dev.tradcode.groupctl.editor.events.RequestSetNotes;
 import dev.tradcode.groupctl.editor.events.RequestSetVelocity;
+import dev.tradcode.groupctl.editor.events.RequestToggleNoteSelection;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -104,6 +105,39 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
         }
     }
 
+    private void toggleSelection(int key, double startBeat, double endBeat) {
+        int y = key - EditorConstants.BASE_KEY;
+        if (y < 0 || y >= EditorConstants.READ_KEY_RANGE)
+            return;
+        int from = stepFor(startBeat);
+        int to = stepFor(endBeat);
+        // A display pad folds every onset in [from, to); mirror the painter's
+        // any-selected rule, so a pad showing red deselects and one showing the
+        // plain note colour selects.
+        boolean anySelected = false;
+        for (int x = from; x < to; x++)
+            if (x >= 0 && x < EditorConstants.READ_STEPS && this.onsets[x][y] && this.selected[x][y])
+                anySelected = true;
+        boolean target = !anySelected;
+        // Rebuild the whole selection from the tracker's full view so notes on the
+        // other vertical page survive the toggle.
+        List<NoteCell> cells = new ArrayList<>();
+        for (int x = 0; x < EditorConstants.READ_STEPS; x++)
+            for (int yy = 0; yy < EditorConstants.READ_KEY_RANGE; yy++) {
+                if (!this.onsets[x][yy])
+                    continue;
+                boolean inRange = yy == y && x >= from && x < to;
+                boolean sel = inRange ? target : this.selected[x][yy];
+                if (sel)
+                    cells.add(new NoteCell(
+                        EditorConstants.BASE_KEY + yy,
+                        x * EditorConstants.FINE_STEP_BEATS,
+                        (x + 1) * EditorConstants.FINE_STEP_BEATS,
+                        this.velocities[x][yy]));
+            }
+        this.applySelection(cells);
+    }
+
     private void clearSelection() {
         for (int x = 0; x < EditorConstants.READ_STEPS; x++)
             for (int y = 0; y < EditorConstants.READ_KEY_RANGE; y++)
@@ -159,6 +193,8 @@ public class BitwigEditorClipTracker implements IEventBusSubscriber {
                 }
             }
             case RequestSelectNotes(var cells) when this.clip != null -> this.applySelection(cells);
+            case RequestToggleNoteSelection(int key, double startBeat, double endBeat)
+            when this.clip != null -> this.toggleSelection(key, startBeat, endBeat);
             case RequestSetVelocity(int key, double startBeat, double endBeat, double velocity)
             when this.clip != null -> {
                 int y = key - EditorConstants.BASE_KEY;

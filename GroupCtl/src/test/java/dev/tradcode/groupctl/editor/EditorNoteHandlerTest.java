@@ -5,6 +5,7 @@ import dev.tradcode.groupctl.editor.events.EditorPagerMode;
 import dev.tradcode.groupctl.editor.events.EditorSlot;
 import dev.tradcode.groupctl.editor.events.RequestClearNotes;
 import dev.tradcode.groupctl.editor.events.RequestSetNote;
+import dev.tradcode.groupctl.editor.events.SelectionModeChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -104,6 +105,22 @@ class EditorNoteHandlerTest {
             0, new EditorSlot(true, 36, 0.0, 0.5)
         )), true));
         bus.send(new EditorPagerMode(true)); // grid is now a page picker
+
+        bus.send(new PadClicked(EditorConstants.PADS.get(0)));
+
+        assertNull(bus.last(RequestClearNotes.class));
+        assertNull(bus.last(RequestSetNote.class));
+    }
+
+    @Test
+    void standsDownWhileSelectionModeIsEngaged() {
+        FakeEventBus bus = new FakeEventBus();
+        new EditorNoteHandler(bus);
+        bus.send(new PageSelected(EDITOR));
+        bus.send(new EditorGridChanged(grid(Map.of(
+            0, new EditorSlot(true, 36, 0.0, 0.5)
+        )), true));
+        bus.send(new SelectionModeChanged(true)); // taps now select, not edit
 
         bus.send(new PadClicked(EditorConstants.PADS.get(0)));
 

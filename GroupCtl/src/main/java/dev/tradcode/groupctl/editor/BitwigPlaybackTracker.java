@@ -1,8 +1,6 @@
 package dev.tradcode.groupctl.editor;
 
 import dev.tradcode.groupctl.editor.events.PlaybackUpdate;
-import dev.tradcode.groupctl.editor.events.RequestStartPlayback;
-import dev.tradcode.groupctl.editor.events.RequestStopPlayback;
 import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Transport;
 
@@ -32,11 +30,6 @@ public class BitwigPlaybackTracker implements IEventBusSubscriber {
     }
 
     public void on(Event event) {
-        switch (event) {
-            case RequestStartPlayback() when (transport != null) -> transport.play();
-            case RequestStopPlayback() when (transport != null) -> transport.stop();
-            default -> { }
-        }
     }
 
     public void flush() {

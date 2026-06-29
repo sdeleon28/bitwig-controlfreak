@@ -39,9 +39,9 @@ public class Editor {
         new AnimatedScroll(bus, scheduler);
         new InstantScroll(bus);
         new EditorNoteHandler(bus);
+        new EditorSelectionCtl(bus);
         new HorizontalSliceCtl(bus);
         new TwisterMidiContextCtl(bus);
-        new PlaybackHandler(bus);
         new FollowPlayhead(bus);
 
         // Growls

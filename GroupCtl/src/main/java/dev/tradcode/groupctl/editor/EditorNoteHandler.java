@@ -5,6 +5,7 @@ import dev.tradcode.groupctl.editor.events.EditorPagerMode;
 import dev.tradcode.groupctl.editor.events.EditorSlot;
 import dev.tradcode.groupctl.editor.events.RequestClearNotes;
 import dev.tradcode.groupctl.editor.events.RequestSetNote;
+import dev.tradcode.groupctl.editor.events.SelectionModeChanged;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,6 +21,7 @@ public class EditorNoteHandler implements IEventBusSubscriber {
     boolean pageActive = false;
     boolean clipExists = false;
     boolean pagerMode = false;
+    boolean selecting = false;
     List<EditorSlot> grid = new ArrayList<>();
 
     public EditorNoteHandler(IEventBus bus) {
@@ -46,7 +48,9 @@ public class EditorNoteHandler implements IEventBusSubscriber {
                 this.clipExists = clipExists;
             }
             case EditorPagerMode(boolean active) -> this.pagerMode = active;
-            case PadClicked(int n) when this.pageActive && this.clipExists && !this.pagerMode ->
+            case SelectionModeChanged(boolean active) -> this.selecting = active;
+            case PadClicked(int n)
+            when this.pageActive && this.clipExists && !this.pagerMode && !this.selecting ->
                 this.handlePad(n);
             default -> { }
         }
