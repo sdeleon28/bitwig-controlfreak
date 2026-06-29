@@ -161,7 +161,6 @@
                 [X] new notes remain selected
     [X] move editor play/stop off the STOP side button (now MIXER top button)
 [X] make it so it selects in the entire clip, not just the section
-[ ] BUG: playhead erases blinking slice
 [ ] expand note context feature set
     [ ] top 2 rows should map to RCs
     [ ] bottom note controls
@@ -189,17 +188,20 @@
 [X] update advanced paging docs
 [ ] resurrect alternative side-buttons resolution, strategy pattern, feature flagged
 [X] BUG: editor length hardcoded to 1 bar (should be as long as the selected clip)
+[ ] BUG: when i press both arrows and it gives me the page selector, choosing a page sends a note (need to gate the note handler)
 [ ] selection UX
     [ ] remove all hold to select behavior
         [ ] but keep "context-aware" twister program that modifies velocity on selected notes
         [ ] also keep different coloring for selected vs not-selected
     [ ] remove playback controls from mixer button
-    [ ] mirror behavior from explorer where we engage and disengage selection mode
+    [ ] mirror design from explorer where we engage and disengage selection mode
         [ ] similar but not the same
         [ ] clicking mixer goes into selection mode
         [ ] we're selecting only single notes here (no start/end range behavior)
         [ ] no hold behavior - one click selects, one click de-selects
         [ ] clicking mixer again goes back into normal mode
+        [ ] this should work in both pages of the editor
+[ ] BUG: playhead erases blinking slice
 
 # frequalizer
 

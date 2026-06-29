@@ -143,7 +143,7 @@ class FollowPlayheadCtlTest {
     }
 
     @Test
-    void keepsChasingOnTheTopEditorPageEvenThoughTheToggleIsHidden() {
+    void keepsChasingAfterMovingToTheTopEditorPage() {
         FakeEventBus bus = new FakeEventBus();
         onBottomPage(bus);
         toggle(bus);
@@ -165,16 +165,17 @@ class FollowPlayheadCtlTest {
     }
 
     @Test
-    void ignoresTheToggleOnTheTopEditorPageWhereUser2BelongsToPresets() {
+    void armsTheChaseFromTheTopEditorPage() {
         FakeEventBus bus = new FakeEventBus();
-        FollowPlayheadCtl ctl = new FollowPlayheadCtl(bus);
+        new FollowPlayheadCtl(bus);
         bus.send(new PageSelected(TOP));
 
-        long paintsBefore = bus.count(PaintTopButton.class);
         toggle(bus);
-        assertEquals(paintsBefore, bus.count(PaintTopButton.class)); // no toggle, no paint
+        PaintTopButton lit = bus.last(PaintTopButton.class);
+        assertEquals(TopButton.USER_2, lit.btn());
+        assertEquals(FollowPlayheadCtl.ENABLED_COLOR, lit.color());
 
         bus.send(new EditorPlaybackPosition(BEAT_ON_PAGE_1));
-        assertNull(bus.last(RequestEditorPage.class)); // stayed disabled
+        assertEquals(1, bus.last(RequestEditorPage.class).delta());
     }
 }

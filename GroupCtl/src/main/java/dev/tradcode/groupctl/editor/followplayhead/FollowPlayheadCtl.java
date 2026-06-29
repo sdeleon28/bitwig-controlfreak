@@ -17,20 +17,19 @@ import dev.tradcode.groupctl.events.TopButton;
 import dev.tradcode.groupctl.events.TopButtonClick;
 
 /**
- * Keeps the editor's horizontal page chasing the play cursor. USER_2 on the
- * bottom editor page toggles the chase: lit while following, dark while idle.
- * When following, every playhead tick that lands on a page off-screen asks the
- * horizontal pager to walk there, so the notes under the cursor stay in view.
+ * Keeps the editor's horizontal page chasing the play cursor. USER_2 toggles the
+ * chase: lit while following, dark while idle. When following, every playhead
+ * tick that lands on a page off-screen asks the horizontal pager to walk there,
+ * so the notes under the cursor stay in view.
  *
- * The toggle button only lives on the bottom page (the top page hands USER_2 to
- * the preset pager), but the chase itself runs on either editor page.
+ * The toggle lives on both editor pages so the chase can be armed from either
+ * the top or bottom octave; the chase itself likewise runs on either page.
  */
 public class FollowPlayheadCtl implements IEventBusSubscriber {
     static final TopButton TOGGLE = TopButton.USER_2;
     static final int ENABLED_COLOR = 45; // blue, mirrors the playhead sweep
 
     IEventBus bus;
-    boolean buttonActive = false;
     boolean editorActive = false;
     boolean enabled = false;
     int denominator = EditorConstants.DEFAULT_DENOMINATOR;
@@ -43,7 +42,7 @@ public class FollowPlayheadCtl implements IEventBusSubscriber {
     }
 
     private void paint() {
-        if (!this.buttonActive)
+        if (!this.editorActive)
             return;
         this.bus.send(new PaintTopButton(TOGGLE, this.enabled ? ENABLED_COLOR : 0));
     }
@@ -64,11 +63,10 @@ public class FollowPlayheadCtl implements IEventBusSubscriber {
     public void on(Event event) {
         switch (event) {
             case PageSelected(int n) -> {
-                this.buttonActive = n == EditorConstants.PAGE_INDEX_BOTTOM;
                 this.editorActive = Page.isEditorPage(n);
                 this.paint();
             }
-            case TopButtonClick(var btn) when this.buttonActive && btn == TOGGLE -> {
+            case TopButtonClick(var btn) when this.editorActive && btn == TOGGLE -> {
                 this.enabled = !this.enabled;
                 this.paint();
                 this.follow();
