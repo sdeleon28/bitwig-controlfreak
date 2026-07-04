@@ -147,9 +147,11 @@
     [X] gesture different from add / remove because of hold behavior
     [X] single taps should still behave normally (add / remove)
     [ ] make twister active immediately, delete note only if i didn't touch the twister or didn't hold pad long enough
-[ ] sidequest add palette pages at the end
-    [ ] log color number on pad press
-    [ ] copy from js palette
+[X] sidequest add palette pages at the end
+    [X] log color number on pad press
+    [X] create spec from js palette
+    [X] implement with our own architecture
+    [X] fully packaged
 [ ] using palette as reference filter pad color by velocity (lower -> dimmer, higher -> brighter)
 [X] growl resolution and page
 [X] support 16 notes (two vertical pages)

@@ -11,6 +11,7 @@ import dev.tradcode.groupctl.events.EventBus;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.explorer.Explorer;
 import dev.tradcode.groupctl.mixmachine.MixMachine;
+import dev.tradcode.groupctl.palette.Palette;
 
 public class GroupCtlExtension extends ControllerExtension
 {
@@ -25,6 +26,7 @@ public class GroupCtlExtension extends ControllerExtension
    Explorer explorer;
    Editor editor;
    MixMachine mixMachine;
+   Palette palette;
    PluginLogger pluginLogger;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
@@ -55,6 +57,7 @@ public class GroupCtlExtension extends ControllerExtension
       explorer = new Explorer(eventBus, host);
       editor = new Editor(eventBus, host);
       mixMachine = new MixMachine(eventBus, host);
+      palette = new Palette(eventBus, host);
 
       host.showPopupNotification("GroupCtl Initialized");
    }
