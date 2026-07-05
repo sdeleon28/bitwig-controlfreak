@@ -15,7 +15,7 @@ import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcEncoderPressed;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcExistsChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcNameChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcValueChanged;
-import dev.tradcode.groupctl.mixmachine.masterrc.events.RequestNudgeTempo;
+import dev.tradcode.groupctl.mixmachine.masterrc.events.RequestSetTempo;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.SetMasterRcValue;
 
 class TwisterMasterRcCtlTest {
@@ -47,10 +47,10 @@ class TwisterMasterRcCtlTest {
         return last;
     }
 
-    private static RequestNudgeTempo lastTempoNudge(FakeEventBus bus) {
-        RequestNudgeTempo last = null;
+    private static RequestSetTempo lastTempoSet(FakeEventBus bus) {
+        RequestSetTempo last = null;
         for (var e : bus.events)
-            if (e instanceof RequestNudgeTempo n) last = n;
+            if (e instanceof RequestSetTempo n) last = n;
         return last;
     }
 
@@ -194,25 +194,22 @@ class TwisterMasterRcCtlTest {
     }
 
     @Test
-    void tempoEncoderNudgesByWholeBpmStepsInsteadOfWritingTheRc() {
+    void tempoEncoderMapsAbsolutePositionToBpmInsteadOfWritingTheRc() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
         bus.send(new BitwigTrackSelected(MASTER_ID));
         bus.clear();
 
-        // position 5 maps to RC id 0 (Tempo). The first turn only establishes
-        // the baseline; the next two move the transport by the position delta.
+        // position 5 maps to RC id 0 (Tempo). Every turn writes an absolute BPM
+        // derived from the encoder position; there is no baseline to establish.
         bus.send(new EncoderTurned(5, 64));
-        bus.send(new EncoderTurned(5, 66));
-        bus.send(new EncoderTurned(5, 65));
 
         assertFalse(wroteRc(bus), "the tempo encoder must not write a normalized RC value");
-        assertEquals(2, bus.count(RequestNudgeTempo.class), "one nudge per real turn");
-        assertEquals(-1, lastTempoNudge(bus).steps());
+        assertEquals(1, bus.count(RequestSetTempo.class), "one tempo write per turn");
     }
 
     @Test
-    void tempoEncoderSwallowsTheFirstTurnAfterActivation() {
+    void tempoEncoderWorksOnTheFirstTurnAfterActivation() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
         bus.send(new BitwigTrackSelected(MASTER_ID));
@@ -220,28 +217,24 @@ class TwisterMasterRcCtlTest {
 
         bus.send(new EncoderTurned(5, 70));
 
-        assertEquals(0, bus.count(RequestNudgeTempo.class),
-            "the first turn only baselines the encoder position");
+        assertEquals(1, bus.count(RequestSetTempo.class),
+            "the very first turn already sets the tempo");
     }
 
     @Test
-    void tempoBaselineResetsWhenMasterIsReclaimed() {
+    void tempoEncoderSpansThirtyToTwoHundredThirtyBpm() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
         bus.send(new BitwigTrackSelected(MASTER_ID));
-        bus.send(new EncoderTurned(5, 64));
-        bus.send(new EncoderTurned(5, 70));
-
-        // yield to a device, then reclaim: the next turn must re-baseline rather
-        // than nudge by the gap to the stale position.
-        bus.send(new RequestSelectDevice(0));
-        bus.send(new BitwigTrackSelected(MASTER_ID));
         bus.clear();
 
-        bus.send(new EncoderTurned(5, 90));
+        // far left is the floor, far right the ceiling, regardless of where the
+        // tempo happened to be when the encoder was activated.
+        bus.send(new EncoderTurned(5, 0));
+        assertEquals(30, lastTempoSet(bus).bpm());
 
-        assertEquals(0, bus.count(RequestNudgeTempo.class),
-            "reclaiming master re-baselines the tempo encoder");
+        bus.send(new EncoderTurned(5, 127));
+        assertEquals(230, lastTempoSet(bus).bpm());
     }
 
     @Test

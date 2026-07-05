@@ -6,7 +6,7 @@ import com.bitwig.extension.controller.api.Transport;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
-import dev.tradcode.groupctl.mixmachine.masterrc.events.RequestNudgeTempo;
+import dev.tradcode.groupctl.mixmachine.masterrc.events.RequestSetTempo;
 
 public class BitwigTempoTracker implements IEventBusSubscriber {
     IEventBus bus;
@@ -20,7 +20,7 @@ public class BitwigTempoTracker implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
-            case RequestNudgeTempo(int steps) -> this.transport.tempo().incRaw(steps);
+            case RequestSetTempo(int bpm) -> this.transport.tempo().setRaw(bpm);
             default -> { }
         }
     }
