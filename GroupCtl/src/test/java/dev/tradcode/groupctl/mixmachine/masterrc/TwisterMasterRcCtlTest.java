@@ -15,6 +15,7 @@ import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcEncoderPressed;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcExistsChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcNameChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcValueChanged;
+import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterTempoChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.RequestSetTempo;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.SetMasterRcValue;
 
@@ -105,14 +106,14 @@ class TwisterMasterRcCtlTest {
 
         // value arrives before the program is active: it must be remembered,
         // not pulled in again on activation.
-        bus.send(new MasterRcValueChanged(0, 1.0));
+        bus.send(new MasterRcValueChanged(1, 1.0));
         bus.clear();
 
         bus.send(new BitwigTrackSelected(MASTER_ID));
 
-        // RC id 0 maps to position 5
+        // RC id 1 maps to position 6
         assertTrue(bus.events.stream().anyMatch(
-            e -> e instanceof SetEncoderValue sv && sv.n() == 5 && sv.v() == 127));
+            e -> e instanceof SetEncoderValue sv && sv.n() == 6 && sv.v() == 127));
     }
 
     @Test
@@ -138,11 +139,11 @@ class TwisterMasterRcCtlTest {
         bus.send(new BitwigTrackSelected(MASTER_ID));
         bus.clear();
 
-        // RC id 0 maps to position 5
-        bus.send(new MasterRcValueChanged(0, 1.0));
+        // RC id 1 maps to position 6
+        bus.send(new MasterRcValueChanged(1, 1.0));
 
         assertTrue(bus.events.stream().anyMatch(
-            e -> e instanceof SetEncoderValue sv && sv.n() == 5 && sv.v() == 127));
+            e -> e instanceof SetEncoderValue sv && sv.n() == 6 && sv.v() == 127));
     }
 
     @Test
@@ -235,6 +236,42 @@ class TwisterMasterRcCtlTest {
 
         bus.send(new EncoderTurned(5, 127));
         assertEquals(230, lastTempoSet(bus).bpm());
+    }
+
+    @Test
+    void tempoRingReflectsTheDawTempoNotTheRcValue() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+        bus.clear();
+
+        // 130 BPM sits at the middle of the 30..230 range -> position 64.
+        // The tempo RC's own normalized value is irrelevant to the ring.
+        bus.send(new MasterRcValueChanged(0, 1.0));
+        bus.send(new MasterTempoChanged(130.0));
+
+        // RC id 0 (Tempo) maps to position 5
+        assertTrue(bus.events.stream().anyMatch(
+            e -> e instanceof SetEncoderValue sv && sv.n() == 5 && sv.v() == 64),
+            "the tempo ring must track the DAW tempo");
+    }
+
+    @Test
+    void cachedTempoPaintsTheRingOnActivation() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+
+        // tempo arrives before the program is active: it must be remembered and
+        // painted onto the ring when the master is selected, so takeover starts
+        // from the DAW's real tempo rather than a stale position.
+        bus.send(new MasterTempoChanged(230.0));
+        bus.clear();
+
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+
+        // 230 BPM is the ceiling -> position 127; RC id 0 maps to position 5
+        assertTrue(bus.events.stream().anyMatch(
+            e -> e instanceof SetEncoderValue sv && sv.n() == 5 && sv.v() == 127));
     }
 
     @Test

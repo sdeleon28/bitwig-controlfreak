@@ -18,6 +18,7 @@ import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcEncoderPressed;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcExistsChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcNameChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcValueChanged;
+import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterTempoChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.RequestSetTempo;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.SetMasterRcValue;
 
@@ -47,6 +48,7 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
     double[] values = new double[RC_COUNT];
     boolean[] exists = new boolean[RC_COUNT];
     String[] names = new String[RC_COUNT];
+    double tempoBpm = MIN_BPM;
 
     Map<Integer, Integer> POSITIONS_TO_IDS = Map.ofEntries(
         Map.entry(1, 4), Map.entry(2, 5), Map.entry(3, 6), Map.entry(4, 7),
@@ -98,9 +100,10 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
 
     private void paintRing(int id) {
         if (!isActive()) return;
-        this.bus.send(
-            new SetEncoderValue(this.idToPosition(id), (int) Math.round(this.values[id] * 127.0))
-        );
+        int v = id == TEMPO_RC_ID
+            ? this.bpmToPosition(this.tempoBpm)
+            : (int) Math.round(this.values[id] * 127.0);
+        this.bus.send(new SetEncoderValue(this.idToPosition(id), v));
     }
 
     private void paintRings() {
@@ -120,6 +123,11 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
         return MIN_BPM + (int) Math.round(v * (MAX_BPM - MIN_BPM) / 127.0);
     }
 
+    private int bpmToPosition(double bpm) {
+        int pos = (int) Math.round((bpm - MIN_BPM) * 127.0 / (MAX_BPM - MIN_BPM));
+        return Math.max(0, Math.min(127, pos));
+    }
+
     public void on(Event event) {
         switch (event) {
             case BitwigTrackSelected(int id) -> {
@@ -136,6 +144,10 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
                 if (id < 0 || id >= RC_COUNT) return;
                 this.values[id] = v;
                 this.paintRing(id);
+            }
+            case MasterTempoChanged(double bpm) -> {
+                this.tempoBpm = bpm;
+                this.paintRing(TEMPO_RC_ID);
             }
             case MasterRcExistsChanged(int id, boolean e) -> {
                 if (id < 0 || id >= RC_COUNT) return;
