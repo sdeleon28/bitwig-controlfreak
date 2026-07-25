@@ -168,6 +168,35 @@ class TwisterVolPanCtlTest {
     }
 
     @Test
+    void selectingAChildTrackReleasesEncodersToItsRcProgram() {
+        // drilling from the group overview into one of its child tracks hands the
+        // encoders to that track's RC program; vol/pan stops driving them.
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+
+        bus.send(new BitwigTrackSelected(DI_ID));
+        bus.events.clear();
+        bus.send(new EncoderTurned(1, 127));
+
+        assertTrue(bus.events.stream().noneMatch(e -> e instanceof SetTrackVolume));
+    }
+
+    @Test
+    void reSelectingTheGroupReturnsToTheVolPanOverview() {
+        // after drilling into a child track, re-tapping the group pad
+        // (RequestSelectTrack(groupId)) brings the vol/pan overview back.
+        FakeEventBus bus = new FakeEventBus();
+        selectedGroup(bus);
+        bus.send(new BitwigTrackSelected(DI_ID));
+
+        bus.send(new dev.tradcode.groupctl.events.RequestSelectTrack(GROUP_ID, "bass (2)"));
+        bus.events.clear();
+        bus.send(new EncoderTurned(1, 127));
+
+        assertTrue(bus.events.stream().anyMatch(e -> e instanceof SetTrackVolume));
+    }
+
+    @Test
     void selectingTrackOutsideGroupsReleasesEncoders() {
         // selecting the master track (an id not in our schema) must drop the
         // group context so vol/pan stops driving the encoders
