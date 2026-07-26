@@ -4,7 +4,7 @@ import dev.tradcode.groupctl.mixmachine.events.BitwigSend;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.RequestFxSetSolo;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
 import dev.tradcode.groupctl.mixmachine.events.SendValueUpdated;
 import dev.tradcode.groupctl.mixmachine.events.SendsChanged;
@@ -190,7 +190,7 @@ class TwisterSendTracksToFxCtlTest {
         bus.send(new RequestFxSelectTrack(FX, "verb"));
         bus.events.clear();
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.events.clear();
         bus.send(new EncoderTurned(1, 127));
 

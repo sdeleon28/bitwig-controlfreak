@@ -10,7 +10,7 @@ import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcEncoderPressed;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcExistsChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcNameChanged;
@@ -160,16 +160,17 @@ class TwisterMasterRcCtlTest {
     }
 
     @Test
-    void deviceSelectionYieldsEncodersAndReSelectingMasterReclaimsThem() {
+    void deviceGrabbedYieldsEncodersAndReSelectingMasterReclaimsThem() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
         bus.send(new BitwigTrackSelected(MASTER_ID));
 
-        // a device borrows the encoders even though master stays selected
-        bus.send(new RequestSelectDevice(0));
+        // grabbing a device — pad or Send B — borrows the encoders even though
+        // master stays selected
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.clear();
         bus.send(new EncoderTurned(6, 127));
-        assertFalse(wroteRc(bus), "device RC must own the encoders while a device is selected");
+        assertFalse(wroteRc(bus), "device RC must own the encoders while a device is grabbed");
 
         // re-tapping the master pad re-announces the selection (the tracker
         // re-emits BitwigTrackSelected since Bitwig won't), reclaiming them

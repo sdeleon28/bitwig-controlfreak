@@ -13,7 +13,7 @@ import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcEncoderPressed;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcExistsChanged;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcNameChanged;
@@ -135,7 +135,7 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
                 this.deviceBorrowed = false;
                 this.activate();
             }
-            case RequestSelectDevice(int n) -> this.deviceBorrowed = true;
+            case DeviceGrabbed(String name) -> this.deviceBorrowed = true;
             case PageSelected(int n) -> {
                 this.editorPageActive = Page.isEditorPage(n);
                 if (isActive()) this.activate();

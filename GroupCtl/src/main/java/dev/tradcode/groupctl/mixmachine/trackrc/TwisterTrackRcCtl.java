@@ -19,7 +19,7 @@ import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
 import dev.tradcode.groupctl.mixmachine.trackrc.events.SetTrackRcValue;
 import dev.tradcode.groupctl.mixmachine.trackrc.events.TrackRcEncoderPressed;
@@ -151,7 +151,7 @@ public class TwisterTrackRcCtl implements IEventBusSubscriber {
                     this.trackSelected = false;
                 }
             }
-            case RequestSelectDevice(int n) -> this.borrowed = true;
+            case DeviceGrabbed(String name) -> this.borrowed = true;
             case RequestFxSelectTrack(int id, String name) -> this.borrowed = true;
             case PageSelected(int n) -> {
                 this.editorPageActive = Page.isEditorPage(n);

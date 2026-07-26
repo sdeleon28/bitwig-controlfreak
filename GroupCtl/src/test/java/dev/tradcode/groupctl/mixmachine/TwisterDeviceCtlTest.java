@@ -1,12 +1,9 @@
 package dev.tradcode.groupctl.mixmachine;
 
-import dev.tradcode.groupctl.mixmachine.events.BitwigDevice;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.mixmachine.events.DevicesSchemaChanged;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.mixmachine.events.SetRcValue;
 import static org.junit.jupiter.api.Assertions.*;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import dev.tradcode.groupctl.Page;
@@ -21,16 +18,8 @@ class TwisterDeviceCtlTest {
         return bus.events.stream().anyMatch(e -> e instanceof SetRcValue);
     }
 
-    private static BitwigDevice device(int id, String name) {
-        var d = new BitwigDevice();
-        d.id = id;
-        d.name = name;
-        d.exists = true;
-        return d;
-    }
-
     @Test
-    void encoderTurnIgnoredUntilDeviceSelected() {
+    void encoderTurnIgnoredUntilDeviceGrabbed() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterDeviceCtl(bus);
 
@@ -40,11 +29,11 @@ class TwisterDeviceCtlTest {
     }
 
     @Test
-    void encoderTurnWritesRcAfterDeviceSelected() {
+    void encoderTurnWritesRcAfterDeviceGrabbed() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterDeviceCtl(bus);
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.events.clear();
         bus.send(new EncoderTurned(1, 127));
 
@@ -55,7 +44,7 @@ class TwisterDeviceCtlTest {
     void editorPageSuppressesEncodersThenRestores() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterDeviceCtl(bus);
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
 
         bus.send(new PageSelected(Page.EDITOR.getValue()));
         bus.events.clear();
@@ -71,9 +60,8 @@ class TwisterDeviceCtlTest {
     void blacklistedDeviceDoesNotActivateRc() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterDeviceCtl(bus);
-        bus.send(new DevicesSchemaChanged(List.of(device(0, "Frequalizer Alt"))));
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Frequalizer Alt"));
         bus.events.clear();
         bus.send(new EncoderTurned(1, 127));
 
@@ -84,9 +72,8 @@ class TwisterDeviceCtlTest {
     void nonBlacklistedDeviceActivatesRc() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterDeviceCtl(bus);
-        bus.send(new DevicesSchemaChanged(List.of(device(0, "Compressor"))));
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.events.clear();
         bus.send(new EncoderTurned(1, 127));
 
@@ -98,7 +85,7 @@ class TwisterDeviceCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new TwisterDeviceCtl(bus);
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.send(new RequestFxSelectTrack(0, "verb"));
         bus.events.clear();
         bus.send(new EncoderTurned(1, 127));
@@ -111,7 +98,7 @@ class TwisterDeviceCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new TwisterDeviceCtl(bus);
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.send(new RequestSelectTrack(11, "di (1)"));
         bus.events.clear();
         bus.send(new EncoderTurned(1, 127));
@@ -124,7 +111,7 @@ class TwisterDeviceCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new TwisterDeviceCtl(bus);
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.send(new BitwigTrackSelected(10));
         bus.events.clear();
         bus.send(new EncoderTurned(1, 127));

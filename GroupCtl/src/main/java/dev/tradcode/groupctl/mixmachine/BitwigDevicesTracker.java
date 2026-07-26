@@ -2,6 +2,8 @@ package dev.tradcode.groupctl.mixmachine;
 
 import dev.tradcode.groupctl.mixmachine.events.BitwigDevice;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
+import dev.tradcode.groupctl.mixmachine.events.CursorDeviceExistsChanged;
+import dev.tradcode.groupctl.mixmachine.events.CursorDeviceNameChanged;
 import dev.tradcode.groupctl.mixmachine.events.DevicesSchemaChanged;
 import dev.tradcode.groupctl.mixmachine.events.RcValueChanged;
 import dev.tradcode.groupctl.mixmachine.events.RequestInitRcs;
@@ -53,6 +55,12 @@ public class BitwigDevicesTracker implements IEventBusSubscriber {
         this.cursorTrack = host.createCursorTrack(
             "groupctl-device-cursor", "Device Cursor", 0, 0, true);
         this.cursorDevice = this.cursorTrack.createCursorDevice();
+        this.cursorDevice.exists().addValueObserver(
+            e -> this.bus.send(new CursorDeviceExistsChanged(e))
+        );
+        this.cursorDevice.name().addValueObserver(
+            name -> this.bus.send(new CursorDeviceNameChanged(name))
+        );
         this.rcPage = this.cursorDevice.createCursorRemoteControlsPage(RC_COUNT);
         this.cursorDeviceBank = this.cursorTrack.createDeviceBank(DEVICE_COUNT);
         for (int i = 0; i < DEVICE_COUNT; i++) {

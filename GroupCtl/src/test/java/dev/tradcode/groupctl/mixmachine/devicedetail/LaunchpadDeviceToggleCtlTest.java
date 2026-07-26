@@ -1,7 +1,6 @@
 package dev.tradcode.groupctl.mixmachine.devicedetail;
 
 import static org.junit.jupiter.api.Assertions.*;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import dev.tradcode.groupctl.Page;
@@ -11,23 +10,13 @@ import dev.tradcode.groupctl.events.PaintPad;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.mixmachine.devicedetail.events.DeviceEnabledChanged;
 import dev.tradcode.groupctl.mixmachine.devicedetail.events.RequestToggleDevice;
-import dev.tradcode.groupctl.mixmachine.events.BitwigDevice;
-import dev.tradcode.groupctl.mixmachine.events.DevicesSchemaChanged;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 
 class LaunchpadDeviceToggleCtlTest {
 
     static final int PAD = 88;
     static final int GOLD = 99;
     static final int OFF = 0;
-
-    private static BitwigDevice device(int id, String name) {
-        var d = new BitwigDevice();
-        d.id = id;
-        d.name = name;
-        d.exists = true;
-        return d;
-    }
 
     private static Integer lastPadColor(FakeEventBus bus) {
         Integer color = null;
@@ -44,9 +33,8 @@ class LaunchpadDeviceToggleCtlTest {
     void enabledGenericDevicePaintsGold() {
         FakeEventBus bus = new FakeEventBus();
         new LaunchpadDeviceToggleCtl(bus);
-        bus.send(new DevicesSchemaChanged(List.of(device(0, "Compressor"))));
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.send(new DeviceEnabledChanged(true));
 
         assertEquals(GOLD, lastPadColor(bus));
@@ -56,9 +44,8 @@ class LaunchpadDeviceToggleCtlTest {
     void disabledGenericDeviceStaysDark() {
         FakeEventBus bus = new FakeEventBus();
         new LaunchpadDeviceToggleCtl(bus);
-        bus.send(new DevicesSchemaChanged(List.of(device(0, "Compressor"))));
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.send(new DeviceEnabledChanged(false));
 
         assertEquals(OFF, lastPadColor(bus));
@@ -68,7 +55,7 @@ class LaunchpadDeviceToggleCtlTest {
     void togglingOffRepaintsDark() {
         FakeEventBus bus = new FakeEventBus();
         new LaunchpadDeviceToggleCtl(bus);
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.send(new DeviceEnabledChanged(true));
 
         bus.send(new DeviceEnabledChanged(false));
@@ -77,10 +64,10 @@ class LaunchpadDeviceToggleCtlTest {
     }
 
     @Test
-    void clickTogglesSelectedDevice() {
+    void clickTogglesGrabbedDevice() {
         FakeEventBus bus = new FakeEventBus();
         new LaunchpadDeviceToggleCtl(bus);
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
 
         bus.send(new PadClicked(PAD));
 
@@ -101,9 +88,8 @@ class LaunchpadDeviceToggleCtlTest {
     void customMappedDeviceDoesNotActivate() {
         FakeEventBus bus = new FakeEventBus();
         new LaunchpadDeviceToggleCtl(bus);
-        bus.send(new DevicesSchemaChanged(List.of(device(0, "Frequalizer Alt"))));
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Frequalizer Alt"));
         bus.send(new PadClicked(PAD));
 
         assertFalse(toggleRequested(bus),
@@ -114,7 +100,7 @@ class LaunchpadDeviceToggleCtlTest {
     void selectingTrackReleasesPad() {
         FakeEventBus bus = new FakeEventBus();
         new LaunchpadDeviceToggleCtl(bus);
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.send(new DeviceEnabledChanged(true));
 
         bus.send(new RequestSelectTrack(11, "di (1)"));
@@ -129,7 +115,7 @@ class LaunchpadDeviceToggleCtlTest {
     void clickIgnoredOffGroupPage() {
         FakeEventBus bus = new FakeEventBus();
         new LaunchpadDeviceToggleCtl(bus);
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
 
         bus.send(new PageSelected(Page.EDITOR.getValue()));
         bus.send(new PadClicked(PAD));
@@ -141,7 +127,7 @@ class LaunchpadDeviceToggleCtlTest {
     void returningToGroupPageRestoresGold() {
         FakeEventBus bus = new FakeEventBus();
         new LaunchpadDeviceToggleCtl(bus);
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.send(new DeviceEnabledChanged(true));
         bus.send(new PageSelected(Page.EDITOR.getValue()));
         bus.clear();

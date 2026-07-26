@@ -1,6 +1,6 @@
 package dev.tradcode.groupctl.mixmachine;
 
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.Colors;
 import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.Event;
@@ -75,9 +75,7 @@ public abstract class TwisterTrackEncoderCtl extends TrackCtl {
     public void on(Event event) {
         super.on(event);
         switch (event) {
-            // state source of truth is on our end for device selection, so we
-            // match on the request instead of the response from bw
-            case RequestSelectDevice(int n) -> this.active = false;
+            case DeviceGrabbed(String name) -> this.active = false;
             case PageSelected(int n) -> this.onPageSelected(n);
             default -> { }
         }

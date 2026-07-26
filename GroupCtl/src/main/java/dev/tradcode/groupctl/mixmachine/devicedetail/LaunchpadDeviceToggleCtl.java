@@ -1,6 +1,5 @@
 package dev.tradcode.groupctl.mixmachine.devicedetail;
 
-import java.util.List;
 import java.util.Set;
 
 import dev.tradcode.groupctl.Page;
@@ -14,10 +13,8 @@ import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.mixmachine.devicedetail.events.DeviceEnabledChanged;
 import dev.tradcode.groupctl.mixmachine.devicedetail.events.RequestToggleDevice;
-import dev.tradcode.groupctl.mixmachine.events.BitwigDevice;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.mixmachine.events.DevicesSchemaChanged;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 
 /**
  * Owns the top-right corner pad in device mode. Entering device mode frees the
@@ -34,7 +31,6 @@ public class LaunchpadDeviceToggleCtl implements IEventBusSubscriber {
     static final Set<String> CUSTOM_MAPPED_DEVICES = Set.of("Frequalizer Alt");
 
     IEventBus bus;
-    List<BitwigDevice> devices = List.of();
     boolean pageActive = true;
     boolean active = false;
     boolean enabled = false;
@@ -44,16 +40,7 @@ public class LaunchpadDeviceToggleCtl implements IEventBusSubscriber {
         this.bus.subscribe(this);
     }
 
-    private String deviceName(int id) {
-        return this.devices.stream()
-            .filter(d -> d.id == id)
-            .findFirst()
-            .map(d -> d.name)
-            .orElse(null);
-    }
-
-    private boolean isCustomMapped(int id) {
-        var name = this.deviceName(id);
+    private boolean isCustomMapped(String name) {
         return name != null && CUSTOM_MAPPED_DEVICES.contains(name);
     }
 
@@ -68,10 +55,8 @@ public class LaunchpadDeviceToggleCtl implements IEventBusSubscriber {
 
     public void on(Event event) {
         switch (event) {
-            case DevicesSchemaChanged(List<BitwigDevice> devices) ->
-                this.devices = devices;
-            case RequestSelectDevice(int id) -> {
-                this.active = !this.isCustomMapped(id);
+            case DeviceGrabbed(String name) -> {
+                this.active = !this.isCustomMapped(name);
                 this.paint();
             }
             case DeviceEnabledChanged(boolean enabled) -> {

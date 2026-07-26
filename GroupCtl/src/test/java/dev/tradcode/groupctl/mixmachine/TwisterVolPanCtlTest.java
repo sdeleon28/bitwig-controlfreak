@@ -3,7 +3,7 @@ package dev.tradcode.groupctl.mixmachine;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.PanUpdated;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.mixmachine.events.RequestSetSolo;
 import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
 import dev.tradcode.groupctl.mixmachine.events.SetTrackPan;
@@ -160,7 +160,7 @@ class TwisterVolPanCtlTest {
         FakeEventBus bus = new FakeEventBus();
         selectedGroup(bus);
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.events.clear();
         bus.send(new EncoderTurned(1, 127));
 

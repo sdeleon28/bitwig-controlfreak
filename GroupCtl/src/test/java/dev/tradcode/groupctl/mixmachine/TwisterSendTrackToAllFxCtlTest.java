@@ -7,7 +7,7 @@ import dev.tradcode.groupctl.mixmachine.events.FxPanUpdated;
 import dev.tradcode.groupctl.mixmachine.events.FxSchemaChanged;
 import dev.tradcode.groupctl.mixmachine.events.FxVolumeUpdated;
 import dev.tradcode.groupctl.mixmachine.events.RequestFxSetSolo;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
 import dev.tradcode.groupctl.mixmachine.events.SendValueUpdated;
 import dev.tradcode.groupctl.mixmachine.events.SendsChanged;
@@ -284,7 +284,7 @@ class TwisterSendTrackToAllFxCtlTest {
         bus.send(new RequestFxSelectTrack(FX0, "fx0"));
         bus.events.clear();
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.events.clear();
         bus.send(new EncoderTurned(9, 127));
 

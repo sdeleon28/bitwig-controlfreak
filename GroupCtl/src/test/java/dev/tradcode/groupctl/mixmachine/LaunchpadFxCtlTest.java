@@ -3,7 +3,7 @@ package dev.tradcode.groupctl.mixmachine;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.FxSchemaChanged;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
@@ -94,7 +94,7 @@ class LaunchpadFxCtlTest {
         bus.send(new BitwigTrackSelected(GROUP_ID)); // lit
         bus.events.clear();
 
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
 
         assertEquals(0, padColorAt(bus, FX0_PAD)); // handed over to device controls
     }
@@ -107,10 +107,10 @@ class LaunchpadFxCtlTest {
         FakeEventBus bus = new FakeEventBus();
         withFx(bus);
         bus.send(new BitwigTrackSelected(GROUP_ID));
-        bus.send(new RequestSelectDevice(0)); // hand over (clears once)
+        bus.send(new DeviceGrabbed("Compressor")); // hand over (clears once)
         bus.events.clear();
 
-        bus.send(new RequestSelectDevice(1));
+        bus.send(new DeviceGrabbed("Reverb"));
 
         assertTrue(bus.events.stream().noneMatch(e -> e instanceof PaintPad));
     }
@@ -120,7 +120,7 @@ class LaunchpadFxCtlTest {
         FakeEventBus bus = new FakeEventBus();
         withFx(bus);
         bus.send(new BitwigTrackSelected(GROUP_ID));
-        bus.send(new RequestSelectDevice(0)); // dark
+        bus.send(new DeviceGrabbed("Compressor")); // dark
         bus.events.clear();
 
         bus.send(new BitwigTrackSelected(GROUP_ID));
@@ -158,11 +158,11 @@ class LaunchpadFxCtlTest {
     }
 
     @Test
-    void padNotInteractiveWhileDeviceSelected() {
+    void padNotInteractiveWhileDeviceGrabbed() {
         FakeEventBus bus = new FakeEventBus();
         withFx(bus);
         bus.send(new RequestSelectTrack(GROUP_ID, "bass (2)"));
-        bus.send(new RequestSelectDevice(0));
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.events.clear();
 
         bus.send(new PadClicked(FX0_PAD));

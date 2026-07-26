@@ -6,6 +6,7 @@ import java.util.List;
 import com.bitwig.extension.controller.api.MidiOut;
 
 import dev.tradcode.groupctl.events.BlinkPad;
+import dev.tradcode.groupctl.events.BlinkSideButton;
 import dev.tradcode.groupctl.events.BlinkTopButton;
 import dev.tradcode.groupctl.events.ClearLaunchpad;
 import dev.tradcode.groupctl.events.Event;
@@ -57,6 +58,9 @@ public class LaunchpadOutput implements IEventBusSubscriber {
             case PaintSideButton(SideButton btn, int color) -> {
                 this.paintSideButton(btn.getValue(), color);
             }
+            case BlinkSideButton(SideButton btn, int color) -> {
+                this.blinkSideButton(btn.getValue(), color);
+            }
             default -> { }
         }
     }
@@ -82,6 +86,10 @@ public class LaunchpadOutput implements IEventBusSubscriber {
 
     public void paintSideButton(int n, int color) {
         this.paintPad(n, color);
+    }
+
+    public void blinkSideButton(int n, int color) {
+        this.blinkPad(n, color);
     }
 
     public void clear() {

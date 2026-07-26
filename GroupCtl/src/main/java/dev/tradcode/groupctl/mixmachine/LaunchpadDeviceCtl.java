@@ -1,11 +1,11 @@
 package dev.tradcode.groupctl.mixmachine;
 
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
 import java.util.HashMap;
 import java.util.Map;
 
 import dev.tradcode.groupctl.events.BlinkPad;
-import dev.tradcode.groupctl.events.DeviceSelected;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.PadClicked;
@@ -95,7 +95,7 @@ class LaunchpadDeviceCtl extends DeviceCtl {
                     if (id == -1) return;
                     this.bus.send(
                         new RequestSelectDevice(id),
-                        new DeviceSelected(this.deviceName(id))
+                        new DeviceGrabbed(this.deviceName(id))
                     );
                     this.selectedDeviceId = id;
                 }

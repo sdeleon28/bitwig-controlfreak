@@ -4,7 +4,7 @@ import dev.tradcode.groupctl.mixmachine.events.BitwigFxTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.FxSchemaChanged;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -148,7 +148,7 @@ public class LaunchpadFxCtl implements IEventBusSubscriber {
                 this.applicable = true;
                 this.paint();
             }
-            case RequestSelectDevice(int n) when this.applicable -> {
+            case DeviceGrabbed(String name) when this.applicable -> {
                 this.applicable = false;
                 this.paint();
             }

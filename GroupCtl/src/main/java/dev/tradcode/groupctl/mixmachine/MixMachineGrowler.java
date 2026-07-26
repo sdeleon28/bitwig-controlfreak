@@ -3,7 +3,6 @@ package dev.tradcode.groupctl.mixmachine;
 import com.bitwig.extension.controller.api.ControllerHost;
 
 import dev.tradcode.groupctl.Growler;
-import dev.tradcode.groupctl.events.DeviceSelected;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.FxEncoderPressed;
 import dev.tradcode.groupctl.events.IEventBus;
@@ -21,6 +20,7 @@ import dev.tradcode.groupctl.events.RequestToggleMute;
 import dev.tradcode.groupctl.events.RequestToggleRec;
 import dev.tradcode.groupctl.events.RequestToggleSolo;
 import dev.tradcode.groupctl.events.SendEncoderPressed;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.events.TrackEncoderPressed;
 import dev.tradcode.groupctl.events.VolModeSelected;
 
@@ -34,7 +34,7 @@ public class MixMachineGrowler extends Growler {
         switch (event) {
             // selections
             case RequestSelectTrack e -> this.growl(e);
-            case DeviceSelected e -> this.growl(e);
+            case DeviceGrabbed e -> this.growl(e);
             case RequestFxSelectTrack e -> this.growl(e);
             // modes
             case PadModeUpdated e -> this.growl(e);

@@ -7,6 +7,7 @@ import dev.tradcode.groupctl.mixmachine.devicedetail.DeviceDetail;
 import dev.tradcode.groupctl.mixmachine.frequalizer.Frequalizer;
 import dev.tradcode.groupctl.mixmachine.masterrc.MasterRc;
 import dev.tradcode.groupctl.mixmachine.trackrc.TrackRc;
+import dev.tradcode.groupctl.mixmachine.uidevice.UiDevice;
 
 public class MixMachine {
     BitwigSchemaTracker schemaTracker;
@@ -30,6 +31,7 @@ public class MixMachine {
     MasterRc masterRc;
     TrackRc trackRc;
     DeviceDetail deviceDetail;
+    UiDevice uiDevice;
 
     public MixMachine(IEventBus bus, ControllerHost host) {
         schemaTracker = new BitwigSchemaTracker(host, bus);
@@ -53,6 +55,7 @@ public class MixMachine {
         masterRc = new MasterRc(bus, host);
         trackRc = new TrackRc(bus, host);
         deviceDetail = new DeviceDetail(bus, host);
+        uiDevice = new UiDevice(bus);
     }
 
     public void flush() {

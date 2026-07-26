@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import dev.tradcode.groupctl.events.DeviceSelected;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.frequalizer.events.FrequalizerActivated;
@@ -20,7 +20,7 @@ class FrequalizerActivationCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new FrequalizerActivationCtl(bus);
 
-        bus.send(new DeviceSelected(FREQ));
+        bus.send(new DeviceGrabbed(FREQ));
 
         assertTrue(bus.last(FrequalizerActivated.class).active());
     }
@@ -30,7 +30,7 @@ class FrequalizerActivationCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new FrequalizerActivationCtl(bus);
 
-        bus.send(new DeviceSelected("Pro-Q 3"));
+        bus.send(new DeviceGrabbed("Pro-Q 3"));
 
         assertEquals(0, bus.count(FrequalizerActivated.class));
     }
@@ -53,8 +53,8 @@ class FrequalizerActivationCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new FrequalizerActivationCtl(bus);
 
-        bus.send(new DeviceSelected(FREQ));
-        bus.send(new DeviceSelected("Pro-Q 3"));
+        bus.send(new DeviceGrabbed(FREQ));
+        bus.send(new DeviceGrabbed("Pro-Q 3"));
 
         assertFalse(bus.last(FrequalizerActivated.class).active());
     }
@@ -64,7 +64,7 @@ class FrequalizerActivationCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new FrequalizerActivationCtl(bus);
 
-        bus.send(new DeviceSelected(FREQ));
+        bus.send(new DeviceGrabbed(FREQ));
         bus.send(new RequestSelectTrack(9, "drums (3)"));
 
         assertFalse(bus.last(FrequalizerActivated.class).active());
@@ -75,8 +75,8 @@ class FrequalizerActivationCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new FrequalizerActivationCtl(bus);
 
-        bus.send(new DeviceSelected(FREQ));
-        bus.send(new DeviceSelected(FREQ));
+        bus.send(new DeviceGrabbed(FREQ));
+        bus.send(new DeviceGrabbed(FREQ));
 
         assertEquals(1, bus.count(FrequalizerActivated.class));
     }

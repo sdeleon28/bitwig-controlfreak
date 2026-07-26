@@ -15,7 +15,7 @@ import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
-import dev.tradcode.groupctl.mixmachine.events.RequestSelectDevice;
+import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
 import dev.tradcode.groupctl.mixmachine.trackrc.events.SetTrackRcValue;
 import dev.tradcode.groupctl.mixmachine.trackrc.events.TrackRcEncoderPressed;
@@ -229,16 +229,17 @@ class TwisterTrackRcCtlTest {
     }
 
     @Test
-    void deviceSelectionYieldsEncodersAndReSelectingTrackReclaimsThem() {
+    void deviceGrabbedYieldsEncodersAndReSelectingTrackReclaimsThem() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterTrackRcCtl(bus);
         withSchema(bus);
         bus.send(new BitwigTrackSelected(TRACK_ID));
 
-        bus.send(new RequestSelectDevice(0));
+        // grabbing a device — whether from a device pad or Send B — is one event
+        bus.send(new DeviceGrabbed("Compressor"));
         bus.clear();
         bus.send(new EncoderTurned(6, 127));
-        assertFalse(wroteRc(bus), "device RC must own the encoders while a device is selected");
+        assertFalse(wroteRc(bus), "device RC must own the encoders while a device is grabbed");
 
         // re-tapping the track pad reclaims them (Bitwig won't re-echo)
         bus.send(new RequestSelectTrack(TRACK_ID, "di (1)"));

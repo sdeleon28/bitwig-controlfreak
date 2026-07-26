@@ -23,7 +23,6 @@ public class PadModeCtl implements IEventBusSubscriber {
 
     public void clear() {
         if (!this.pageActive) return;
-        this.bus.send(new PaintSideButton(SideButton.SEND_B, 0));
         this.bus.send(new PaintSideButton(SideButton.STOP, 0));
         this.bus.send(new PaintSideButton(SideButton.MUTE, 0));
         this.bus.send(new PaintSideButton(SideButton.SOLO, 0));
