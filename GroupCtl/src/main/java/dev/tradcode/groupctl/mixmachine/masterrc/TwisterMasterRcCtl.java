@@ -1,8 +1,5 @@
 package dev.tradcode.groupctl.mixmachine.masterrc;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import dev.tradcode.groupctl.Page;
 import dev.tradcode.groupctl.events.EncoderButtonPressed;
 import dev.tradcode.groupctl.events.EncoderTurned;
@@ -12,6 +9,7 @@ import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.SetEncoderValue;
+import dev.tradcode.groupctl.mixmachine.TwisterRcGeometry;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.MasterRcEncoderPressed;
@@ -23,19 +21,20 @@ import dev.tradcode.groupctl.mixmachine.masterrc.events.RequestSetTempo;
 import dev.tradcode.groupctl.mixmachine.masterrc.events.SetMasterRcValue;
 
 /**
- * Twister program: the bottom 8 encoders (positions 1..8) show and edit the
- * first page of the master track's remote controls. Activation follows the
- * master track's selection ({@link BitwigTrackSelected} carrying the master
- * sentinel id); like every other twister program it yields the encoders when a
- * device is selected.
+ * Twister program: the master track's remote controls, spread across all 16
+ * encoders. The bottom 8 (positions 1..8) host the first remote-controls page,
+ * the top 8 (positions 9..16) the second; both come through as flat 0..15 slots
+ * via {@link TwisterRcGeometry}. Activation follows the master track's selection
+ * ({@link BitwigTrackSelected} carrying the master sentinel id); like every
+ * other twister program it yields the encoders when a device is selected.
  *
- * RC 0 is mapped to Tempo: its encoder maps the absolute 0..127 position onto a
- * fixed BPM range ({@link RequestSetTempo}) instead of writing a normalized
+ * Slot 0 is mapped to Tempo: its encoder maps the absolute 0..127 position onto
+ * a fixed BPM range ({@link RequestSetTempo}) instead of writing a normalized
  * value, so the far left is always {@value #MIN_BPM} BPM and the far right
  * {@value #MAX_BPM} BPM regardless of where the tempo was when it was activated.
  */
 public class TwisterMasterRcCtl implements IEventBusSubscriber {
-    static int RC_COUNT = 8;
+    static int SLOT_COUNT = TwisterRcGeometry.SLOT_COUNT;
     static int RC_COLOR = 19; // twister blinding cyan
     static int TEMPO_RC_ID = 0;
     static final int MIN_BPM = 30;
@@ -45,15 +44,10 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
     boolean masterSelected = false;
     boolean editorPageActive = false;
     boolean deviceBorrowed = false;
-    double[] values = new double[RC_COUNT];
-    boolean[] exists = new boolean[RC_COUNT];
-    String[] names = new String[RC_COUNT];
+    double[] values = new double[SLOT_COUNT];
+    boolean[] exists = new boolean[SLOT_COUNT];
+    String[] names = new String[SLOT_COUNT];
     double tempoBpm = MIN_BPM;
-
-    Map<Integer, Integer> POSITIONS_TO_IDS = Map.ofEntries(
-        Map.entry(1, 4), Map.entry(2, 5), Map.entry(3, 6), Map.entry(4, 7),
-        Map.entry(5, 0), Map.entry(6, 1), Map.entry(7, 2), Map.entry(8, 3)
-    );
 
     public TwisterMasterRcCtl(IEventBus bus) {
         this.bus = bus;
@@ -62,16 +56,6 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
 
     private boolean isActive() {
         return this.masterSelected && !this.editorPageActive && !this.deviceBorrowed;
-    }
-
-    private int positionToId(int n) {
-        return POSITIONS_TO_IDS.getOrDefault(n, -1);
-    }
-
-    private int idToPosition(int id) {
-        var reversed = new HashMap<Integer, Integer>();
-        POSITIONS_TO_IDS.forEach((k, v) -> reversed.put(v, k));
-        return reversed.getOrDefault(id, -1);
     }
 
     private void clearLeds() {
@@ -87,30 +71,30 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
     private void paint() {
         if (!isActive()) return;
         this.clearLeds();
-        for (int id = 0; id < RC_COUNT; id++)
-            this.paintLed(id);
+        for (int slot = 0; slot < SLOT_COUNT; slot++)
+            this.paintLed(slot);
     }
 
-    private void paintLed(int id) {
+    private void paintLed(int slot) {
         if (!isActive()) return;
         this.bus.send(
-            new PaintEncoder(this.idToPosition(id), this.exists[id] ? RC_COLOR : 0)
+            new PaintEncoder(TwisterRcGeometry.positionForSlot(slot), this.exists[slot] ? RC_COLOR : 0)
         );
     }
 
-    private void paintRing(int id) {
+    private void paintRing(int slot) {
         if (!isActive()) return;
-        int v = id == TEMPO_RC_ID
+        int v = slot == TEMPO_RC_ID
             ? this.bpmToPosition(this.tempoBpm)
-            : (int) Math.round(this.values[id] * 127.0);
-        this.bus.send(new SetEncoderValue(this.idToPosition(id), v));
+            : (int) Math.round(this.values[slot] * 127.0);
+        this.bus.send(new SetEncoderValue(TwisterRcGeometry.positionForSlot(slot), v));
     }
 
     private void paintRings() {
         if (!isActive()) return;
         this.clearRings();
-        for (int id = 0; id < RC_COUNT; id++)
-            this.paintRing(id);
+        for (int slot = 0; slot < SLOT_COUNT; slot++)
+            this.paintRing(slot);
     }
 
     private void activate() {
@@ -140,39 +124,39 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
                 this.editorPageActive = Page.isEditorPage(n);
                 if (isActive()) this.activate();
             }
-            case MasterRcValueChanged(int id, double v) -> {
-                if (id < 0 || id >= RC_COUNT) return;
-                this.values[id] = v;
-                this.paintRing(id);
+            case MasterRcValueChanged(int slot, double v) -> {
+                if (slot < 0 || slot >= SLOT_COUNT) return;
+                this.values[slot] = v;
+                this.paintRing(slot);
             }
             case MasterTempoChanged(double bpm) -> {
                 this.tempoBpm = bpm;
                 this.paintRing(TEMPO_RC_ID);
             }
-            case MasterRcExistsChanged(int id, boolean e) -> {
-                if (id < 0 || id >= RC_COUNT) return;
-                this.exists[id] = e;
-                this.paintLed(id);
+            case MasterRcExistsChanged(int slot, boolean e) -> {
+                if (slot < 0 || slot >= SLOT_COUNT) return;
+                this.exists[slot] = e;
+                this.paintLed(slot);
             }
-            case MasterRcNameChanged(int id, String name) -> {
-                if (id < 0 || id >= RC_COUNT) return;
-                this.names[id] = name;
+            case MasterRcNameChanged(int slot, String name) -> {
+                if (slot < 0 || slot >= SLOT_COUNT) return;
+                this.names[slot] = name;
             }
             case EncoderButtonPressed(int n) -> {
                 if (!isActive()) return;
-                int id = this.positionToId(n);
-                if (id < 0 || !this.exists[id] || this.names[id] == null) return;
-                this.bus.send(new MasterRcEncoderPressed(this.names[id]));
+                int slot = TwisterRcGeometry.slotForPosition(n);
+                if (slot < 0 || !this.exists[slot] || this.names[slot] == null) return;
+                this.bus.send(new MasterRcEncoderPressed(this.names[slot]));
             }
             case EncoderTurned(int n, int v) -> {
                 if (!isActive()) return;
-                int id = this.positionToId(n);
-                if (id < 0) return;
-                if (id == TEMPO_RC_ID) {
+                int slot = TwisterRcGeometry.slotForPosition(n);
+                if (slot < 0) return;
+                if (slot == TEMPO_RC_ID) {
                     this.bus.send(new RequestSetTempo(this.positionToBpm(v)));
                     return;
                 }
-                this.bus.send(new SetMasterRcValue(id, (double) v / 127.0));
+                this.bus.send(new SetMasterRcValue(slot, (double) v / 127.0));
             }
             default -> { }
         }

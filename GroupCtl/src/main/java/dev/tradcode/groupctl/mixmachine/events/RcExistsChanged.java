@@ -1,5 +1,4 @@
 package dev.tradcode.groupctl.mixmachine.events;
-
 import dev.tradcode.groupctl.events.Event;
 
-public record CursorDeviceExistsChanged(boolean exists) implements Event { }
+public record RcExistsChanged(int id, boolean exists) implements Event { }

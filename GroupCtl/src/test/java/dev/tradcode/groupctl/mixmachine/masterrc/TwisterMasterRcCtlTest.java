@@ -86,6 +86,38 @@ class TwisterMasterRcCtlTest {
     }
 
     @Test
+    void secondPageRcsLightTheTopEightEncoders() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        // slots 8..15 are the second remote-controls page
+        for (int slot = 8; slot < 16; slot++)
+            bus.send(new MasterRcExistsChanged(slot, true));
+
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+
+        for (int n = 9; n <= 16; n++)
+            assertEquals(CYAN, ledAt(bus, n), "top encoder " + n + " should be cyan");
+    }
+
+    @Test
+    void turningATopEncoderWritesTheSecondPageRcNotTempo() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+        bus.clear();
+
+        // position 13 maps to slot 8 — the second page, so plain-value semantics,
+        // not the tempo special-case that only slot 0 carries.
+        bus.send(new EncoderTurned(13, 127));
+
+        var write = lastWrite(bus);
+        assertNotNull(write);
+        assertEquals(8, write.id());
+        assertEquals(1.0, write.value(), 1e-9);
+        assertNull(lastTempoSet(bus), "a second-page encoder must never write tempo");
+    }
+
+    @Test
     void onlyDetectedRcsAreLit() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);

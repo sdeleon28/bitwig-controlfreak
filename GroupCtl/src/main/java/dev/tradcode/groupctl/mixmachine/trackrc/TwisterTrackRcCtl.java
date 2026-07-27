@@ -1,9 +1,7 @@
 package dev.tradcode.groupctl.mixmachine.trackrc;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import dev.tradcode.groupctl.Page;
@@ -17,6 +15,7 @@ import dev.tradcode.groupctl.events.PaintEncoder;
 import dev.tradcode.groupctl.events.RequestFxSelectTrack;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.events.SetEncoderValue;
+import dev.tradcode.groupctl.mixmachine.TwisterRcGeometry;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
@@ -28,14 +27,16 @@ import dev.tradcode.groupctl.mixmachine.trackrc.events.TrackRcNameChanged;
 import dev.tradcode.groupctl.mixmachine.trackrc.events.TrackRcValueChanged;
 
 /**
- * Twister program: the bottom 8 encoders (positions 1..8) show and edit the
- * first page of the selected track's remote controls. Activation follows the
- * selection of a plain (non-group) track; selecting a group hands the encoders
- * back to the vol/pan overview, and — like every other twister program — a
- * device selection or the "selected track, then FX" gesture borrows them.
+ * Twister program: the selected track's remote controls, spread across all 16
+ * encoders. The bottom 8 (positions 1..8) host the first remote-controls page,
+ * the top 8 (positions 9..16) the second; both come through as flat 0..15 slots
+ * via {@link TwisterRcGeometry}. Activation follows the selection of a plain
+ * (non-group) track; selecting a group hands the encoders back to the vol/pan
+ * overview, and — like every other twister program — a device selection or the
+ * "selected track, then FX" gesture borrows them.
  */
 public class TwisterTrackRcCtl implements IEventBusSubscriber {
-    static int RC_COUNT = 8;
+    static int SLOT_COUNT = TwisterRcGeometry.SLOT_COUNT;
     static int RC_COLOR = 19; // twister blinding cyan, mirrors the master/device RCs
 
     IEventBus bus;
@@ -43,14 +44,9 @@ public class TwisterTrackRcCtl implements IEventBusSubscriber {
     boolean trackSelected = false;
     boolean editorPageActive = false;
     boolean borrowed = false; // a device or the send-to-all-fx program took the encoders
-    double[] values = new double[RC_COUNT];
-    boolean[] exists = new boolean[RC_COUNT];
-    String[] names = new String[RC_COUNT];
-
-    Map<Integer, Integer> POSITIONS_TO_IDS = Map.ofEntries(
-        Map.entry(1, 4), Map.entry(2, 5), Map.entry(3, 6), Map.entry(4, 7),
-        Map.entry(5, 0), Map.entry(6, 1), Map.entry(7, 2), Map.entry(8, 3)
-    );
+    double[] values = new double[SLOT_COUNT];
+    boolean[] exists = new boolean[SLOT_COUNT];
+    String[] names = new String[SLOT_COUNT];
 
     public TwisterTrackRcCtl(IEventBus bus) {
         this.bus = bus;
@@ -63,16 +59,6 @@ public class TwisterTrackRcCtl implements IEventBusSubscriber {
 
     private boolean isSelectable(int id) {
         return this.selectableTrackIds.contains(id);
-    }
-
-    private int positionToId(int n) {
-        return POSITIONS_TO_IDS.getOrDefault(n, -1);
-    }
-
-    private int idToPosition(int id) {
-        var reversed = new HashMap<Integer, Integer>();
-        POSITIONS_TO_IDS.forEach((k, v) -> reversed.put(v, k));
-        return reversed.getOrDefault(id, -1);
     }
 
     private void collectSelectable(ArrayList<BitwigTrack> tracks, Set<Integer> out) {
@@ -96,23 +82,23 @@ public class TwisterTrackRcCtl implements IEventBusSubscriber {
     private void paint() {
         if (!isActive()) return;
         this.clearLeds();
-        for (int id = 0; id < RC_COUNT; id++)
-            this.paintLed(id);
+        for (int slot = 0; slot < SLOT_COUNT; slot++)
+            this.paintLed(slot);
     }
 
-    private void paintLed(int id) {
+    private void paintLed(int slot) {
         if (!isActive()) return;
         this.bus.send(
-            new PaintEncoder(this.idToPosition(id), this.exists[id] ? RC_COLOR : 0)
+            new PaintEncoder(TwisterRcGeometry.positionForSlot(slot), this.exists[slot] ? RC_COLOR : 0)
         );
     }
 
-    private void paintRing(int id) {
+    private void paintRing(int slot) {
         if (!isActive()) return;
         this.bus.send(
             new SetEncoderValue(
-                this.idToPosition(id),
-                (int) Math.round(this.values[id] * 127.0)
+                TwisterRcGeometry.positionForSlot(slot),
+                (int) Math.round(this.values[slot] * 127.0)
             )
         );
     }
@@ -120,8 +106,8 @@ public class TwisterTrackRcCtl implements IEventBusSubscriber {
     private void paintRings() {
         if (!isActive()) return;
         this.clearRings();
-        for (int id = 0; id < RC_COUNT; id++)
-            this.paintRing(id);
+        for (int slot = 0; slot < SLOT_COUNT; slot++)
+            this.paintRing(slot);
     }
 
     private void activate() {
@@ -157,31 +143,31 @@ public class TwisterTrackRcCtl implements IEventBusSubscriber {
                 this.editorPageActive = Page.isEditorPage(n);
                 if (isActive()) this.activate();
             }
-            case TrackRcValueChanged(int id, double v) -> {
-                if (id < 0 || id >= RC_COUNT) return;
-                this.values[id] = v;
-                this.paintRing(id);
+            case TrackRcValueChanged(int slot, double v) -> {
+                if (slot < 0 || slot >= SLOT_COUNT) return;
+                this.values[slot] = v;
+                this.paintRing(slot);
             }
-            case TrackRcExistsChanged(int id, boolean e) -> {
-                if (id < 0 || id >= RC_COUNT) return;
-                this.exists[id] = e;
-                this.paintLed(id);
+            case TrackRcExistsChanged(int slot, boolean e) -> {
+                if (slot < 0 || slot >= SLOT_COUNT) return;
+                this.exists[slot] = e;
+                this.paintLed(slot);
             }
-            case TrackRcNameChanged(int id, String name) -> {
-                if (id < 0 || id >= RC_COUNT) return;
-                this.names[id] = name;
+            case TrackRcNameChanged(int slot, String name) -> {
+                if (slot < 0 || slot >= SLOT_COUNT) return;
+                this.names[slot] = name;
             }
             case EncoderButtonPressed(int n) -> {
                 if (!isActive()) return;
-                int id = this.positionToId(n);
-                if (id < 0 || !this.exists[id] || this.names[id] == null) return;
-                this.bus.send(new TrackRcEncoderPressed(this.names[id]));
+                int slot = TwisterRcGeometry.slotForPosition(n);
+                if (slot < 0 || !this.exists[slot] || this.names[slot] == null) return;
+                this.bus.send(new TrackRcEncoderPressed(this.names[slot]));
             }
             case EncoderTurned(int n, int v) -> {
                 if (!isActive()) return;
-                int id = this.positionToId(n);
-                if (id < 0) return;
-                this.bus.send(new SetTrackRcValue(id, (double) v / 127.0));
+                int slot = TwisterRcGeometry.slotForPosition(n);
+                if (slot < 0) return;
+                this.bus.send(new SetTrackRcValue(slot, (double) v / 127.0));
             }
             default -> { }
         }

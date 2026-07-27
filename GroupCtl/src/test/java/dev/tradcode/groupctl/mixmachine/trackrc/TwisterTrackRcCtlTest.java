@@ -109,6 +109,53 @@ class TwisterTrackRcCtlTest {
     }
 
     @Test
+    void secondPageRcsLightTheTopEightEncoders() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterTrackRcCtl(bus);
+        withSchema(bus);
+        // slots 8..15 are the second remote-controls page
+        for (int slot = 8; slot < 16; slot++)
+            bus.send(new TrackRcExistsChanged(slot, true));
+
+        bus.send(new BitwigTrackSelected(TRACK_ID));
+
+        for (int n = 9; n <= 16; n++)
+            assertEquals(CYAN, ledAt(bus, n), "top encoder " + n + " should be cyan");
+    }
+
+    @Test
+    void turningATopEncoderWritesTheSecondPageRc() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterTrackRcCtl(bus);
+        withSchema(bus);
+        bus.send(new BitwigTrackSelected(TRACK_ID));
+        bus.clear();
+
+        // position 13 maps to slot 8 (second page, param 0)
+        bus.send(new EncoderTurned(13, 127));
+
+        var write = lastWrite(bus);
+        assertNotNull(write);
+        assertEquals(8, write.id());
+        assertEquals(1.0, write.value(), 1e-9);
+    }
+
+    @Test
+    void secondPageValueChangePaintsTopRing() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterTrackRcCtl(bus);
+        withSchema(bus);
+        bus.send(new BitwigTrackSelected(TRACK_ID));
+        bus.clear();
+
+        // slot 8 maps to position 13
+        bus.send(new TrackRcValueChanged(8, 1.0));
+
+        assertTrue(bus.events.stream().anyMatch(
+            e -> e instanceof SetEncoderValue sv && sv.n() == 13 && sv.v() == 127));
+    }
+
+    @Test
     void onlyDetectedRcsAreLit() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterTrackRcCtl(bus);
