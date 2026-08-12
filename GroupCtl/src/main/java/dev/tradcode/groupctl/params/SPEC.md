@@ -115,6 +115,22 @@ instance can participate while another sits out. Use `DeviceMatcher`
 (`createInstrumentMatcher`, `createNoteEffectMatcher`, …) only when the criterion
 is categorical rather than per-instance.
 
+The marker also carries per-instance data: `{T+2}` means the device already sits
+2 semitones up when the control reads zero, so the control offsets from there.
+Prefer the marker over a config row for anything that varies per instance rather
+than per device type — a Note Transpose device sits at a different offset on
+every track it appears on, so a table keyed by device name cannot express it.
+
+## Where a real strategy would go
+
+Two seams cover most one-offs without polymorphism: the **overrides table** for
+per-device-type facts (which label, what span) and the **marker suffix** for
+per-instance data (baseline). Both are data.
+
+A strategy type is only earned when the *mechanics* differ — a device that needs
+two params written together (octave plus semitone), or one whose transpose is not
+a linear parameter at all. Reach for it then, not before.
+
 ## Refactoring the frequalizer onto this
 
 `BitwigFrequalizerTracker` already speaks canonical ids; only addressing changes.

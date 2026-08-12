@@ -149,7 +149,11 @@ public class BitwigTransposeTracker implements IEventBusSubscriber {
             this.watching[ref.track()][ref.device()] = id;
             device.watchDisplay(id);
         }
-        device.write(id, target.offsetFor(this.semitones), target.span());
+        device.write(id, target.offsetFor(this.effectiveFor(ref)), target.span());
+    }
+
+    private int effectiveFor(DeviceRef ref) {
+        return TransposeMapping.baselineOf(ref.name()) + this.semitones;
     }
 
     private void verify() {
@@ -160,9 +164,10 @@ public class BitwigTransposeTracker implements IEventBusSubscriber {
                 continue;
             var device = this.params[ref.track()][ref.device()];
             var target = TransposeMapping.targetFor(ref.name());
+            int effective = this.effectiveFor(ref);
             this.log("\"" + ref.name() + "\" param \"" + device.nameOf(id) + "\" <- "
-                + target.offsetFor(this.semitones) + "/" + target.span()
-                + " for " + this.semitones + " st"
+                + target.offsetFor(effective) + "/" + target.span()
+                + " for " + effective + " st"
                 + " (reads " + device.displayOf(id) + ")");
         }
     }
