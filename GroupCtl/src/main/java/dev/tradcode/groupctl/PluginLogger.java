@@ -6,6 +6,7 @@ import java.util.Map;
 import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.CursorDevice;
 import com.bitwig.extension.controller.api.CursorTrack;
+import com.bitwig.extension.controller.api.DirectParameterValueDisplayObserver;
 
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.Log;
@@ -49,15 +50,22 @@ public class PluginLogger {
             host.scheduleTask(() -> this.ready = true, SETTLE_MS);
         });
 
+        // Bitwig refuses a display observer until the ids are already observed,
+        // so the id observer has to be registered first and the display observer
+        // reached through a holder to re-arm it when the parameter list lands.
+        final DirectParameterValueDisplayObserver[] displays =
+            new DirectParameterValueDisplayObserver[1];
         cursorDevice.addDirectParameterIdObserver(ids -> {
             this.indexById.clear();
             for (int i = 0; i < ids.length; i++)
                 this.indexById.put(canonical(ids[i]), i);
+            if (displays[0] != null)
+                displays[0].setObservedParameterIds(ids);
         });
         cursorDevice.addDirectParameterNameObserver(64, (id, name) ->
             this.nameById.put(canonical(id), name));
-        cursorDevice.addDirectParameterValueDisplayObserver(32, (id, display) ->
-            this.displayById.put(canonical(id), display));
+        displays[0] = cursorDevice.addDirectParameterValueDisplayObserver(32,
+            (id, display) -> this.displayById.put(canonical(id), display));
         cursorDevice.addDirectParameterNormalizedValueObserver((id, value) -> {
             if (!this.ready)
                 return;
