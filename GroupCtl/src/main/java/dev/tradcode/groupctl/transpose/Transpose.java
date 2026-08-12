@@ -9,6 +9,7 @@ public class Transpose {
 
     public Transpose(IEventBus bus, ControllerHost host) {
         new TransposeGrowler(bus, host);
+        new TransposeApplier(bus);
         this.tracker = new BitwigTransposeTracker(bus, host);
     }
 

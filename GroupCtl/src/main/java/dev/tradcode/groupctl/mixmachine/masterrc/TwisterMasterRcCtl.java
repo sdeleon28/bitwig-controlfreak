@@ -35,9 +35,12 @@ import dev.tradcode.groupctl.mixmachine.masterrc.events.SetMasterRcValue;
  * {@value #MAX_BPM} BPM regardless of where the tempo was when it was activated.
  *
  * Slot 1 is mapped to global transpose in the same spirit, quantized to whole
- * semitones from {@value #MIN_SEMITONES} to {@value #MAX_SEMITONES} with zero at
- * noon. Unlike every other slot it is painted whether or not a remote control is
- * mapped underneath it — the encoder is the transpose control, not a view onto
+ * semitones from {@value #MIN_SEMITONES} to {@value #MAX_SEMITONES}. The range is
+ * downward only, with concert pitch at the far right, because the shallowest of
+ * the devices global transpose drives tunes down and never up; an encoder that
+ * could ask for +3 would leave that one pinned and the project out of tune with
+ * itself. Unlike every other slot it is painted whether or not a remote control
+ * is mapped underneath it — the encoder is the transpose control, not a view onto
  * the master track — and it is the only one that has no Bitwig-side value to
  * mirror, so the position it publishes is also the position it remembers.
  */
@@ -50,7 +53,7 @@ public class TwisterMasterRcCtl implements IEventBusSubscriber {
     static final int MIN_BPM = 30;
     static final int MAX_BPM = 230;
     static final int MIN_SEMITONES = -12;
-    static final int MAX_SEMITONES = 12;
+    static final int MAX_SEMITONES = 0;
 
     IEventBus bus;
     boolean masterSelected = false;

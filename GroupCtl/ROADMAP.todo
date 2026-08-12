@@ -219,19 +219,20 @@
 
 ## global transpose
 
-[X] RC 2 encoder (right of tempo) — magenta, -12..+12 semitones, step 1, 0 at noon
+[X] RC 2 encoder (right of tempo) — magenta, -12..0 semitones, step 1, 0 far right
     [X] always lit, no master RC needs to exist under it
+    [X] downward only — HyperTune cannot tune up
 [X] address device params by label instead of hardcoded PIDs (params/SPEC.md)
     [X] ParamIndex / DeviceParams
     [X] fix PluginLogger's display column (needs setObservedParameterIds)
 [X] collect {T}-marked devices project-wide on schema change
     [X] wide+cheap name scan, narrow+expensive cursor pool
-[X] apply transpose to every marked device
-[X] verify log so a wrong semitone span is visible instead of silent
-[ ] confirm param labels + semitone spans per device (fact finding in Bitwig)
-    [ ] HyperTune Metal
-    [ ] Archetype: Gojira X
-    [ ] Bw MIDI Transpose
+[X] one TransposeStrategy per device type, no generic fallback
+[X] e2e test from the encoder turn through to the device write
+[ ] a strategy per device (fact finding in Bitwig)
+    [X] Archetype: Gojira X
+    [X] Bw MIDI Transpose
+    [ ] HyperTune Metal — reads high, see BUGS.md
     [ ] Bw Pitch Shifter
 [ ] refactor frequalizer onto DeviceParams (see params/SPEC.md)
 

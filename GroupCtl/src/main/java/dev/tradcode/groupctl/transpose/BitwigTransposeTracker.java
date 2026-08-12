@@ -11,12 +11,14 @@ import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.Log;
-import dev.tradcode.groupctl.events.RequestSetTranspose;
 import dev.tradcode.groupctl.params.DeviceParams;
+import dev.tradcode.groupctl.transpose.events.MarkedDevicesChanged;
+import dev.tradcode.groupctl.transpose.events.RequestDeviceParamWrite;
 
 /**
- * Finds every {@value TransposeMapping#MARKER}-marked device in the project and
- * moves them together.
+ * The Bitwig side of global transpose: finds every
+ * {@value TransposeMarker#MARKER}-marked device in the project and writes the
+ * params the strategies ask for.
  *
  * Every device is held in place by a per-track {@link DeviceBank}, never through
  * a cursor. A {@code CursorDevice} tracks the selection, and this feature is
@@ -34,31 +36,19 @@ import dev.tradcode.groupctl.params.DeviceParams;
 public class BitwigTransposeTracker implements IEventBusSubscriber {
     static final int TRACKS = 64;
     static final int DEVICES_PER_TRACK = 8;
-    static final long VERIFY_MS = 250;
-
-    record DeviceRef(int track, int device, String name) { }
 
     IEventBus bus;
-    ControllerHost host;
     TrackBank trackBank;
     DeviceBank[] deviceBanks = new DeviceBank[TRACKS];
     DeviceParams[][] params = new DeviceParams[TRACKS][DEVICES_PER_TRACK];
     String[][] names = new String[TRACKS][DEVICES_PER_TRACK];
-    String[][] watching = new String[TRACKS][DEVICES_PER_TRACK];
-    boolean[][] warned = new boolean[TRACKS][DEVICES_PER_TRACK];
     boolean[][] exists = new boolean[TRACKS][DEVICES_PER_TRACK];
-    List<DeviceRef> assigned = new ArrayList<>();
+    boolean[][] warned = new boolean[TRACKS][DEVICES_PER_TRACK];
+    List<MarkedDevice> assigned = new ArrayList<>();
     boolean cacheDirty = false;
-    boolean verifyPending = false;
-    // Nothing is written until the encoder is actually moved: on startup we have
-    // no idea what the plugins are set to, and forcing them to our notion of
-    // zero would silently overwrite whatever was saved with the project.
-    boolean engaged = false;
-    int semitones = 0;
 
     public BitwigTransposeTracker(IEventBus bus, ControllerHost host) {
         this.bus = bus;
-        this.host = host;
         this.bus.subscribe(this);
         if (host == null)
             return;
@@ -69,17 +59,18 @@ public class BitwigTransposeTracker implements IEventBusSubscriber {
             this.deviceBanks[t] = this.trackBank.getItemAt(t)
                 .createDeviceBank(DEVICES_PER_TRACK);
             for (int d = 0; d < DEVICES_PER_TRACK; d++) {
-                final int device = d;
-                var slot = this.deviceBanks[t].getDevice(d);
-                slot.name().addValueObserver(v -> {
-                    this.names[track][device] = v;
+                final int slot = d;
+                var device = this.deviceBanks[t].getDevice(d);
+                device.name().addValueObserver(v -> {
+                    this.names[track][slot] = v;
+                    this.warned[track][slot] = false;
                     this.cacheDirty = true;
                 });
-                slot.exists().addValueObserver(v -> {
-                    this.exists[track][device] = v;
+                device.exists().addValueObserver(v -> {
+                    this.exists[track][slot] = v;
                     this.cacheDirty = true;
                 });
-                this.params[t][d] = new DeviceParams(slot);
+                this.params[t][d] = new DeviceParams(device);
             }
         }
     }
@@ -88,101 +79,58 @@ public class BitwigTransposeTracker implements IEventBusSubscriber {
         if (!this.cacheDirty)
             return;
         this.cacheDirty = false;
-        var found = this.marked();
+        var found = this.scan();
         if (found.equals(this.assigned))
             return;
         this.assigned = found;
-        for (var ref : found)
-            this.warned[ref.track()][ref.device()] = false;
-        this.log(this.assigned.size() + " device(s) marked "
-            + TransposeMapping.MARKER + ": " + this.describe());
-        if (this.engaged)
-            this.apply();
+        this.log(found.size() + " device(s) marked " + TransposeMarker.MARKER
+            + ": " + describe(found));
+        this.bus.send(new MarkedDevicesChanged(found));
     }
 
-    private List<DeviceRef> marked() {
-        var found = new ArrayList<DeviceRef>();
+    private List<MarkedDevice> scan() {
+        var found = new ArrayList<MarkedDevice>();
         for (int t = 0; t < TRACKS; t++)
             for (int d = 0; d < DEVICES_PER_TRACK; d++)
-                if (this.exists[t][d] && TransposeMapping.isMarked(this.names[t][d]))
-                    found.add(new DeviceRef(t, d, this.names[t][d]));
+                if (this.exists[t][d] && TransposeMarker.isMarked(this.names[t][d]))
+                    found.add(new MarkedDevice(t, d, this.names[t][d]));
         return found;
     }
 
-    private String describe() {
-        var sb = new StringBuilder();
-        for (var ref : this.assigned) {
-            if (sb.length() > 0)
-                sb.append(", ");
-            sb.append(ref.name());
-        }
-        return sb.length() == 0 ? "(none)" : sb.toString();
-    }
-
-    private void apply() {
-        for (var ref : this.assigned)
-            this.applyTo(ref);
-        // sweeping the encoder fires a write per semitone; one verify sweep per
-        // settling period is plenty and keeps the console readable
-        if (this.host == null || this.verifyPending)
+    private void write(RequestDeviceParamWrite request) {
+        var device = request.device();
+        var params = this.params[device.track()][device.slot()];
+        if (params == null)
             return;
-        this.verifyPending = true;
-        this.host.scheduleTask(this::verify, VERIFY_MS);
-    }
 
-    private void applyTo(DeviceRef ref) {
-        var device = this.params[ref.track()][ref.device()];
-        var target = TransposeMapping.targetFor(ref.name());
-        String id = device.resolve(target.aliases());
+        String id = params.resolve(request.aliases());
         if (id == null) {
-            if (this.warned[ref.track()][ref.device()])
+            if (this.warned[device.track()][device.slot()])
                 return;
-            this.warned[ref.track()][ref.device()] = true;
-            this.log("\"" + ref.name() + "\" UNRESOLVED for " + target.aliases()
-                + " — " + device.size() + " params seen, candidates: "
-                + device.namesMatching("pitch")
-                + device.namesMatching("trans")
-                + device.namesMatching("tune"));
+            this.warned[device.track()][device.slot()] = true;
+            this.log("\"" + device.name() + "\" has no " + request.aliases()
+                + " param — " + params.size() + " seen, closest: "
+                + params.namesMatching("trans") + params.namesMatching("semi")
+                + params.namesMatching("pitch"));
             return;
         }
-        if (!id.equals(this.watching[ref.track()][ref.device()])) {
-            this.watching[ref.track()][ref.device()] = id;
-            device.watchDisplay(id);
-        }
-        device.write(id, target.offsetFor(this.effectiveFor(ref)), target.span());
-    }
-
-    private int effectiveFor(DeviceRef ref) {
-        return TransposeMapping.baselineOf(ref.name()) + this.semitones;
-    }
-
-    private void verify() {
-        this.verifyPending = false;
-        for (var ref : this.assigned) {
-            String id = this.watching[ref.track()][ref.device()];
-            if (id == null)
-                continue;
-            var device = this.params[ref.track()][ref.device()];
-            var target = TransposeMapping.targetFor(ref.name());
-            int effective = this.effectiveFor(ref);
-            this.log("\"" + ref.name() + "\" param \"" + device.nameOf(id) + "\" <- "
-                + target.offsetFor(effective) + "/" + target.span()
-                + " for " + effective + " st"
-                + " (reads " + device.displayOf(id) + ")");
-        }
+        params.write(id, request.value(), request.outOf());
+        this.log("\"" + device.name() + "\" " + params.nameOf(id) + " <- "
+            + request.value() + "/" + request.outOf());
     }
 
     private void log(String message) {
         this.bus.send(new Log("[Transpose] " + message));
     }
 
+    private static String describe(List<MarkedDevice> devices) {
+        return devices.isEmpty() ? "(none)"
+            : String.join(", ", devices.stream().map(MarkedDevice::name).toList());
+    }
+
     public void on(Event event) {
         switch (event) {
-            case RequestSetTranspose(int st) -> {
-                this.semitones = st;
-                this.engaged = true;
-                this.apply();
-            }
+            case RequestDeviceParamWrite request -> this.write(request);
             default -> { }
         }
     }

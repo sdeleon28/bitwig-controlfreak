@@ -27,7 +27,7 @@ Bitwig streams `id -> name` per direct parameter, so the id resolves at runtime.
 ```java
 var params = new DeviceParams(device);          // in init(), once per device
 String id = params.resolve(List.of("Transpose", "Semitones"));
-params.write(id, target.offsetFor(semitones), target.span());
+params.write(id, 12 + semitones, 24);           // -12..+12 over the param's 0..1
 ```
 
 `write(id, value, outOf)` sets the fraction `value / outOf`. A param spanning
@@ -70,25 +70,36 @@ One step is `0.5416… - 0.5 = 1/24`, so the param has 24 steps over 0..1 and
 centre is 0.5 — a -12..+12 span at 1 st per step. `label=` is what addresses it;
 `id=` is noise.
 
-## Configuring a mapping
+Read the plugin's own number **after the sweep stops**. A plugin editor
+repainting mid-sweep shows a value from an earlier write, and a mapping fitted to
+those readings is fitted to noise.
 
-`transpose/TransposeMapping` is the worked example:
+## One implementation per device
 
-- a **default** target — the alias list covering most devices;
-- an **overrides** table keyed by a device-name substring, holding only the
-  devices the default gets wrong.
+`transpose/strategies` is the worked example: one `TransposeStrategy` per device
+type, each answering whether a device is its kind and what to write to it.
 
-Add a row when a device misbehaves, not up front.
+They duplicate each other and that is the point. Every plugin has its own range,
+direction and resolution — one runs -12..+12, the next -36..0 backwards, the next
+-48..+48 — and folding those into a single parameterised writer produces a table
+of numbers describing no device in particular. A wrong number is silent: the
+device moves, by the wrong amount, and you find out while playing. Hardcode
+whatever the plugin actually does, a value per semitone included if it isn't
+linear.
 
-A wrong span is silent — the device moves, by the wrong amount. So the tracker
-logs after each write:
+A strategy never touches a device. Every strategy is offered every marked device,
+returns immediately if the name isn't its kind, and otherwise emits a
+`RequestDeviceParamWrite` naming the param labels and the fraction; resolving the
+label and writing it is the tracker's half. So a strategy is arithmetic and
+labels, testable from the encoder turn inwards with no Bitwig objects anywhere,
+and nothing arbitrates between strategies — keep their name tests exclusive.
+
+A marked device none of them claims is left alone; there is deliberately no
+generic fallback.
 
 ```
-[Transpose] verify "HyperTune Metal {T}" param "Transpose" reads 3 st (asked for 3 st)
+[Transpose] "Archetype Gojira X {T}" Transpose <- 8/24
 ```
-
-Disagreement means the span is wrong. Nothing resolved means the log lists every
-label mentioning pitch, trans or tune.
 
 ## Don't reach devices through a cursor
 
@@ -117,19 +128,9 @@ is categorical rather than per-instance.
 
 The marker also carries per-instance data: `{T+2}` means the device already sits
 2 semitones up when the control reads zero, so the control offsets from there.
-Prefer the marker over a config row for anything that varies per instance rather
-than per device type — a Note Transpose device sits at a different offset on
-every track it appears on, so a table keyed by device name cannot express it.
-
-## Where a real strategy would go
-
-Two seams cover most one-offs without polymorphism: the **overrides table** for
-per-device-type facts (which label, what span) and the **marker suffix** for
-per-instance data (baseline). Both are data.
-
-A strategy type is only earned when the *mechanics* differ — a device that needs
-two params written together (octave plus semitone), or one whose transpose is not
-a linear parameter at all. Reach for it then, not before.
+Anything that varies per *instance* rather than per device type belongs on the
+name — a Note Transpose device sits at a different offset on every track it
+appears on, which is not something a strategy can know.
 
 ## Refactoring the frequalizer onto this
 

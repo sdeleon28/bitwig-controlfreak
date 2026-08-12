@@ -390,23 +390,23 @@ class TwisterMasterRcCtlTest {
     }
 
     @Test
-    void transposeEncoderPutsZeroSemitonesAtNoon() {
+    void transposeEncoderRestsAtConcertPitchOnTheFarRight() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
         bus.send(new BitwigTrackSelected(MASTER_ID));
         bus.clear();
 
-        bus.send(new EncoderTurned(TRANSPOSE_POS, 64));
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 127));
 
-        assertNull(lastTranspose(bus), "noon is the resting value, nothing to publish");
+        assertNull(lastTranspose(bus), "0 st is the resting value, nothing to publish");
 
         bus.send(new EncoderTurned(TRANSPOSE_POS, 0));
-        bus.send(new EncoderTurned(TRANSPOSE_POS, 64));
-        assertEquals(0, lastTranspose(bus).semitones(), "coming back to noon is 0 st");
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 127));
+        assertEquals(0, lastTranspose(bus).semitones(), "coming back is 0 st");
     }
 
     @Test
-    void transposeEncoderSpansAnOctaveEachWay() {
+    void transposeEncoderOnlyTunesDown() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
         bus.send(new BitwigTrackSelected(MASTER_ID));
@@ -415,8 +415,11 @@ class TwisterMasterRcCtlTest {
         bus.send(new EncoderTurned(TRANSPOSE_POS, 0));
         assertEquals(-12, lastTranspose(bus).semitones());
 
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 64));
+        assertEquals(-6, lastTranspose(bus).semitones(), "noon is half an octave down");
+
         bus.send(new EncoderTurned(TRANSPOSE_POS, 127));
-        assertEquals(12, lastTranspose(bus).semitones());
+        assertEquals(0, lastTranspose(bus).semitones());
     }
 
     @Test
@@ -426,9 +429,10 @@ class TwisterMasterRcCtlTest {
         bus.send(new BitwigTrackSelected(MASTER_ID));
         bus.clear();
 
-        // 25 semitones spread over 128 positions: neighbouring positions land on
+        // 13 semitones spread over 128 positions: neighbouring positions land on
         // the same step, and only a real step change is published.
         bus.send(new EncoderTurned(TRANSPOSE_POS, 64));
+        bus.clear();
         bus.send(new EncoderTurned(TRANSPOSE_POS, 65));
         bus.send(new EncoderTurned(TRANSPOSE_POS, 66));
 
@@ -436,7 +440,7 @@ class TwisterMasterRcCtlTest {
             "sub-semitone movement must not publish");
 
         bus.send(new EncoderTurned(TRANSPOSE_POS, 70));
-        assertEquals(1, lastTranspose(bus).semitones());
+        assertEquals(-5, lastTranspose(bus).semitones());
     }
 
     @Test
@@ -458,15 +462,15 @@ class TwisterMasterRcCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
         bus.send(new BitwigTrackSelected(MASTER_ID));
-        bus.send(new EncoderTurned(TRANSPOSE_POS, 127));
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 0));
         bus.clear();
 
-        // the master RC underneath moves; the ring must keep showing +12 st
-        bus.send(new MasterRcValueChanged(1, 0.0));
+        // the master RC underneath moves; the ring must keep showing -12 st
+        bus.send(new MasterRcValueChanged(1, 1.0));
 
         assertTrue(bus.events.stream().anyMatch(
             e -> e instanceof SetEncoderValue sv
-                && sv.n() == TRANSPOSE_POS && sv.v() == 127));
+                && sv.n() == TRANSPOSE_POS && sv.v() == 0));
     }
 
     @Test

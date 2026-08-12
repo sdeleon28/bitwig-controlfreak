@@ -27,6 +27,19 @@ Gojira X) exceeds some internal limit, so updates never stream. Untested.
 `[Transpose]` verify lines is subject to the same doubt; the fraction on the
 same line is authoritative because it is what we computed and wrote.
 
+## HyperTune reads high under global transpose
+
+`HyperTuneStrategy` writes `(36 + downtune)/36` against a param measured at 0.0 =
+-36 st and 1.0 = 0 st. The plugin lands a semitone or more above what was asked
+for, and the error is not a constant: dropping the written value by 1/72 moved it
+two semitones, which no linear -36..0 param can do.
+
+Every reading so far is suspect — the plugin editor was being read mid-sweep, and
+`display=` lies (above). Re-derive from settled readings: turn the encoder, stop,
+wait for the `[Transpose]` line, then read the plugin. If it turns out non-linear,
+`HyperTuneStrategy` is free to hardcode a value per semitone; that is what the
+strategies exist for.
+
 ## Frequalizer pins itself to direct-parameter ids
 
 `FrequalizerParams` hardcodes ~90 ids of the form `CONTENTS/PID5e65eb21`. For a
