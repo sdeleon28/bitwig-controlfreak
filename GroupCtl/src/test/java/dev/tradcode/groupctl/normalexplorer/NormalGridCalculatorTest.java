@@ -1,13 +1,13 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.normalexplorer;
 
-import dev.tradcode.groupctl.explorer.events.BitwigSelectionChanged;
-import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
-import dev.tradcode.groupctl.explorer.events.Marker;
-import dev.tradcode.groupctl.explorer.events.MarkersChanged;
-import dev.tradcode.groupctl.explorer.events.PendingSelectionChanged;
-import dev.tradcode.groupctl.explorer.events.PlaybackUpdate;
-import dev.tradcode.groupctl.explorer.events.RequestExplorerPage;
-import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
+import dev.tradcode.groupctl.baseexplorer.events.BitwigSelectionChanged;
+import dev.tradcode.groupctl.baseexplorer.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.baseexplorer.events.Marker;
+import dev.tradcode.groupctl.baseexplorer.events.MarkersChanged;
+import dev.tradcode.groupctl.baseexplorer.events.PendingSelectionChanged;
+import dev.tradcode.groupctl.baseexplorer.events.PlaybackUpdate;
+import dev.tradcode.groupctl.baseexplorer.events.RequestExplorerPage;
+import dev.tradcode.groupctl.baseexplorer.events.SelectionModeChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import dev.tradcode.groupctl.events.PageSelected;
 
-class GridCalculatorTest {
+class NormalGridCalculatorTest {
 
     static final String GREEN = "0,156,68"; // -> launchpad 87
     static final String RED = "216,46,34";  // -> launchpad 72
@@ -27,7 +27,7 @@ class GridCalculatorTest {
     @Test
     void reducesMarkersToA64SlotGridWhenActive() {
         FakeEventBus bus = new FakeEventBus();
-        new GridCalculator(bus);
+        new NormalGridCalculator(bus);
 
         bus.send(new PageSelected(1));
         bus.send(new MarkersChanged(List.of(new Marker(0, GREEN, "A"))));
@@ -44,7 +44,7 @@ class GridCalculatorTest {
     @Test
     void staysSilentUntilTheExplorerPageIsActive() {
         FakeEventBus bus = new FakeEventBus();
-        new GridCalculator(bus);
+        new NormalGridCalculator(bus);
         bus.send(new MarkersChanged(List.of(new Marker(0, GREEN, "A"))));
         assertNull(bus.last(ExplorerGridChanged.class));
     }
@@ -52,7 +52,7 @@ class GridCalculatorTest {
     @Test
     void foldsSelectionAndPlaybackIntoTheSlots() {
         FakeEventBus bus = new FakeEventBus();
-        new GridCalculator(bus);
+        new NormalGridCalculator(bus);
 
         bus.send(new PageSelected(1));
         bus.send(new MarkersChanged(List.of(
@@ -70,7 +70,7 @@ class GridCalculatorTest {
     @Test
     void highlightsThePendingSelectionAnchorAndClearsIt() {
         FakeEventBus bus = new FakeEventBus();
-        new GridCalculator(bus);
+        new NormalGridCalculator(bus);
 
         bus.send(new PageSelected(1));
         bus.send(new MarkersChanged(List.of(
@@ -91,7 +91,7 @@ class GridCalculatorTest {
     @Test
     void suppressesTheCommittedSelectionWhileSelectingButKeepsThePendingAnchor() {
         FakeEventBus bus = new FakeEventBus();
-        new GridCalculator(bus);
+        new NormalGridCalculator(bus);
 
         bus.send(new PageSelected(1));
         bus.send(new MarkersChanged(List.of(
@@ -118,7 +118,7 @@ class GridCalculatorTest {
     @Test
     void dropsStaleSelectModeWhenTheExplorerPageGoesAway() {
         FakeEventBus bus = new FakeEventBus();
-        new GridCalculator(bus);
+        new NormalGridCalculator(bus);
 
         bus.send(new PageSelected(1));
         bus.send(new MarkersChanged(List.of(new Marker(0, GREEN, "A"))));
@@ -135,7 +135,7 @@ class GridCalculatorTest {
     @Test
     void reslicesWhenSteppedToTheNextPage() {
         FakeEventBus bus = new FakeEventBus();
-        new GridCalculator(bus);
+        new NormalGridCalculator(bus);
 
         bus.send(new PageSelected(1));
         // 0..256 bars => 65 one-bar blocks at the default 1 bar/pad => 2 pages.
@@ -158,7 +158,7 @@ class GridCalculatorTest {
     @Test
     void clampsThePageWhenContentShrinksBelowIt() {
         FakeEventBus bus = new FakeEventBus();
-        new GridCalculator(bus);
+        new NormalGridCalculator(bus);
 
         bus.send(new PageSelected(1));
         bus.send(new MarkersChanged(List.of(

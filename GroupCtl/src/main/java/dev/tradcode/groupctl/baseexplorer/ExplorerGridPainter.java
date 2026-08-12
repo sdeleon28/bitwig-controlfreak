@@ -1,7 +1,7 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
-import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
-import dev.tradcode.groupctl.explorer.events.GridSlot;
+import dev.tradcode.groupctl.baseexplorer.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.baseexplorer.events.GridSlot;
 
 import dev.tradcode.groupctl.events.BlinkPad;
 import dev.tradcode.groupctl.events.Event;

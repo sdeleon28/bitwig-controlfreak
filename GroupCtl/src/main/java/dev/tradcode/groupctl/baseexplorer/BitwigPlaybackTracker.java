@@ -1,12 +1,12 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
-import dev.tradcode.groupctl.explorer.events.PlaybackUpdate;
-import dev.tradcode.groupctl.explorer.events.RequestSetLoop;
-import dev.tradcode.groupctl.explorer.events.RequestSetMetronome;
-import dev.tradcode.groupctl.explorer.events.RequestSetRecord;
-import dev.tradcode.groupctl.explorer.events.RequestSetPlaybackPosition;
-import dev.tradcode.groupctl.explorer.events.RequestStopPlayback;
-import dev.tradcode.groupctl.explorer.events.TransportTogglesUpdate;
+import dev.tradcode.groupctl.baseexplorer.events.PlaybackUpdate;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetLoop;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetMetronome;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetRecord;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetPlaybackPosition;
+import dev.tradcode.groupctl.baseexplorer.events.RequestStopPlayback;
+import dev.tradcode.groupctl.baseexplorer.events.TransportTogglesUpdate;
 import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Transport;
 

@@ -1,6 +1,6 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
-import dev.tradcode.groupctl.explorer.events.Marker;
+import dev.tradcode.groupctl.baseexplorer.events.Marker;
 import java.util.ArrayList;
 import java.util.List;
 

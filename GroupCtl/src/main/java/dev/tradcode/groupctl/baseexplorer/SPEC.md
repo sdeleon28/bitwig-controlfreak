@@ -1,158 +1,108 @@
-# Project explorer spec
+# Base explorer spec
 
-## Requirements
+## What this package is
 
-The project explorer has already been implemented in javascript, this is the
-java re-write of the feature. Only use javascript example code as a source for
-understanding how it whould behave, DO NOT base your implementation off of that.
+The project explorer offers navigation controls for the bitwig project on a
+shared launchpad page. Pads represent the timeline; markers define the color of
+each section; pads both visualize and control bitwig (press a pad to seek,
+MIXER + two pads to set the time selection).
 
-The project explorer offers navigation controls for the bitwig project. It uses
-markers as the basis to calculate the pads that are visible in the launchpad.
-Launchpad pads are used both for visualization and for controlling bitwig.
+There are two views of the timeline:
 
-Pads represent the timeline of the bitwig session. The markers define the color
-of the represented section. How many pads are presented are calculated by the
-ResolutionCalculator.
+- **normal** (`normalexplorer`) — every project marker on one continuous
+  timeline, paged 64 pads at a time.
+- **setlist** (`setlistexplorer`) — one `{ }` song at a time, with song and
+  bar paging.
 
-You can also change the selection by pressing the mixer button, then a
-first and last pad to make the selection.
+Exactly one is engaged at a time, chosen by whether the project contains a
+complete `{ … }` song. `baseexplorer` is the shared substrate both build on; it
+never depends on either feature package, and the feature packages never depend
+on each other. Deleting the one line that constructs a feature's entrypoint
+removes it whole.
+
+> The feature was first prototyped in javascript. Use that only to understand
+> intended behaviour — the java implementation is canonical.
 
 ## Impl
 
-Follow existing patterns from the mixmachine package. We use event sourcing:
-most communication — with Bitwig, with the hardware, and between explorer
-classes — happens over the main event bus. Direct method calls are allowed
-in closely-related classes, but for the most part we use the bus.
+Event sourcing, as in the rest of the codebase: communication with bitwig, with
+the hardware, and between explorer classes happens over the main event bus.
+
+### Engagement
+
+`ExplorerModeCoordinator` parses the markers and broadcasts
+`ExplorerModeChanged(setlist)` whenever the answer flips. Each reducer and each
+mode-specific control gates itself on this flag (plus `PageSelected` for being
+on-screen). The coordinator is constructed before the feature reducers so a
+marker change carries the correct mode to a reducer before it reduces.
+
+Handover between views is by repaint, never by blanking: the newly engaged
+reducer broadcasts a full 64-pad grid that overwrites the surface, and the
+outgoing reducer simply stops broadcasting. Controls yield shared buttons
+(LEFT/RIGHT) by ceasing to paint; they may blank their own exclusive buttons.
 
 ### Dataflow
 
-The explorer is a strict one-way pipeline over the bus:
-
 ```
-bitwig trackers ─► domain events ─► GridCalculator ─► ExplorerGridChanged
-                                                        │
-                    ┌────────────────────┬──────────────┴──────────────┐
-                    ▼                    ▼                             ▼
-           ExplorerGridPainter    ExplorerPageCtl            PlaybackHandler /
-           (pad paints)           (page LEDs, fwd/back)      SelectionCtl (seek/select)
+bitwig trackers ─► domain events ─► reducer (normal | setlist) ─► ExplorerGridChanged
+                                          │                              │
+                                   ContentBarsChanged            ┌───────┴────────────┐
+                                          │                      ▼                    ▼
+                                     ResolutionCtl        ExplorerGridPainter   paging / selection
 ```
 
-Two roles, kept apart:
-
-- **Calculation classes** consume domain events and emit *data* events. They
+- **Calculation classes** consume domain events and emit *data* events; they
   never paint.
-- **Painting classes** consume data events, cache the bits they care about, and
-  emit *only* launchpad paint events (`PaintPad`, `BlinkPad`, `PaintTopButton`,
-  `PaintSideButton`). They never calculate.
+- **Painting classes** consume data events and emit only paint events; they
+  never calculate.
+- **Input controllers** translate hardware gestures into domain events.
 
-Input controllers (`ResolutionCtl`, `ExplorerPageCtl`, `SelectionCtl`) translate
-hardware gestures into the domain events the calculator consumes, closing the
-loop entirely over the bus.
+### The reducers
 
-`Explorer` is just the composition root: it constructs the classes below and
-forwards `flush()` to the bitwig trackers. It holds no state and subscribes to
-nothing.
+Each feature's reducer is self-sufficient: it caches every input that affects
+its grid (markers, committed + pending selection, playback, resolution, page,
+`pageActive`, and the engagement flag) and recomputes on any change. It owns its
+page number, applies a `RequestExplorerPage` step and clamps it to the fresh
+page count before slicing, and broadcasts one `ExplorerGridChanged`. It only
+broadcasts while on-page **and** engaged. The reducers differ only in their
+*source blocks* — normal lays all markers onto bars; setlist lays a single song
+onto bars — and share everything after that through `GridPipeline`.
 
-### GridCalculator (the reducer)
+#### GridPipeline (shared pure logic)
 
-The single, self-sufficient source of the explorer's visual state. It subscribes
-to every input that affects the grid and caches each one:
+The single definition of the reduction from a view's colored source blocks to a
+paintable page: highlight committed selection (unless a live gesture is active),
+highlight the pending anchor, highlight the playhead, merge bars by resolution,
+then slice to the page (clamped). Composes the stateless building blocks:
 
-- `MarkersChanged`
-- `BitwigSelectionChanged`
-- `PendingSelectionChanged` (the live select-gesture anchor)
-- `PlaybackPositionChanged`
-- `ResolutionChanged`
-- `RequestExplorerPage` (a relative page step, +1/-1)
-- `SelectionModeChanged` (whether a select gesture is active)
-- `PageSelected` (to gate work on the explorer being on-screen)
+- **BarsCalculator** — markers → one-bar colored blocks (normal source).
+- **SongParser** / **Song** — group markers into `{ }` songs (setlist source, and
+  the coordinator's engagement test).
+- **SelectionHighlighter**, **PlaybackHighlighter** — flag selected / playing.
+- **ResolutionCalculator** — merge adjacent same-color bars by bars-per-pad.
+- **PageFilter** — offset/cut to the 64-pad page.
 
-On any change it runs the pure paint pipeline over its cached state and
-broadcasts one `ExplorerGridChanged { slots, totalPages, page }`. Because it owns
-all the state itself, it has no dependency on subscription order. It only
-computes and broadcasts while the explorer page is active; entering the page
-triggers a fresh broadcast.
+### Painting
 
-It also owns the **page number and its bounds**. A `RequestExplorerPage` step is
-applied to the page, which is then clamped to the freshly-computed page count
-*before* slicing — so every broadcast grid is already valid for a real page and
-a shrinking layout never produces an out-of-range frame to correct afterwards.
+**ExplorerGridPainter** paints the 64 pads from `ExplorerGridChanged`: off for
+empty, blinking white for the playhead, white for selected, else the section
+color. Clearing on a page switch is the Pager's job.
 
-#### The pure paint pipeline
+### Shared input controllers
 
-Stateless building blocks the calculator composes (each takes its inputs as
-parameters — they hold no state and do not touch the bus):
-
-- **BarsCalculator** — markers → list of one-bar colored blocks for the project.
-- **SelectionHighlighter** — flags blocks overlapping the time selection.
-- **PlaybackHighlighter** — flags the block under the cursor.
-- **ResolutionCalculator** — merges adjacent same-color bars by bars-per-pad.
-- **PageFilter** — offsets/cuts the blocks down to the 64-pad page.
-
-The result is converted to `GridSlot`s (empty/color/selected/playing + beat
-range) and `totalPages` is `ceil(blocks / 64)`.
-
-### Painting classes
-
-#### ExplorerGridPainter
-
-Subscribes to `ExplorerGridChanged` and paints the 64 pads: off for empty,
-blinking white for the playhead, white for selected, otherwise the section
-color. Emits nothing else. Clearing the grid on a page switch is the Pager's
-job, so it never needs to paint while off-page (the grid simply isn't broadcast
-then).
-
-#### ExplorerPageCtl
-
-The two paging top-button LEDs. A pure view + input class — it owns no page
-state. It caches the current page and page count from `ExplorerGridChanged` only
-to light the LEDs (prev lit off page 0, next lit off the last page), and turns a
-fwd/back press into a relative `RequestExplorerPage` step, gated so it never asks
-to step past an end. GridCalculator owns the page number, applies the step and
-clamps.
-
-### Event handlers
-
-#### PlaybackHandler
-
-Handles pad presses and sends `RequestSetPlaybackPosition`, handled by
-`BitwigPlaybackTracker`. Reads pad→beat from the broadcast grid. Also owns the
-STOP side button: lights it while the explorer is on-screen and turns a press
-into `RequestStopPlayback` (also handled by `BitwigPlaybackTracker`).
-
-#### SelectionCtl
-
-Handles selection mode, selection start and end gesture, and the MIXER top
-button LED. Talks to `BitwigSelectionTracker` via events.
-
-#### TransportTogglesCtl
-
-Owns the MUTE, SOLO and RECORD_ARM side buttons while the explorer is on-screen
-and turns them into transport toggles: MUTE toggles the arranger loop (cyan),
-SOLO toggles the metronome (yellow) and RECORD_ARM toggles arranger recording
-(red, the same red the MIXER selection button uses).
-
-#### ResolutionCtl
-
-Owns the bars-per-pad resolution (halve/double between 1 and 32) and auto-fits
-the project to one page on entry / on marker change. Emits `ResolutionChanged`.
+- **PlaybackHandler** — pad press → `RequestSetPlaybackPosition`; owns the STOP
+  side button (lit while playing) → `RequestStopPlayback`.
+- **SelectionCtl** — MIXER select-mode toggle and the two-tap range gesture,
+  talking to `BitwigSelectionTracker` via events.
+- **TransportTogglesCtl** — MUTE/SOLO/RECORD_ARM ↔ loop / metronome / record.
+- **ResolutionCtl** — bars-per-pad (1..32) and auto-fit. Auto-fit is driven by
+  `ContentBarsChanged` from the active reducer, so it fits the whole project
+  (normal) or a single song (setlist) without knowing which. A manual zoom
+  overrides auto-fit until the page is re-entered.
 
 ### Bitwig tracking
 
-#### BitwigMarkersTracker
-
-Follows other trackers in the codebase to produce a full schema of markers with
-their positions and colors every time marker metadata changes in the project.
-
-#### BitwigPlaybackTracker
-
-Handles `RequestSetPlaybackPosition` and broadcasts playback events. Also owns
-the loop / metronome / record transport toggles: it observes
-`isArrangerLoopEnabled()`, `isMetronomeEnabled()` and `isArrangerRecordEnabled()`
-(broadcasting `TransportTogglesUpdate` on flush) and applies `RequestSetLoop` /
-`RequestSetMetronome` / `RequestSetRecord` via those same typed
-`SettableBooleanValue`s.
-
-#### BitwigSelectionTracker
-
-Tracks and sets selection.
+**BitwigMarkersTracker**, **BitwigPlaybackTracker** (playback + loop/metronome/
+record toggles), **BitwigSelectionTracker** (the arranger loop as time
+selection). `BaseExplorer` constructs the shared classes and forwards `flush()`
+to the trackers.

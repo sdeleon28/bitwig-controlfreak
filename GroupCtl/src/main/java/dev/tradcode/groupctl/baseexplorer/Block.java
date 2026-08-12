@@ -1,4 +1,4 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
 public final class Block {
     public final int color;       // launchpad color of the underlying section

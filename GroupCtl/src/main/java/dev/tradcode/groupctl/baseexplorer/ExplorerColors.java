@@ -1,4 +1,4 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
 /** Raw launchpad palette indices (not bitwig-mapped) for the project explorer. */
 public final class ExplorerColors {

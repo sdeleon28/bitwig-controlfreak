@@ -1,9 +1,9 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
-import dev.tradcode.groupctl.explorer.events.RequestSetLoop;
-import dev.tradcode.groupctl.explorer.events.RequestSetMetronome;
-import dev.tradcode.groupctl.explorer.events.RequestSetRecord;
-import dev.tradcode.groupctl.explorer.events.TransportTogglesUpdate;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetLoop;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetMetronome;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetRecord;
+import dev.tradcode.groupctl.baseexplorer.events.TransportTogglesUpdate;
 
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;

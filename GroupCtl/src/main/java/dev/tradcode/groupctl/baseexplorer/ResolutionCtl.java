@@ -1,8 +1,6 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
-import dev.tradcode.groupctl.explorer.events.Marker;
-import dev.tradcode.groupctl.explorer.events.MarkersChanged;
-import java.util.List;
+import dev.tradcode.groupctl.baseexplorer.events.ContentBarsChanged;
 
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
@@ -20,9 +18,11 @@ import dev.tradcode.groupctl.events.TopButtonClick;
  *
  * <p>Auto-fit: rather than always starting at 1 bar/pad, the resolution is
  * auto-picked to the finest value from {@code {1,2,4,8,16,32}} that fits the
- * whole project on one 64-pad page. Auto-fit runs when the page is (re-)entered
- * and when markers change while the page is open, but a manual zoom takes over
- * until the next time the page is entered.
+ * active view on one 64-pad page. The view broadcasts its size as
+ * {@link ContentBarsChanged}, so the same control fits the whole project
+ * (normal) or a single song (setlist). Auto-fit runs when the page is
+ * (re-)entered and when the content size changes while the page is open, but a
+ * manual zoom takes over until the next time the page is entered.
  */
 public class ResolutionCtl implements IEventBusSubscriber {
     static final int MIN = 1;
@@ -74,22 +74,6 @@ public class ResolutionCtl implements IEventBusSubscriber {
         }
     }
 
-    /**
-     * Number of one-bar blocks the project spans — matches BarsCalculator's
-     * block count (first marker to one bar past the last).
-     */
-    private static int contentBarsOf(List<Marker> markers) {
-        if (markers == null || markers.isEmpty())
-            return 0;
-        double first = markers.get(0).position();
-        double last = first;
-        for (Marker m : markers) {
-            first = Math.min(first, m.position());
-            last = Math.max(last, m.position());
-        }
-        return (int) Math.ceil((last - first) / ExplorerConstants.BEATS_PER_BAR) + 1;
-    }
-
     private void paint() {
         int sessionColor = this.pageActive && this.barsPerPad < MAX
             ? ExplorerColors.RESOLUTION_COLOR : 0;
@@ -107,8 +91,8 @@ public class ResolutionCtl implements IEventBusSubscriber {
                 this.decrease();
             case TopButtonClick(var btn) when this.pageActive && btn == TopButton.USER_1 ->
                 this.increase();
-            case MarkersChanged(var markers) -> {
-                this.contentBars = contentBarsOf(markers);
+            case ContentBarsChanged(int bars) -> {
+                this.contentBars = bars;
                 if (this.pageActive && !this.overridden) {
                     this.applyAutoFit();
                     this.paint();

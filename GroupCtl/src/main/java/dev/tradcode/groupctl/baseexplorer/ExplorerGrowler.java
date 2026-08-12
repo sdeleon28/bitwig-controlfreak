@@ -1,4 +1,4 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
 import com.bitwig.extension.controller.api.ControllerHost;
 
@@ -6,9 +6,9 @@ import dev.tradcode.groupctl.Growler;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.ResolutionChanged;
-import dev.tradcode.groupctl.explorer.events.RequestSetLoop;
-import dev.tradcode.groupctl.explorer.events.RequestSetMetronome;
-import dev.tradcode.groupctl.explorer.events.RequestSetRecord;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetLoop;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetMetronome;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetRecord;
 
 public class ExplorerGrowler extends Growler {
     public ExplorerGrowler(IEventBus bus, ControllerHost host) {

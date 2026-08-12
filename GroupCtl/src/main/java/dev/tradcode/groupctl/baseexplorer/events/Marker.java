@@ -1,3 +1,3 @@
-package dev.tradcode.groupctl.explorer.events;
+package dev.tradcode.groupctl.baseexplorer.events;
 
 public record Marker(double position, String color, String name) { }

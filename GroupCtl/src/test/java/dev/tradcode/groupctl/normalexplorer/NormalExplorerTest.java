@@ -1,9 +1,12 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.normalexplorer;
 
-import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
-import dev.tradcode.groupctl.explorer.events.Marker;
-import dev.tradcode.groupctl.explorer.events.MarkersChanged;
-import dev.tradcode.groupctl.explorer.events.RequestSetPlaybackPosition;
+import dev.tradcode.groupctl.baseexplorer.BaseExplorer;
+import dev.tradcode.groupctl.baseexplorer.ExplorerColors;
+import dev.tradcode.groupctl.baseexplorer.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.baseexplorer.events.Marker;
+import dev.tradcode.groupctl.baseexplorer.events.MarkersChanged;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetPlaybackPosition;
+import dev.tradcode.groupctl.setlistexplorer.SetlistExplorer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -20,10 +23,21 @@ import dev.tradcode.groupctl.events.ResolutionChanged;
 import dev.tradcode.groupctl.events.TopButton;
 import dev.tradcode.groupctl.events.TopButtonClick;
 
-class ExplorerTest {
+/**
+ * End-to-end over the full explorer stack (base + normal + setlist). With no
+ * {@code { }} markers the setlist stays dormant and the normal view drives the
+ * page, so this is the normal explorer exercised through the real wiring.
+ */
+class NormalExplorerTest {
 
     static final String GREEN = "0,156,68"; // -> launchpad 87
     static final String RED = "216,46,34";  // -> launchpad 72
+
+    private static void wire(FakeEventBus bus) {
+        new BaseExplorer(bus, null);
+        new NormalExplorer(bus);
+        new SetlistExplorer(bus, null);
+    }
 
     /** Color last painted to a launchpad note via PaintPad, or -1 if never. */
     private static int lastPaintPad(FakeEventBus bus, int note) {
@@ -37,7 +51,7 @@ class ExplorerTest {
     @Test
     void paintsTheActiveSectionWhenMarkersArriveOnTheExplorerPage() {
         FakeEventBus bus = new FakeEventBus();
-        new Explorer(bus, null);
+        wire(bus);
 
         bus.send(new PageSelected(1));
         bus.send(new MarkersChanged(List.of(new Marker(0, GREEN, "A"))));
@@ -51,7 +65,7 @@ class ExplorerTest {
     @Test
     void broadcastsAGridForTheHandlers() {
         FakeEventBus bus = new FakeEventBus();
-        new Explorer(bus, null);
+        wire(bus);
         bus.send(new PageSelected(1));
         bus.send(new MarkersChanged(List.of(new Marker(0, GREEN, "A"))));
 
@@ -65,7 +79,7 @@ class ExplorerTest {
     @Test
     void padPressSeeksOnTheExplorerPage() {
         FakeEventBus bus = new FakeEventBus();
-        new Explorer(bus, null);
+        wire(bus);
         bus.send(new PageSelected(1));
         bus.send(new MarkersChanged(List.of(new Marker(0, GREEN, "A"))));
 
@@ -76,7 +90,7 @@ class ExplorerTest {
     @Test
     void anchorPadLightsUpWhenAStartGestureBegins() {
         FakeEventBus bus = new FakeEventBus();
-        new Explorer(bus, null);
+        wire(bus);
         bus.send(new PageSelected(1));
         bus.send(new MarkersChanged(List.of(new Marker(0, GREEN, "A"))));
 
@@ -90,7 +104,7 @@ class ExplorerTest {
     @Test
     void autoFitsResolutionSoTheProjectLandsOnOnePage() {
         FakeEventBus bus = new FakeEventBus();
-        new Explorer(bus, null);
+        wire(bus);
         bus.send(new PageSelected(1));
         // 0..256 in bars => 65 one-bar blocks; doesn't fit at 1 bar/pad, so
         // auto-fit zooms to 2 bars/pad and it lands on a single page.
@@ -105,7 +119,7 @@ class ExplorerTest {
     @Test
     void reportsMultiplePagesWhenContentExceedsEvenTheCoarsestResolution() {
         FakeEventBus bus = new FakeEventBus();
-        new Explorer(bus, null);
+        wire(bus);
         bus.send(new PageSelected(1));
         // 0..8400 in bars => ~2101 bars; even at 32 bars/pad that's > 64 pads.
         bus.send(new MarkersChanged(List.of(
@@ -121,7 +135,7 @@ class ExplorerTest {
         // Clearing the grid on a page switch is the Pager's job (see PagerTest);
         // the explorer simply goes quiet and never paints while inactive.
         FakeEventBus bus = new FakeEventBus();
-        new Explorer(bus, null);
+        wire(bus);
         bus.send(new PageSelected(1));
         bus.send(new MarkersChanged(List.of(new Marker(0, GREEN, "A"))));
         bus.send(new PageSelected(0));
@@ -137,7 +151,7 @@ class ExplorerTest {
     @Test
     void staysDormantUntilTheExplorerPageIsActive() {
         FakeEventBus bus = new FakeEventBus();
-        new Explorer(bus, null);
+        wire(bus);
         bus.send(new MarkersChanged(List.of(new Marker(0, GREEN, "A"))));
         // Never navigated to the explorer: nothing painted.
         assertEquals(-1, lastPaintPad(bus, 81));

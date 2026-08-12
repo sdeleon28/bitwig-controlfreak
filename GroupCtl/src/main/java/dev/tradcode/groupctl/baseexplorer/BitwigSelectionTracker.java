@@ -1,7 +1,7 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
-import dev.tradcode.groupctl.explorer.events.BitwigSelectionChanged;
-import dev.tradcode.groupctl.explorer.events.RequestSetSelection;
+import dev.tradcode.groupctl.baseexplorer.events.BitwigSelectionChanged;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetSelection;
 import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.Transport;
 

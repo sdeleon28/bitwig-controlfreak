@@ -1,14 +1,10 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
-import dev.tradcode.groupctl.explorer.events.Marker;
-import dev.tradcode.groupctl.explorer.events.MarkersChanged;
+import dev.tradcode.groupctl.baseexplorer.events.ContentBarsChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import java.util.List;
-
 import org.junit.jupiter.api.Test;
-
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintTopButton;
 import dev.tradcode.groupctl.events.ResolutionChanged;
@@ -17,12 +13,9 @@ import dev.tradcode.groupctl.events.TopButtonClick;
 
 class ResolutionCtlTest {
 
-    /** Two markers spanning lastBeat beats => ~lastBeat/4 + 1 content bars. */
-    private static MarkersChanged span(double lastBeat) {
-        return new MarkersChanged(List.of(
-            new Marker(0, "0,156,68", "A"),
-            new Marker(lastBeat, "216,46,34", "B")
-        ));
+    /** Content of lastBeat beats => ceil(lastBeat/4) + 1 content bars. */
+    private static ContentBarsChanged span(double lastBeat) {
+        return new ContentBarsChanged((int) Math.ceil(lastBeat / 4.0) + 1);
     }
 
     /** Latest color painted to the given top button, or -1 if never painted. */

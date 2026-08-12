@@ -1,10 +1,10 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
-import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
-import dev.tradcode.groupctl.explorer.events.GridSlot;
-import dev.tradcode.groupctl.explorer.events.PendingSelectionChanged;
-import dev.tradcode.groupctl.explorer.events.RequestSetSelection;
-import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
+import dev.tradcode.groupctl.baseexplorer.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.baseexplorer.events.GridSlot;
+import dev.tradcode.groupctl.baseexplorer.events.PendingSelectionChanged;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetSelection;
+import dev.tradcode.groupctl.baseexplorer.events.SelectionModeChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;

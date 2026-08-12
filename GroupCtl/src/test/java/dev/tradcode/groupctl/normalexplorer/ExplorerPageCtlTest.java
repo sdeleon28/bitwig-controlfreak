@@ -1,7 +1,7 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.normalexplorer;
 
-import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
-import dev.tradcode.groupctl.explorer.events.RequestExplorerPage;
+import dev.tradcode.groupctl.baseexplorer.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.baseexplorer.events.RequestExplorerPage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 

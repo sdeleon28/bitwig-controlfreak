@@ -1,4 +1,4 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
 import java.util.List;
 

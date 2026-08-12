@@ -1,4 +1,4 @@
-package dev.tradcode.groupctl.explorer.events;
+package dev.tradcode.groupctl.baseexplorer.events;
 import dev.tradcode.groupctl.events.Event;
 
 import java.util.List;

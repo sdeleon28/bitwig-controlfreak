@@ -1,14 +1,18 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.normalexplorer;
 
-import dev.tradcode.groupctl.explorer.events.BitwigSelectionChanged;
-import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
-import dev.tradcode.groupctl.explorer.events.GridSlot;
-import dev.tradcode.groupctl.explorer.events.Marker;
-import dev.tradcode.groupctl.explorer.events.MarkersChanged;
-import dev.tradcode.groupctl.explorer.events.PendingSelectionChanged;
-import dev.tradcode.groupctl.explorer.events.PlaybackUpdate;
-import dev.tradcode.groupctl.explorer.events.RequestExplorerPage;
-import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
+import dev.tradcode.groupctl.baseexplorer.BarsCalculator;
+import dev.tradcode.groupctl.baseexplorer.Block;
+import dev.tradcode.groupctl.baseexplorer.GridPipeline;
+import dev.tradcode.groupctl.baseexplorer.events.BitwigSelectionChanged;
+import dev.tradcode.groupctl.baseexplorer.events.ContentBarsChanged;
+import dev.tradcode.groupctl.baseexplorer.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.baseexplorer.events.ExplorerModeChanged;
+import dev.tradcode.groupctl.baseexplorer.events.Marker;
+import dev.tradcode.groupctl.baseexplorer.events.MarkersChanged;
+import dev.tradcode.groupctl.baseexplorer.events.PendingSelectionChanged;
+import dev.tradcode.groupctl.baseexplorer.events.PlaybackUpdate;
+import dev.tradcode.groupctl.baseexplorer.events.RequestExplorerPage;
+import dev.tradcode.groupctl.baseexplorer.events.SelectionModeChanged;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,14 +22,17 @@ import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.ResolutionChanged;
 
-public class GridCalculator implements IEventBusSubscriber {
+/**
+ * The normal explorer's reducer: lays every project marker onto one continuous
+ * timeline and pages through it 64 pads at a time. Engaged only while no setlist
+ * is present ({@code !setlist}); when the setlist view takes over it caches its
+ * inputs but stops broadcasting so the surface is left to the other reducer.
+ */
+public class NormalGridCalculator implements IEventBusSubscriber {
     IEventBus bus;
 
     final BarsCalculator barsCalculator = new BarsCalculator();
-    final SelectionHighlighter selectionHighlighter = new SelectionHighlighter();
-    final PlaybackHighlighter playbackHighlighter = new PlaybackHighlighter();
-    final ResolutionCalculator resolutionCalculator = new ResolutionCalculator();
-    final PageFilter pageFilter = new PageFilter();
+    final GridPipeline pipeline = new GridPipeline();
 
     List<Marker> markers = new ArrayList<>();
     double selectionStart = 0;
@@ -38,34 +45,36 @@ public class GridCalculator implements IEventBusSubscriber {
     int page = 0;
     boolean pageActive = false;
     boolean selecting = false;
+    boolean setlist = false;
+    int lastBars = -1;
 
-    public GridCalculator(IEventBus bus) {
+    public NormalGridCalculator(IEventBus bus) {
         this.bus = bus;
         this.bus.subscribe(this);
     }
 
     private void recompute() {
+        if (this.setlist)
+            return;
+
+        List<Block> source = this.barsCalculator.apply(this.markers);
+        int bars = source.size();
+        if (bars != this.lastBars) {
+            this.lastBars = bars;
+            this.bus.send(new ContentBarsChanged(bars));
+        }
+
         if (!this.pageActive)
             return;
 
-        List<Block> blocks = this.barsCalculator.apply(this.markers);
-        if (!this.selecting)
-            blocks = this.selectionHighlighter.apply(blocks, this.selectionStart, this.selectionDuration);
-        blocks = this.selectionHighlighter.apply(blocks, this.pendingStart, this.pendingDuration);
-        blocks = this.playbackHighlighter.apply(blocks, this.playbackBeat, this.isPlaying);
-        blocks = this.resolutionCalculator.apply(blocks, this.barsPerPad);
-
-        int totalPages = Math.max(1,
-            (int) Math.ceil(blocks.size() / (double) ExplorerConstants.PAGE_SIZE));
-
-        this.page = Math.min(Math.max(this.page, 0), totalPages - 1);
-
-        List<Block> grid = this.pageFilter.apply(blocks, this.page);
-        List<GridSlot> slots = new ArrayList<>(grid.size());
-        for (Block b : grid)
-            slots.add(new GridSlot(b.empty, b.color, b.selected, b.playing, b.startBeat, b.endBeat));
-
-        this.bus.send(new ExplorerGridChanged(slots, totalPages, this.page));
+        GridPipeline.Result r = this.pipeline.reduce(
+            source, this.selecting,
+            this.selectionStart, this.selectionDuration,
+            this.pendingStart, this.pendingDuration,
+            this.playbackBeat, this.isPlaying,
+            this.barsPerPad, this.page);
+        this.page = r.page();
+        this.bus.send(new ExplorerGridChanged(r.slots(), r.totalPages(), r.page()));
     }
 
     public void on(Event event) {
@@ -94,11 +103,18 @@ public class GridCalculator implements IEventBusSubscriber {
                 this.recompute();
             }
             case RequestExplorerPage(int delta) -> {
-                this.page += delta;
-                this.recompute();
+                if (!this.setlist) {
+                    this.page += delta;
+                    this.recompute();
+                }
             }
             case SelectionModeChanged(boolean active) -> {
                 this.selecting = active;
+                this.recompute();
+            }
+            case ExplorerModeChanged(boolean s) -> {
+                this.setlist = s;
+                this.lastBars = -1;
                 this.recompute();
             }
             case PageSelected(int n) -> {

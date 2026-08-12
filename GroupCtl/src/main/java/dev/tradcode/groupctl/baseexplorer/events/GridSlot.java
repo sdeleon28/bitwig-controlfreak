@@ -1,4 +1,4 @@
-package dev.tradcode.groupctl.explorer.events;
+package dev.tradcode.groupctl.baseexplorer.events;
 
 public record GridSlot(
     boolean empty,

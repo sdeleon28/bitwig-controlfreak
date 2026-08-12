@@ -1,11 +1,11 @@
-package dev.tradcode.groupctl.explorer;
+package dev.tradcode.groupctl.baseexplorer;
 
-import dev.tradcode.groupctl.explorer.events.ExplorerGridChanged;
-import dev.tradcode.groupctl.explorer.events.GridSlot;
-import dev.tradcode.groupctl.explorer.events.PlaybackUpdate;
-import dev.tradcode.groupctl.explorer.events.RequestSetPlaybackPosition;
-import dev.tradcode.groupctl.explorer.events.RequestStopPlayback;
-import dev.tradcode.groupctl.explorer.events.SelectionModeChanged;
+import dev.tradcode.groupctl.baseexplorer.events.ExplorerGridChanged;
+import dev.tradcode.groupctl.baseexplorer.events.GridSlot;
+import dev.tradcode.groupctl.baseexplorer.events.PlaybackUpdate;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSetPlaybackPosition;
+import dev.tradcode.groupctl.baseexplorer.events.RequestStopPlayback;
+import dev.tradcode.groupctl.baseexplorer.events.SelectionModeChanged;
 import java.util.ArrayList;
 import java.util.List;
 
