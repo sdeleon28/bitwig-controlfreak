@@ -217,6 +217,24 @@
     [X] frequalizer pad quadrant should only be active on the first page (mirror LaunchpadGroupCtl)
 [ ] remove direct ID references (use param indexes instead)
 
+## global transpose
+
+[X] RC 2 encoder (right of tempo) — magenta, -12..+12 semitones, step 1, 0 at noon
+    [X] always lit, no master RC needs to exist under it
+[X] address device params by label instead of hardcoded PIDs (params/SPEC.md)
+    [X] ParamIndex / DeviceParams
+    [X] fix PluginLogger's display column (needs setObservedParameterIds)
+[X] collect {T}-marked devices project-wide on schema change
+    [X] wide+cheap name scan, narrow+expensive cursor pool
+[X] apply transpose to every marked device
+[X] verify log so a wrong semitone span is visible instead of silent
+[ ] confirm param labels + semitone spans per device (fact finding in Bitwig)
+    [ ] HyperTune Metal
+    [ ] Archetype: Gojira X
+    [ ] Bw MIDI Transpose
+    [ ] Bw Pitch Shifter
+[ ] refactor frequalizer onto DeviceParams (see params/SPEC.md)
+
 ## ssl comp
 
 [ ] figure out param structure

@@ -2,6 +2,14 @@
 
 We're implementing ./VISION.md via ./ROADMAP.todo
 
+Known traps live in ./BUGS.md. Read it before debugging anything that looks like
+the Bitwig API misbehaving, and add an entry whenever you find a latent bug you
+are not fixing on the spot.
+
+./src/main/java/dev/tradcode/groupctl/params/SPEC.md is the reference for
+reaching parameters inside a device (plugin or Bitwig device) — read it before
+hardcoding any parameter id.
+
 ## Design guidelines
 
 This is carefully designed system that is fully decoupled using event sourcing.

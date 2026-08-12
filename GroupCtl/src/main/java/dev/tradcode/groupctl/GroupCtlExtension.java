@@ -9,9 +9,12 @@ import com.bitwig.extension.controller.ControllerExtension;
 import dev.tradcode.groupctl.editor.Editor;
 import dev.tradcode.groupctl.events.EventBus;
 import dev.tradcode.groupctl.events.IEventBus;
-import dev.tradcode.groupctl.explorer.Explorer;
+import dev.tradcode.groupctl.baseexplorer.BaseExplorer;
+import dev.tradcode.groupctl.normalexplorer.NormalExplorer;
+import dev.tradcode.groupctl.setlistexplorer.SetlistExplorer;
 import dev.tradcode.groupctl.mixmachine.MixMachine;
 import dev.tradcode.groupctl.palette.Palette;
+import dev.tradcode.groupctl.transpose.Transpose;
 
 public class GroupCtlExtension extends ControllerExtension
 {
@@ -23,10 +26,13 @@ public class GroupCtlExtension extends ControllerExtension
    TwisterOutput twisterOut;
    PagerGrowler pagerGrowler;
    Pager pager;
-   Explorer explorer;
+   BaseExplorer baseExplorer;
+   NormalExplorer normalExplorer;
+   SetlistExplorer setlistExplorer;
    Editor editor;
    MixMachine mixMachine;
    Palette palette;
+   Transpose transpose;
    PluginLogger pluginLogger;
 
    protected GroupCtlExtension(final GroupCtlExtensionDefinition definition, final ControllerHost host)
@@ -54,10 +60,13 @@ public class GroupCtlExtension extends ControllerExtension
       launchpadOut = new LaunchpadOutput(eventBus, host.getMidiOutPort(0));
       pager = new Pager(eventBus);
       pagerGrowler = new PagerGrowler(eventBus, host);
-      explorer = new Explorer(eventBus, host);
+      baseExplorer = new BaseExplorer(eventBus, host);
+      normalExplorer = new NormalExplorer(eventBus);
+      setlistExplorer = new SetlistExplorer(eventBus, host);
       editor = new Editor(eventBus, host);
       mixMachine = new MixMachine(eventBus, host);
       palette = new Palette(eventBus, host);
+      transpose = new Transpose(eventBus, host);
 
       host.showPopupNotification("GroupCtl Initialized");
    }
@@ -73,9 +82,10 @@ public class GroupCtlExtension extends ControllerExtension
    @Override
    public void flush()
    {
-       explorer.flush();
+       baseExplorer.flush();
        editor.flush();
        mixMachine.flush();
+       transpose.flush();
        pluginLogger.flush();
    }
 

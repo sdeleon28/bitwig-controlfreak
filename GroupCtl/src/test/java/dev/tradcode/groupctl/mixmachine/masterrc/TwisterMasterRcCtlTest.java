@@ -8,6 +8,7 @@ import dev.tradcode.groupctl.events.EncoderButtonPressed;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintEncoder;
+import dev.tradcode.groupctl.events.RequestSetTranspose;
 import dev.tradcode.groupctl.events.SetEncoderValue;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
@@ -23,6 +24,9 @@ class TwisterMasterRcCtlTest {
 
     static final int MASTER_ID = BitwigMasterRcTracker.MASTER_ID;
     static final int CYAN = 19;
+    static final int MAGENTA = 87;
+    // slot 1 — the global transpose encoder, immediately right of tempo (pos 5)
+    static final int TRANSPOSE_POS = 6;
 
     private static void allRcsExist(FakeEventBus bus) {
         for (int id = 0; id < 8; id++)
@@ -55,6 +59,13 @@ class TwisterMasterRcCtlTest {
         return last;
     }
 
+    private static RequestSetTranspose lastTranspose(FakeEventBus bus) {
+        RequestSetTranspose last = null;
+        for (var e : bus.events)
+            if (e instanceof RequestSetTranspose t) last = t;
+        return last;
+    }
+
     private static MasterRcEncoderPressed lastPress(FakeEventBus bus) {
         MasterRcEncoderPressed last = null;
         for (var e : bus.events)
@@ -67,7 +78,7 @@ class TwisterMasterRcCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
 
-        bus.send(new EncoderTurned(6, 127));
+        bus.send(new EncoderTurned(7, 127));
 
         assertFalse(wroteRc(bus));
     }
@@ -80,9 +91,12 @@ class TwisterMasterRcCtlTest {
 
         bus.send(new BitwigTrackSelected(MASTER_ID));
 
-        // bottom 8 encoders (positions 1..8) lit cyan
-        for (int n = 1; n <= 8; n++)
+        // bottom 8 encoders (positions 1..8) lit cyan, except position 6 —
+        // that one is slot 1, which global transpose owns
+        for (int n = 1; n <= 8; n++) {
+            if (n == TRANSPOSE_POS) continue;
             assertEquals(CYAN, ledAt(bus, n), "encoder " + n + " should be cyan");
+        }
     }
 
     @Test
@@ -127,8 +141,8 @@ class TwisterMasterRcCtlTest {
         bus.send(new BitwigTrackSelected(MASTER_ID));
 
         assertEquals(CYAN, ledAt(bus, 5), "the detected RC must be cyan");
-        // RC id 1 (position 6) is not detected -> dark
-        assertEquals(0, ledAt(bus, 6), "an undetected RC must stay dark");
+        // RC id 2 (position 7) is not detected -> dark
+        assertEquals(0, ledAt(bus, 7), "an undetected RC must stay dark");
     }
 
     @Test
@@ -138,14 +152,14 @@ class TwisterMasterRcCtlTest {
 
         // value arrives before the program is active: it must be remembered,
         // not pulled in again on activation.
-        bus.send(new MasterRcValueChanged(1, 1.0));
+        bus.send(new MasterRcValueChanged(2, 1.0));
         bus.clear();
 
         bus.send(new BitwigTrackSelected(MASTER_ID));
 
-        // RC id 1 maps to position 6
+        // RC id 2 maps to position 7
         assertTrue(bus.events.stream().anyMatch(
-            e -> e instanceof SetEncoderValue sv && sv.n() == 6 && sv.v() == 127));
+            e -> e instanceof SetEncoderValue sv && sv.n() == 7 && sv.v() == 127));
     }
 
     @Test
@@ -155,12 +169,12 @@ class TwisterMasterRcCtlTest {
         bus.send(new BitwigTrackSelected(MASTER_ID));
         bus.clear();
 
-        // position 6 maps to RC id 1
-        bus.send(new EncoderTurned(6, 127));
+        // position 7 maps to RC id 2
+        bus.send(new EncoderTurned(7, 127));
 
         var write = lastWrite(bus);
         assertNotNull(write);
-        assertEquals(1, write.id());
+        assertEquals(2, write.id());
         assertEquals(1.0, write.value(), 1e-9);
     }
 
@@ -171,11 +185,11 @@ class TwisterMasterRcCtlTest {
         bus.send(new BitwigTrackSelected(MASTER_ID));
         bus.clear();
 
-        // RC id 1 maps to position 6
-        bus.send(new MasterRcValueChanged(1, 1.0));
+        // RC id 2 maps to position 7
+        bus.send(new MasterRcValueChanged(2, 1.0));
 
         assertTrue(bus.events.stream().anyMatch(
-            e -> e instanceof SetEncoderValue sv && sv.n() == 6 && sv.v() == 127));
+            e -> e instanceof SetEncoderValue sv && sv.n() == 7 && sv.v() == 127));
     }
 
     @Test
@@ -186,7 +200,7 @@ class TwisterMasterRcCtlTest {
         bus.send(new BitwigTrackSelected(10));
         bus.clear();
 
-        bus.send(new EncoderTurned(6, 127));
+        bus.send(new EncoderTurned(7, 127));
 
         assertFalse(wroteRc(bus));
     }
@@ -201,13 +215,13 @@ class TwisterMasterRcCtlTest {
         // master stays selected
         bus.send(new DeviceGrabbed("Compressor"));
         bus.clear();
-        bus.send(new EncoderTurned(6, 127));
+        bus.send(new EncoderTurned(7, 127));
         assertFalse(wroteRc(bus), "device RC must own the encoders while a device is grabbed");
 
         // re-tapping the master pad re-announces the selection (the tracker
         // re-emits BitwigTrackSelected since Bitwig won't), reclaiming them
         bus.send(new BitwigTrackSelected(MASTER_ID));
-        bus.send(new EncoderTurned(6, 127));
+        bus.send(new EncoderTurned(7, 127));
         assertTrue(wroteRc(bus), "re-selecting master reclaims the encoders from device RC");
     }
 
@@ -219,11 +233,11 @@ class TwisterMasterRcCtlTest {
 
         bus.send(new PageSelected(Page.EDITOR.getValue()));
         bus.clear();
-        bus.send(new EncoderTurned(6, 127));
+        bus.send(new EncoderTurned(7, 127));
         assertFalse(wroteRc(bus), "master RCs must yield while the editor owns the Twister");
 
         bus.send(new PageSelected(Page.GROUPCTL.getValue()));
-        bus.send(new EncoderTurned(6, 127));
+        bus.send(new EncoderTurned(7, 127));
         assertTrue(wroteRc(bus), "leaving the editor page restores master RC control");
     }
 
@@ -312,12 +326,12 @@ class TwisterMasterRcCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
         allRcsExist(bus);
-        bus.send(new MasterRcNameChanged(1, "Reverb"));
+        bus.send(new MasterRcNameChanged(2, "Reverb"));
         bus.send(new BitwigTrackSelected(MASTER_ID));
         bus.clear();
 
-        // position 6 maps to RC id 1
-        bus.send(new EncoderButtonPressed(6));
+        // position 7 maps to RC id 2
+        bus.send(new EncoderButtonPressed(7));
 
         var press = lastPress(bus);
         assertNotNull(press);
@@ -330,9 +344,9 @@ class TwisterMasterRcCtlTest {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
         allRcsExist(bus);
-        bus.send(new MasterRcNameChanged(1, "Reverb"));
+        bus.send(new MasterRcNameChanged(2, "Reverb"));
 
-        bus.send(new EncoderButtonPressed(6));
+        bus.send(new EncoderButtonPressed(7));
 
         assertNull(lastPress(bus), "the program must not growl when another owns the encoders");
     }
@@ -341,13 +355,145 @@ class TwisterMasterRcCtlTest {
     void undetectedRcDoesNotGrowlOnPress() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterMasterRcCtl(bus);
-        // only RC id 0 exists; RC id 1 (position 6) does not
+        // only RC id 0 exists; RC id 2 (position 7) does not
         bus.send(new MasterRcExistsChanged(0, true));
         bus.send(new BitwigTrackSelected(MASTER_ID));
         bus.clear();
 
-        bus.send(new EncoderButtonPressed(6));
+        bus.send(new EncoderButtonPressed(7));
 
         assertNull(lastPress(bus), "pressing an empty RC encoder must stay silent");
+    }
+
+    @Test
+    void transposeEncoderLightsMagentaWithNoRemoteControlUnderIt() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        // deliberately no MasterRcExistsChanged: the transpose encoder is the
+        // control itself, not a view onto a master remote control, so it lights
+        // regardless of what the master track has mapped.
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+
+        assertEquals(MAGENTA, ledAt(bus, TRANSPOSE_POS));
+    }
+
+    @Test
+    void transposeEncoderStaysMagentaEvenWhenItsRcIsDetected() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        allRcsExist(bus);
+
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+
+        assertEquals(MAGENTA, ledAt(bus, TRANSPOSE_POS),
+            "transpose owns the slot; a mapped RC must not turn it cyan");
+    }
+
+    @Test
+    void transposeEncoderPutsZeroSemitonesAtNoon() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+        bus.clear();
+
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 64));
+
+        assertNull(lastTranspose(bus), "noon is the resting value, nothing to publish");
+
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 0));
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 64));
+        assertEquals(0, lastTranspose(bus).semitones(), "coming back to noon is 0 st");
+    }
+
+    @Test
+    void transposeEncoderSpansAnOctaveEachWay() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+        bus.clear();
+
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 0));
+        assertEquals(-12, lastTranspose(bus).semitones());
+
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 127));
+        assertEquals(12, lastTranspose(bus).semitones());
+    }
+
+    @Test
+    void transposeEncoderQuantizesToWholeSemitones() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+        bus.clear();
+
+        // 25 semitones spread over 128 positions: neighbouring positions land on
+        // the same step, and only a real step change is published.
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 64));
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 65));
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 66));
+
+        assertEquals(0, bus.count(RequestSetTranspose.class),
+            "sub-semitone movement must not publish");
+
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 70));
+        assertEquals(1, lastTranspose(bus).semitones());
+    }
+
+    @Test
+    void transposeEncoderNeverWritesTheUnderlyingRemoteControl() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        allRcsExist(bus);
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+        bus.clear();
+
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 127));
+
+        assertFalse(wroteRc(bus));
+        assertNull(lastTempoSet(bus));
+    }
+
+    @Test
+    void transposeRingTracksSemitonesNotTheRcValue() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 127));
+        bus.clear();
+
+        // the master RC underneath moves; the ring must keep showing +12 st
+        bus.send(new MasterRcValueChanged(1, 0.0));
+
+        assertTrue(bus.events.stream().anyMatch(
+            e -> e instanceof SetEncoderValue sv
+                && sv.n() == TRANSPOSE_POS && sv.v() == 127));
+    }
+
+    @Test
+    void transposeIsRememberedAcrossYieldingTheEncoders() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 0));
+
+        bus.send(new BitwigTrackSelected(10));
+        bus.clear();
+        bus.send(new BitwigTrackSelected(MASTER_ID));
+
+        // -12 st sits at the far left of the ring
+        assertTrue(bus.events.stream().anyMatch(
+            e -> e instanceof SetEncoderValue sv
+                && sv.n() == TRANSPOSE_POS && sv.v() == 0),
+            "the ring must come back showing the transpose still in effect");
+    }
+
+    @Test
+    void transposeEncoderIsSilentWhileAnotherProgramOwnsTheEncoders() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterMasterRcCtl(bus);
+
+        bus.send(new EncoderTurned(TRANSPOSE_POS, 0));
+
+        assertNull(lastTranspose(bus));
     }
 }
