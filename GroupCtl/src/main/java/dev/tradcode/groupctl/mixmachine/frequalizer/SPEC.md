@@ -93,6 +93,19 @@ because mid-solo is a sub-state of the mid view (and likewise for side).
 It's important that we use the plugin as the source of truth for lighting these pads up, as
 opposed to doing optimistic updates and keeping cached state (bad).
 
+## Launchpad device toggle
+
+Local pad 16 (the quadrant's top-right corner) is the plugin's on/off switch — gold while the
+device is enabled, dark while it is bypassed, pressing it toggles. It mirrors the switch a
+generic device gets on the same pad from `devicedetail`, which yields the pad to this feature
+by device name.
+
+The pad — like the encoders — acts on the **grabbed** instance, not on whatever is selected in
+Bitwig's UI: the feature's cursor device is pinned on every grab, so clicking through other
+Frequalizers in the UI leaves the surface where it was. A grab is announced with
+`FrequalizerGrabbed` on top of the (deduplicated) `FrequalizerActivated`, because re-grabbing
+while the feature already runs still re-targets it onto another instance.
+
 ## Press / hold dynamics
 
 The interesting behavior is that **lights are a function of device state, not of the gesture**.

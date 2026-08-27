@@ -26,6 +26,9 @@ public final class FrequalizerLayout {
 
     public record ModePad(int localPad, int modeValue, Set<Integer> selectedWhen) { }
 
+    /** Quadrant-local position of the device on/off switch. */
+    public static final int DEVICE_TOGGLE_PAD = 16;
+
     private static final int NONE = -1;
 
     private record BandPos(

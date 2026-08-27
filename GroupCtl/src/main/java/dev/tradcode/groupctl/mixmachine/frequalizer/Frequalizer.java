@@ -17,6 +17,7 @@ public class Frequalizer {
         // Painting
         new FrequalizerTwisterPainter(bus);
         new FrequalizerModeCtl(bus);
+        new FrequalizerDeviceToggleCtl(bus);
 
         // Input controllers
         new FrequalizerTwisterInputCtl(bus);

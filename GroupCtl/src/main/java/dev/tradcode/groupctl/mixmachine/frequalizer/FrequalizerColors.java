@@ -22,4 +22,7 @@ public final class FrequalizerColors {
     public static final int MODE_PAD_SELECTED = 21;
     public static final int MODE_PAD_DESELECTED = 1;
     public static final int MODE_PAD_OFF = 0;
+
+    public static final int DEVICE_ON = 99;
+    public static final int DEVICE_OFF = 0;
 }

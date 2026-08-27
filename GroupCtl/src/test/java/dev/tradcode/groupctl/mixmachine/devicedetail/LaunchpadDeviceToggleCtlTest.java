@@ -97,6 +97,34 @@ class LaunchpadDeviceToggleCtlTest {
     }
 
     @Test
+    void customMappedDeviceYieldsWithoutBlankingThePad() {
+        FakeEventBus bus = new FakeEventBus();
+        new LaunchpadDeviceToggleCtl(bus);
+        bus.send(new DeviceGrabbed("Compressor"));
+        bus.send(new DeviceEnabledChanged(true));
+        bus.clear();
+
+        bus.send(new DeviceGrabbed("Frequalizer Alt"));
+
+        assertNull(lastPadColor(bus),
+            "blanking here would race the paint of the controller taking over");
+    }
+
+    @Test
+    void yieldedPadSurvivesDeviceSelectionFromTheUi() {
+        FakeEventBus bus = new FakeEventBus();
+        new LaunchpadDeviceToggleCtl(bus);
+        bus.send(new DeviceGrabbed("Frequalizer Alt"));
+        bus.clear();
+
+        bus.send(new DeviceEnabledChanged(true));
+        bus.send(new DeviceEnabledChanged(false));
+
+        assertNull(lastPadColor(bus),
+            "the cursor following a UI selection must not blank another controller's pad");
+    }
+
+    @Test
     void selectingTrackReleasesPad() {
         FakeEventBus bus = new FakeEventBus();
         new LaunchpadDeviceToggleCtl(bus);

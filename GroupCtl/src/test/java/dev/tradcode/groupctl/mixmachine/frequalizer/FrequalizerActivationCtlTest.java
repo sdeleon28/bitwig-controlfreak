@@ -10,6 +10,7 @@ import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.events.RequestSelectTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.frequalizer.events.FrequalizerActivated;
+import dev.tradcode.groupctl.mixmachine.frequalizer.events.FrequalizerGrabbed;
 
 class FrequalizerActivationCtlTest {
 
@@ -68,6 +69,28 @@ class FrequalizerActivationCtlTest {
         bus.send(new RequestSelectTrack(9, "drums (3)"));
 
         assertFalse(bus.last(FrequalizerActivated.class).active());
+    }
+
+    @Test
+    void announcesEveryGrabSoTheFeatureCanRetargetTheInstance() {
+        FakeEventBus bus = new FakeEventBus();
+        new FrequalizerActivationCtl(bus);
+
+        bus.send(new DeviceGrabbed(FREQ));
+        bus.send(new DeviceGrabbed(FREQ));
+
+        assertEquals(2, bus.count(FrequalizerGrabbed.class),
+            "a re-grab points the feature at another instance of the same plugin");
+    }
+
+    @Test
+    void grabbingAnotherDeviceIsNotAFrequalizerGrab() {
+        FakeEventBus bus = new FakeEventBus();
+        new FrequalizerActivationCtl(bus);
+
+        bus.send(new DeviceGrabbed("Pro-Q 3"));
+
+        assertEquals(0, bus.count(FrequalizerGrabbed.class));
     }
 
     @Test
