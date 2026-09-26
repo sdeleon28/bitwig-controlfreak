@@ -45,7 +45,7 @@ public class ResolutionCtl implements IEventBusSubscriber {
             return;
         this.barsPerPad *= 2;
         this.overridden = true;
-        this.bus.send(new ResolutionChanged(this.barsPerPad));
+        this.bus.send(new ResolutionChanged(this.barsPerPad, true));
         this.paint();
     }
 
@@ -54,7 +54,7 @@ public class ResolutionCtl implements IEventBusSubscriber {
             return;
         this.barsPerPad /= 2;
         this.overridden = true;
-        this.bus.send(new ResolutionChanged(this.barsPerPad));
+        this.bus.send(new ResolutionChanged(this.barsPerPad, true));
         this.paint();
     }
 
@@ -70,7 +70,7 @@ public class ResolutionCtl implements IEventBusSubscriber {
         int bpp = fitResolution(this.contentBars);
         if (bpp != this.barsPerPad) {
             this.barsPerPad = bpp;
-            this.bus.send(new ResolutionChanged(this.barsPerPad));
+            this.bus.send(new ResolutionChanged(this.barsPerPad, false));
         }
     }
 

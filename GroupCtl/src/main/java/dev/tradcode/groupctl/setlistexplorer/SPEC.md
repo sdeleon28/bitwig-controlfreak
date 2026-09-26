@@ -23,8 +23,8 @@ opener, and an orphan closer are dropped. Parsing lives in `baseexplorer`'s
   - **Auto-follow**: while playing, crossing a song boundary switches the current
     song (silent — `manual = false`).
   - **Manual select** (`RequestSelectSong`, only fires while stopped): switches
-    song, seeks the playhead to the song start, and marks it `manual` so it is
-    growled.
+    song, seeks the playhead to the song start without starting playback, and
+    marks it `manual` so it is growled.
 
 ## Controls
 

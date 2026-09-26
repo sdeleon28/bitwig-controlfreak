@@ -18,7 +18,7 @@ public class ExplorerGrowler extends Growler {
     @Override
     public void on(Event event) {
         switch (event) {
-            case ResolutionChanged e -> this.growl(e);
+            case ResolutionChanged e when e.manual() -> this.growl(e);
             case RequestSetLoop e -> this.growl(e);
             case RequestSetMetronome e -> this.growl(e);
             case RequestSetRecord e -> this.growl(e);

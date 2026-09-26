@@ -98,7 +98,7 @@ public class NormalGridCalculator implements IEventBusSubscriber {
                 this.isPlaying = isPlaying;
                 this.recompute();
             }
-            case ResolutionChanged(int bpp) -> {
+            case ResolutionChanged(int bpp, var manual) -> {
                 this.barsPerPad = bpp;
                 this.recompute();
             }

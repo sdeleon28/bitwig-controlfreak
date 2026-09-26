@@ -26,7 +26,7 @@ class MarkerCache {
  * snapshot on the flush cycle whenever any marker metadata changes.
  */
 public class BitwigMarkersTracker implements IEventBusSubscriber {
-    static final int MARKER_COUNT = 32;
+    static final int MARKER_COUNT = 512;
 
     ControllerHost host;
     IEventBus bus;

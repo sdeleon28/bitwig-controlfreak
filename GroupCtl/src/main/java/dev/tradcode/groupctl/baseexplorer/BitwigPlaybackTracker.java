@@ -4,6 +4,7 @@ import dev.tradcode.groupctl.baseexplorer.events.PlaybackUpdate;
 import dev.tradcode.groupctl.baseexplorer.events.RequestSetLoop;
 import dev.tradcode.groupctl.baseexplorer.events.RequestSetMetronome;
 import dev.tradcode.groupctl.baseexplorer.events.RequestSetRecord;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSeek;
 import dev.tradcode.groupctl.baseexplorer.events.RequestSetPlaybackPosition;
 import dev.tradcode.groupctl.baseexplorer.events.RequestStopPlayback;
 import dev.tradcode.groupctl.baseexplorer.events.TransportTogglesUpdate;
@@ -62,6 +63,11 @@ public class BitwigPlaybackTracker implements IEventBusSubscriber {
             when (transport != null) -> {
                 transport.playStartPosition().set(b);
                 transport.jumpToPlayStartPosition();
+            }
+            case RequestSeek(double b)
+            when (transport != null) -> {
+                transport.playStartPosition().set(b);
+                transport.setPosition(b);
             }
             case RequestStopPlayback()
             when (transport != null) -> transport.stop();

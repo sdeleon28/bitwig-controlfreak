@@ -13,7 +13,7 @@ import dev.tradcode.groupctl.baseexplorer.events.MarkersChanged;
 import dev.tradcode.groupctl.baseexplorer.events.PendingSelectionChanged;
 import dev.tradcode.groupctl.baseexplorer.events.PlaybackUpdate;
 import dev.tradcode.groupctl.baseexplorer.events.RequestExplorerPage;
-import dev.tradcode.groupctl.baseexplorer.events.RequestSetPlaybackPosition;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSeek;
 import dev.tradcode.groupctl.baseexplorer.events.SelectionModeChanged;
 import dev.tradcode.groupctl.setlistexplorer.events.CurrentSongChanged;
 import dev.tradcode.groupctl.setlistexplorer.events.RequestSelectSong;
@@ -127,7 +127,7 @@ public class SetlistGridCalculator implements IEventBusSubscriber {
         this.emitCurrentSong(true);
         Song song = currentSong();
         if (song != null)
-            this.bus.send(new RequestSetPlaybackPosition(song.startBeat()));
+            this.bus.send(new RequestSeek(song.startBeat()));
     }
 
     private void followPlayhead() {
@@ -170,7 +170,7 @@ public class SetlistGridCalculator implements IEventBusSubscriber {
                 if (this.currentSongIndex == before)
                     this.recompute();
             }
-            case ResolutionChanged(int bpp) -> {
+            case ResolutionChanged(int bpp, var manual) -> {
                 this.barsPerPad = bpp;
                 this.recompute();
             }

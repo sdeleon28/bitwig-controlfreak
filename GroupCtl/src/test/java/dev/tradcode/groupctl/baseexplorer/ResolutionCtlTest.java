@@ -2,7 +2,9 @@ package dev.tradcode.groupctl.baseexplorer;
 
 import dev.tradcode.groupctl.baseexplorer.events.ContentBarsChanged;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 import dev.tradcode.groupctl.events.PageSelected;
@@ -85,6 +87,18 @@ class ResolutionCtlTest {
         bus.send(new PageSelected(1));
         bus.send(span(256));
         assertEquals(2, bus.last(ResolutionChanged.class).barsPerPad());
+    }
+
+    @Test
+    void autoFitIsNotManualButButtonZoomIs() {
+        FakeEventBus bus = new FakeEventBus();
+        new ResolutionCtl(bus);
+        bus.send(new PageSelected(1));
+        bus.send(span(256));
+        assertFalse(bus.last(ResolutionChanged.class).manual());
+
+        bus.send(new TopButtonClick(TopButton.SESSION));
+        assertTrue(bus.last(ResolutionChanged.class).manual());
     }
 
     @Test

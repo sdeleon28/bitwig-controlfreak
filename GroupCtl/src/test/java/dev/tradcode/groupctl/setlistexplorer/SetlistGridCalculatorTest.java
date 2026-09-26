@@ -7,6 +7,7 @@ import dev.tradcode.groupctl.baseexplorer.events.Marker;
 import dev.tradcode.groupctl.baseexplorer.events.MarkersChanged;
 import dev.tradcode.groupctl.baseexplorer.events.PlaybackUpdate;
 import dev.tradcode.groupctl.baseexplorer.events.RequestExplorerPage;
+import dev.tradcode.groupctl.baseexplorer.events.RequestSeek;
 import dev.tradcode.groupctl.baseexplorer.events.RequestSetPlaybackPosition;
 import dev.tradcode.groupctl.setlistexplorer.events.CurrentSongChanged;
 import dev.tradcode.groupctl.setlistexplorer.events.RequestSelectSong;
@@ -98,7 +99,8 @@ class SetlistGridCalculatorTest {
         CurrentSongChanged song = bus.last(CurrentSongChanged.class);
         assertEquals(1, song.index());
         assertTrue(song.manual());                           // worth a growl
-        assertEquals(20.0, bus.last(RequestSetPlaybackPosition.class).beat());
+        assertEquals(20.0, bus.last(RequestSeek.class).beat());
+        assertNull(bus.last(RequestSetPlaybackPosition.class));  // must not start playback
         assertEquals(20.0, bus.last(ExplorerGridChanged.class).slots().get(0).startBeat());
     }
 
@@ -106,9 +108,9 @@ class SetlistGridCalculatorTest {
     void manualStepDoesNothingPastTheLastSong() {
         FakeEventBus bus = engaged();
         bus.send(new RequestSelectSong(1)); // -> song B (last)
-        long seeks = bus.count(RequestSetPlaybackPosition.class);
+        long seeks = bus.count(RequestSeek.class);
         bus.send(new RequestSelectSong(1)); // no further song
-        assertEquals(seeks, bus.count(RequestSetPlaybackPosition.class));
+        assertEquals(seeks, bus.count(RequestSeek.class));
         assertEquals(1, bus.last(CurrentSongChanged.class).index());
     }
 
