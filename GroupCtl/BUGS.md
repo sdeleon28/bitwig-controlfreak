@@ -54,3 +54,15 @@ Note that `BitwigFrequalizerTracker` is *not* affected by the
 `setDirectParameterValueNormalized` off-by-one described in `params/SPEC.md` —
 its `*_RANGE` constants already count discrete positions, which is what Bitwig
 divides by after subtracting one.
+
+## BitwigSchemaTracker.flush leftovers
+
+`flatTracks` is append-only, ordered by when each track first showed up. Two
+known problems remain after the id/position crash fix:
+
+- Track types are compared with `!=` (`t.trackType != "Master"`), which is
+  reference equality on strings. It only works if Bitwig hands back interned
+  strings.
+- Tracks that stop existing (deleted) are never removed from `flatTracks`, and
+  a track that appears after a higher-id one lands out of id order, which
+  `getStructuredTracks` relies on for grouping.
