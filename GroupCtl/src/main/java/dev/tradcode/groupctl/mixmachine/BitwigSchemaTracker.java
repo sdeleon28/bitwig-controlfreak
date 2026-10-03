@@ -262,11 +262,12 @@ public class BitwigSchemaTracker implements IEventBusSubscriber {
                 && t.trackType != "Master"
                 && t.trackType != "Effect"
             ) {
-                if (ids.contains(t.id)) {
+                int pos = ids.indexOf(t.id);
+                if (pos >= 0) {
                     BitwigTrack newTrack = cacheToTrackDef(t);
-                    BitwigTrack oldTrack = flatTracks.get(t.id);
+                    BitwigTrack oldTrack = flatTracks.get(pos);
                     if (!newTrack.equals(oldTrack)) {
-                        flatTracks.set(i, newTrack);
+                        flatTracks.set(pos, newTrack);
                         schemaDirty = true;
                     }
                 }
