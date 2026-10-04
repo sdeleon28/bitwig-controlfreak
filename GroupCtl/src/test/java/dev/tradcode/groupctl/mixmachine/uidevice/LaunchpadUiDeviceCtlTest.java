@@ -122,4 +122,33 @@ class LaunchpadUiDeviceCtlTest {
         assertNull(bus.last(DeviceGrabbed.class),
             "Send B belongs to other features off the group page");
     }
+
+    @Test
+    void selectingAnotherDeviceInTheUiReturnsToBlink() {
+        FakeEventBus bus = new FakeEventBus();
+        new LaunchpadUiDeviceCtl(bus);
+        uiDevice(bus, "Archetype Gojira X");
+        bus.send(new DeviceGrabbed("Archetype Gojira X"));
+        bus.clear();
+
+        bus.send(new CursorDeviceNameChanged("Frequalizer"));
+
+        assertNotNull(bus.last(BlinkSideButton.class));
+        assertNull(bus.last(PaintSideButton.class));
+    }
+
+    @Test
+    void grabbingTheUiDeviceAgainLightsSendBSolid() {
+        FakeEventBus bus = new FakeEventBus();
+        new LaunchpadUiDeviceCtl(bus);
+        uiDevice(bus, "Archetype Gojira X");
+        bus.send(new DeviceGrabbed("Archetype Gojira X"));
+        bus.send(new CursorDeviceNameChanged("Frequalizer"));
+        bus.clear();
+
+        bus.send(new DeviceGrabbed("Frequalizer"), new CursorDeviceNameChanged("Frequalizer"));
+
+        assertEquals(WHITE, bus.last(PaintSideButton.class).color());
+        assertNull(bus.last(BlinkSideButton.class));
+    }
 }

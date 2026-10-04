@@ -19,7 +19,7 @@ import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 /**
  * Owns the Send B side button on the group page. It blinks white while a device
  * is selected in Bitwig's UI (there is something to grab) and lights solid while
- * a device is grabbed. Tapping it grabs the UI-selected device onto the surface
+ * the device selected in the UI is the grabbed one. Tapping it grabs the UI-selected device onto the surface
  * by emitting the same {@link DeviceGrabbed} the device pads emit — so devices
  * nested in chains, FX layers or multi-output devices, which the pads can't
  * reach, get the exact same treatment: generic RC mode, custom mappers like the
@@ -33,6 +33,7 @@ public class LaunchpadUiDeviceCtl implements IEventBusSubscriber {
     boolean deviceExists = false;
     String deviceName = null;
     boolean grabbed = false;
+    String grabbedName = null;
 
     public LaunchpadUiDeviceCtl(IEventBus bus) {
         this.bus = bus;
@@ -58,13 +59,21 @@ public class LaunchpadUiDeviceCtl implements IEventBusSubscriber {
             }
             case DeviceGrabbed(String name) -> {
                 this.grabbed = true;
+                this.grabbedName = name;
                 this.paint();
             }
             case CursorDeviceExistsChanged(boolean e) -> {
                 this.deviceExists = e;
                 this.paint();
             }
-            case CursorDeviceNameChanged(String name) -> this.deviceName = name;
+            case CursorDeviceNameChanged(String name) -> {
+                this.deviceName = name;
+                boolean grabbed = this.grabbed && name != null && name.equals(this.grabbedName);
+                if (grabbed != this.grabbed) {
+                    this.grabbed = grabbed;
+                    this.paint();
+                }
+            }
             case BitwigTrackSelected(int id) -> { this.grabbed = false; this.paint(); }
             case RequestSelectTrack(int id, String name) -> { this.grabbed = false; this.paint(); }
             case RequestFxSelectTrack(int id, String name) -> { this.grabbed = false; this.paint(); }
