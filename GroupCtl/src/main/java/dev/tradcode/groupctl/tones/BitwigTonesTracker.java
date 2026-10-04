@@ -3,6 +3,7 @@ package dev.tradcode.groupctl.tones;
 import java.util.regex.Pattern;
 
 import com.bitwig.extension.controller.api.ControllerHost;
+import com.bitwig.extension.controller.api.DeviceBank;
 import com.bitwig.extension.controller.api.Track;
 import com.bitwig.extension.controller.api.TrackBank;
 
@@ -17,15 +18,19 @@ import dev.tradcode.groupctl.tones.events.ToneSelected;
 /**
  * Tone tracks are the ones named "A (n)" .. "F (n)". The selected one is
  * unmuted, armed and monitored; the rest are muted, disarmed and unmonitored.
- * Muting rather than deactivating keeps the switch instant.
+ * Muting rather than deactivating keeps the switch instant. Only the selected
+ * tone's amp window is left open.
  */
 public class BitwigTonesTracker implements IEventBusSubscriber {
     static final int TRACKS = 64;
+    static final int DEVICES_PER_TRACK = 8;
     static final Pattern TONE_TRACK = Pattern.compile("^([A-F]) \\(\\d+\\)$");
 
     IEventBus bus;
     TrackBank trackBank;
     String[] names = new String[TRACKS];
+    DeviceBank[] deviceBanks = new DeviceBank[TRACKS];
+    String[][] deviceNames = new String[TRACKS][DEVICES_PER_TRACK];
 
     public BitwigTonesTracker(IEventBus bus, ControllerHost host) {
         this.bus = bus;
@@ -38,6 +43,13 @@ public class BitwigTonesTracker implements IEventBusSubscriber {
             item.mute().markInterested();
             item.arm().markInterested();
             item.monitorMode().markInterested();
+            this.deviceBanks[t] = item.createDeviceBank(DEVICES_PER_TRACK);
+            for (int d = 0; d < DEVICES_PER_TRACK; d++) {
+                final int slot = d;
+                var device = this.deviceBanks[t].getDevice(d);
+                device.name().addValueObserver(v -> this.deviceNames[track][slot] = v);
+                device.isWindowOpen().markInterested();
+            }
         }
     }
 
@@ -57,6 +69,7 @@ public class BitwigTonesTracker implements IEventBusSubscriber {
 
     private void select(char tone) {
         int found = 0;
+        int selectedTrack = -1;
         String selected = null;
         for (int t = 0; t < TRACKS; t++) {
             if (this.names[t] == null)
@@ -70,11 +83,23 @@ public class BitwigTonesTracker implements IEventBusSubscriber {
             track.mute().set(!on);
             track.arm().set(on);
             track.monitorMode().set(on ? "ON" : "OFF");
-            if (on)
+            if (on) {
                 selected = this.names[t];
+                selectedTrack = t;
+            } else {
+                this.setAmpWindow(t, false);
+            }
         }
+        if (selectedTrack != -1)
+            this.setAmpWindow(selectedTrack, true);
         this.bus.send(new Log("Tone " + tone + " (" + found + " tone tracks)"));
         if (selected != null)
             this.bus.send(new ToneSelected(selected));
+    }
+
+    private void setAmpWindow(int track, boolean open) {
+        for (int d = 0; d < DEVICES_PER_TRACK; d++)
+            if (ToneFocusCtl.AMP.equals(this.deviceNames[track][d]))
+                this.deviceBanks[track].getDevice(d).isWindowOpen().set(open);
     }
 }
