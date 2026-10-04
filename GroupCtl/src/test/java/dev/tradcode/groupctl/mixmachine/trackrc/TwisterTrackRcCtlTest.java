@@ -17,6 +17,13 @@ import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
 import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
 import dev.tradcode.groupctl.mixmachine.events.DeviceGrabbed;
 import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
+import dev.tradcode.groupctl.mixmachine.events.PanUpdated;
+import dev.tradcode.groupctl.mixmachine.events.SetTrackPan;
+import dev.tradcode.groupctl.mixmachine.events.SetTrackVolume;
+import dev.tradcode.groupctl.mixmachine.events.VolumeUpdated;
+import dev.tradcode.groupctl.events.PanModeSelected;
+import dev.tradcode.groupctl.events.RequestToggleSolo;
+import dev.tradcode.groupctl.Colors;
 import dev.tradcode.groupctl.mixmachine.trackrc.events.SetTrackRcValue;
 import dev.tradcode.groupctl.mixmachine.trackrc.events.TrackRcEncoderPressed;
 import dev.tradcode.groupctl.mixmachine.trackrc.events.TrackRcExistsChanged;
@@ -109,7 +116,7 @@ class TwisterTrackRcCtlTest {
     }
 
     @Test
-    void secondPageRcsLightTheTopEightEncoders() {
+    void secondPageRcsLightTheTopEncodersButTheTrackEncoder() {
         FakeEventBus bus = new FakeEventBus();
         new TwisterTrackRcCtl(bus);
         withSchema(bus);
@@ -119,7 +126,7 @@ class TwisterTrackRcCtlTest {
 
         bus.send(new BitwigTrackSelected(TRACK_ID));
 
-        for (int n = 9; n <= 16; n++)
+        for (int n = 9; n <= 15; n++)
             assertEquals(CYAN, ledAt(bus, n), "top encoder " + n + " should be cyan");
     }
 
@@ -376,5 +383,69 @@ class TwisterTrackRcCtlTest {
         bus.send(new EncoderButtonPressed(6));
 
         assertNull(lastPress(bus), "pressing an empty RC encoder must stay silent");
+    }
+
+    private static Integer ringAt(FakeEventBus bus, int pos) {
+        Integer last = null;
+        for (var e : bus.events)
+            if (e instanceof SetEncoderValue sv && sv.n() == pos) last = sv.v();
+        return last;
+    }
+
+    private static FakeEventBus trackSelected() {
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterTrackRcCtl(bus);
+        withSchema(bus);
+        bus.send(new BitwigTrackSelected(TRACK_ID));
+        return bus;
+    }
+
+    @Test
+    void encoder16IsLitInTheSelectedTracksColor() {
+        var bus = trackSelected();
+        assertEquals(Colors.toTwister("86,96,198"), ledAt(bus, 16));
+    }
+
+    @Test
+    void encoder16RingFollowsTheSelectedTracksVolume() {
+        var bus = trackSelected();
+        bus.send(new VolumeUpdated(TRACK_ID, 0.5));
+        assertEquals(64, ringAt(bus, 16));
+        bus.send(new TrackRcValueChanged(TwisterTrackRcCtl.TRACK_SLOT, 1.0));
+        assertEquals(64, ringAt(bus, 16), "the RC in slot 16 must not overwrite the track volume");
+    }
+
+    @Test
+    void turningEncoder16SetsTheVolumeInsteadOfAnRc() {
+        var bus = trackSelected();
+        bus.send(new EncoderTurned(16, 127));
+        assertTrue(bus.events.contains(new SetTrackVolume(TRACK_ID, 1.0)));
+        assertFalse(wroteRc(bus));
+    }
+
+    @Test
+    void inPanModeEncoder16ShowsAndSetsPan() {
+        var bus = trackSelected();
+        bus.send(new VolumeUpdated(TRACK_ID, 0.0), new PanUpdated(TRACK_ID, 1.0), new PanModeSelected());
+        assertEquals(127, ringAt(bus, 16));
+        bus.send(new EncoderTurned(16, 0));
+        assertTrue(bus.events.contains(new SetTrackPan(TRACK_ID, 0.0)));
+    }
+
+    @Test
+    void pressingEncoder16TogglesTheTracksSolo() {
+        var bus = trackSelected();
+        bus.send(new EncoderButtonPressed(16));
+        assertTrue(bus.events.contains(new RequestToggleSolo(TRACK_ID, "di (1)")));
+    }
+
+    @Test
+    void encoder16IsLeftAloneWhileADeviceBorrowsTheEncoders() {
+        var bus = trackSelected();
+        bus.send(new DeviceGrabbed("amp"));
+        bus.events.clear();
+        bus.send(new VolumeUpdated(TRACK_ID, 0.5), new EncoderTurned(16, 10));
+        assertNull(ringAt(bus, 16));
+        assertFalse(bus.events.stream().anyMatch(e -> e instanceof SetTrackVolume));
     }
 }
