@@ -122,6 +122,7 @@ public class BitwigDevicesTracker implements IEventBusSubscriber {
     public void flush() {
         if (!this.cacheDirty)
             return;
+        this.cacheDirty = false;
         var defs = new ArrayList<BitwigDevice>();
         for (int i = 0; i < DEVICE_COUNT; i++) if (rawCache[i].exists)
             defs.add(cacheToDeviceDef(rawCache[i]));

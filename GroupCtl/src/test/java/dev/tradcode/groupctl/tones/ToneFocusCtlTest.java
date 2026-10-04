@@ -114,4 +114,31 @@ class ToneFocusCtlTest {
         bus.send(new DevicesSchemaChanged(List.of(device(0, "Other Amp"))));
         assertEquals(List.of(), grabs(bus));
     }
+
+    @Test
+    void aDevicePadGrabIsNotOverriddenByLaterDeviceLists() {
+        var bus = rig();
+        var chain = List.of(device(0, "Archetype Gojira X"), device(1, "Frequalizer"));
+        bus.send(new RequestSelectTone('A'), new BitwigTrackSelected(GROUP), new BitwigTrackSelected(A));
+        bus.send(new DevicesSchemaChanged(chain));
+        bus.send(new RequestSelectDevice(1), new DeviceGrabbed("Frequalizer"));
+        bus.clear();
+
+        bus.send(new DevicesSchemaChanged(chain));
+
+        assertEquals(List.of(), grabs(bus));
+    }
+
+    @Test
+    void anUnchangedDeviceListDoesNotGrabTheAmpAgain() {
+        var bus = rig();
+        var chain = List.of(device(0, "Archetype Gojira X"));
+        bus.send(new RequestSelectTone('A'), new BitwigTrackSelected(GROUP), new BitwigTrackSelected(A));
+        bus.send(new DevicesSchemaChanged(chain));
+        bus.clear();
+
+        bus.send(new DevicesSchemaChanged(chain));
+
+        assertEquals(List.of(), grabs(bus));
+    }
 }

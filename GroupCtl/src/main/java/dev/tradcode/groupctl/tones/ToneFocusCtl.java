@@ -22,7 +22,8 @@ import dev.tradcode.groupctl.tones.events.RequestSelectTone;
  *
  * The device list of the newly selected track may never be re-published when
  * every tone shares the same chain, so the amp is grabbed from the last known
- * list right away and again whenever a fresh list arrives.
+ * list right away and again whenever a fresh list shows it somewhere else.
+ * Once anything else is grabbed, the tone lets go of the surface.
  */
 public class ToneFocusCtl implements IEventBusSubscriber {
     static final String AMP = "Archetype Gojira X";
@@ -34,6 +35,7 @@ public class ToneFocusCtl implements IEventBusSubscriber {
     BitwigTrack pendingGroup;
     BitwigTrack pendingTrack;
     int focusedTrackId = -1;
+    int grabbedAmpId = -1;
 
     public ToneFocusCtl(IEventBus bus) {
         this.bus = bus;
@@ -46,6 +48,10 @@ public class ToneFocusCtl implements IEventBusSubscriber {
             case SchemaChanged(ArrayList<BitwigTrack> schema) -> this.schema = schema;
             case RequestSelectTone(char tone) -> this.focus(tone);
             case BitwigTrackSelected(int id) -> this.trackSelected(id);
+            case DeviceGrabbed(String name) -> {
+                if (!AMP.equals(name))
+                    this.focusedTrackId = -1;
+            }
             case DevicesSchemaChanged(List<BitwigDevice> devices) -> {
                 this.devices = devices;
                 if (this.focusedTrackId != -1)
@@ -57,6 +63,7 @@ public class ToneFocusCtl implements IEventBusSubscriber {
 
     private void focus(char tone) {
         this.focusedTrackId = -1;
+        this.grabbedAmpId = -1;
         this.pendingGroup = null;
         this.pendingTrack = null;
         for (var group : this.schema)
@@ -92,6 +99,7 @@ public class ToneFocusCtl implements IEventBusSubscriber {
             this.focusedTrackId = id;
             this.pendingGroup = null;
             this.pendingTrack = null;
+            this.grabbedAmpId = -1;
             this.grabAmp();
         } else if (id != this.focusedTrackId) {
             this.focusedTrackId = -1;
@@ -107,6 +115,10 @@ public class ToneFocusCtl implements IEventBusSubscriber {
         this.devices.stream()
             .filter(d -> AMP.equals(d.name))
             .findFirst()
-            .ifPresent(d -> this.bus.send(new RequestSelectDevice(d.id), new DeviceGrabbed(d.name)));
+            .filter(d -> d.id != this.grabbedAmpId)
+            .ifPresent(d -> {
+                this.grabbedAmpId = d.id;
+                this.bus.send(new RequestSelectDevice(d.id), new DeviceGrabbed(d.name));
+            });
     }
 }
