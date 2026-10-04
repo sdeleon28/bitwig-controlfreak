@@ -8,16 +8,17 @@ import com.bitwig.extension.controller.api.TrackBank;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
+import dev.tradcode.groupctl.mixmachine.devicewindow.events.RequestFocusCursorDeviceWindow;
 import dev.tradcode.groupctl.mixmachine.devicewindow.events.RequestFocusDeviceWindow;
 
 /**
  * Closes every open device window it can reach (top-level devices of the first
- * {@value #TRACKS} tracks) and opens the window of the device under a cursor
- * that follows the native selection.
+ * {@value #TRACKS} tracks) and opens the window of the requested device, or of
+ * the device under a cursor that follows the native selection.
  */
 public class BitwigDeviceWindowTracker implements IEventBusSubscriber {
     static final int TRACKS = 64;
-    static final int DEVICES_PER_TRACK = 8;
+    static final int DEVICES_PER_TRACK = 16;
 
     TrackBank trackBank;
     Device[][] devices = new Device[TRACKS][DEVICES_PER_TRACK];
@@ -41,12 +42,24 @@ public class BitwigDeviceWindowTracker implements IEventBusSubscriber {
 
     @Override
     public void on(Event event) {
-        if (!(event instanceof RequestFocusDeviceWindow))
-            return;
+        switch (event) {
+            case RequestFocusDeviceWindow(int trackId, int slot) -> {
+                if (trackId >= TRACKS || slot >= DEVICES_PER_TRACK) {
+                    this.focus(this.cursorDevice);
+                    return;
+                }
+                this.focus(this.devices[trackId][slot]);
+            }
+            case RequestFocusCursorDeviceWindow() -> this.focus(this.cursorDevice);
+            default -> { }
+        }
+    }
+
+    private void focus(Device target) {
         for (var track : this.devices)
             for (var device : track)
-                if (device.isWindowOpen().get())
+                if (device != target && device.isWindowOpen().get())
                     device.isWindowOpen().set(false);
-        this.cursorDevice.isWindowOpen().set(true);
+        target.isWindowOpen().set(true);
     }
 }

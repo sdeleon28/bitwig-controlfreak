@@ -2,4 +2,4 @@ package dev.tradcode.groupctl.mixmachine.devicewindow.events;
 
 import dev.tradcode.groupctl.events.Event;
 
-public record RequestFocusDeviceWindow(int trackId, int slot) implements Event { }
+public record RequestFocusCursorDeviceWindow() implements Event { }
