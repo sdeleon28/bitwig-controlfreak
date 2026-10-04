@@ -11,5 +11,6 @@ public class Tones {
         new ToneSelector(bus);
         new BitwigTonesTracker(bus, host);
         new ToneGrowler(bus, host);
+        new ToneFocusCtl(bus);
     }
 }
