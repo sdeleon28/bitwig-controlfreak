@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.tones.events.FootswitchPressed;
 import dev.tradcode.groupctl.tones.events.FootswitchReleased;
+import dev.tradcode.groupctl.tones.events.RequestMuteTones;
 import dev.tradcode.groupctl.tones.events.RequestSelectTone;
 
 class ToneSelectorTest {
@@ -49,5 +50,14 @@ class ToneSelectorTest {
     @Test
     void unmappedCombinationsAreIgnored() {
         assertEquals(List.of('A'), tones(down(0), down(2), up(0), up(2), down(0), up(0)));
+    }
+
+    @Test
+    void bPlusCMutesAllTonesInsteadOfSelectingOne() {
+        var bus = new FakeEventBus();
+        new ToneSelector(bus);
+        bus.send(down(1), down(2), up(2), up(1));
+        assertEquals(1, bus.count(RequestMuteTones.class));
+        assertEquals(0, bus.count(RequestSelectTone.class));
     }
 }

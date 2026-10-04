@@ -10,6 +10,7 @@ import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.events.Log;
+import dev.tradcode.groupctl.tones.events.RequestMuteTones;
 import dev.tradcode.groupctl.tones.events.RequestSelectTone;
 import dev.tradcode.groupctl.tones.events.ToneSelected;
 
@@ -44,6 +45,14 @@ public class BitwigTonesTracker implements IEventBusSubscriber {
     public void on(Event event) {
         if (event instanceof RequestSelectTone e)
             this.select(e.tone());
+        else if (event instanceof RequestMuteTones)
+            this.muteAll();
+    }
+
+    private void muteAll() {
+        for (int t = 0; t < TRACKS; t++)
+            if (this.names[t] != null && TONE_TRACK.matcher(this.names[t]).matches())
+                this.trackBank.getItemAt(t).mute().set(true);
     }
 
     private void select(char tone) {
