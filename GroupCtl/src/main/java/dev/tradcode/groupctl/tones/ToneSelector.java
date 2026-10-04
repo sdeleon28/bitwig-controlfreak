@@ -9,14 +9,14 @@ import dev.tradcode.groupctl.events.IEventBus;
 import dev.tradcode.groupctl.events.IEventBusSubscriber;
 import dev.tradcode.groupctl.tones.events.FootswitchPressed;
 import dev.tradcode.groupctl.tones.events.FootswitchReleased;
-import dev.tradcode.groupctl.tones.events.RequestMuteTones;
+import dev.tradcode.groupctl.tones.events.RequestTunerMode;
 import dev.tradcode.groupctl.tones.events.RequestSelectTone;
 
 /**
  * E and F have no switch of their own: the pedal prints them between A+B and
  * C+D, which you press together. The tone is decided once every switch is
  * released, from all the switches that were down during the gesture.
- * B+C mutes every tone.
+ * B+C switches to tuner mode.
  */
 public class ToneSelector implements IEventBusSubscriber {
     static final Map<Set<Integer>, Character> TONES = Map.of(
@@ -27,7 +27,7 @@ public class ToneSelector implements IEventBusSubscriber {
         Set.of(0, 1), 'E',
         Set.of(2, 3), 'F'
     );
-    static final Set<Integer> MUTE_ALL = Set.of(1, 2);
+    static final Set<Integer> TUNER = Set.of(1, 2);
 
     IEventBus bus;
     Set<Integer> held = new TreeSet<>();
@@ -50,10 +50,10 @@ public class ToneSelector implements IEventBusSubscriber {
                 if (!this.held.isEmpty())
                     return;
                 Character tone = TONES.get(this.gesture);
-                boolean muteAll = this.gesture.equals(MUTE_ALL);
+                boolean tuner = this.gesture.equals(TUNER);
                 this.gesture = new TreeSet<>();
-                if (muteAll)
-                    this.bus.send(new RequestMuteTones());
+                if (tuner)
+                    this.bus.send(new RequestTunerMode());
                 else if (tone != null)
                     this.bus.send(new RequestSelectTone(tone));
             }

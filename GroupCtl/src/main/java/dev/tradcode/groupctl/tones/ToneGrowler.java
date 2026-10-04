@@ -5,7 +5,7 @@ import com.bitwig.extension.controller.api.ControllerHost;
 import dev.tradcode.groupctl.Growler;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
-import dev.tradcode.groupctl.tones.events.RequestMuteTones;
+import dev.tradcode.groupctl.tones.events.RequestTunerMode;
 import dev.tradcode.groupctl.tones.events.ToneSelected;
 
 public class ToneGrowler extends Growler {
@@ -17,7 +17,7 @@ public class ToneGrowler extends Growler {
     public void on(Event event) {
         if (event instanceof ToneSelected(String trackName))
             this.growl(trackName);
-        else if (event instanceof RequestMuteTones)
-            this.growl("Tones muted");
+        else if (event instanceof RequestTunerMode)
+            this.growl("Tuner");
     }
 }
