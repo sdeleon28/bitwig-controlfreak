@@ -15,8 +15,8 @@ import dev.tradcode.groupctl.tones.events.ToneSelected;
 
 /**
  * Tone tracks are the ones named "A (n)" .. "F (n)". The selected one is
- * activated, armed and monitored; the rest are deactivated, disarmed and
- * unmonitored, so only one tone ever processes audio.
+ * unmuted, armed and monitored; the rest are muted, disarmed and unmonitored.
+ * Muting rather than deactivating keeps the switch instant.
  */
 public class BitwigTonesTracker implements IEventBusSubscriber {
     static final int TRACKS = 64;
@@ -34,7 +34,7 @@ public class BitwigTonesTracker implements IEventBusSubscriber {
             final int track = t;
             Track item = this.trackBank.getItemAt(t);
             item.name().addValueObserver(v -> this.names[track] = v);
-            item.isActivated().markInterested();
+            item.mute().markInterested();
             item.arm().markInterested();
             item.monitorMode().markInterested();
         }
@@ -58,7 +58,7 @@ public class BitwigTonesTracker implements IEventBusSubscriber {
             found++;
             boolean on = m.group(1).charAt(0) == tone;
             Track track = this.trackBank.getItemAt(t);
-            track.isActivated().set(on);
+            track.mute().set(!on);
             track.arm().set(on);
             track.monitorMode().set(on ? "ON" : "OFF");
             if (on)
