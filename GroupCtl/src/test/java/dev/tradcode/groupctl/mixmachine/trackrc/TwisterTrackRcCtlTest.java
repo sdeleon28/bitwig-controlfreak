@@ -411,7 +411,7 @@ class TwisterTrackRcCtlTest {
         var bus = trackSelected();
         bus.send(new VolumeUpdated(TRACK_ID, 0.5));
         assertEquals(64, ringAt(bus, 16));
-        bus.send(new TrackRcValueChanged(TwisterTrackRcCtl.TRACK_SLOT, 1.0));
+        bus.send(new TrackRcValueChanged(dev.tradcode.groupctl.mixmachine.SelectedTrackEncoder.SLOT, 1.0));
         assertEquals(64, ringAt(bus, 16), "the RC in slot 16 must not overwrite the track volume");
     }
 

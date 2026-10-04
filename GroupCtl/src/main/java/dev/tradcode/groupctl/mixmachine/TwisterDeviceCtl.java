@@ -8,6 +8,7 @@ import dev.tradcode.groupctl.mixmachine.events.SetRcValue;
 import java.util.Set;
 
 import dev.tradcode.groupctl.Page;
+import dev.tradcode.groupctl.events.EncoderButtonPressed;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.events.IEventBus;
@@ -24,7 +25,8 @@ import dev.tradcode.groupctl.mixmachine.events.BitwigTrackSelected;
  * encoders. The bottom 8 (positions 1..8) host the first remote-controls page,
  * the top 8 (positions 9..16) the second; both come through as flat 0..15 slots
  * via {@link TwisterRcGeometry}. Only slots whose parameter exists are lit, so a
- * device with a single page leaves the top 8 encoders dark.
+ * device with a single page leaves the top 8 encoders dark. Encoder 16 is the
+ * {@link SelectedTrackEncoder} instead of an RC.
  */
 public class TwisterDeviceCtl implements IEventBusSubscriber {
     static int SLOT_COUNT = TwisterRcGeometry.SLOT_COUNT;
@@ -37,9 +39,11 @@ public class TwisterDeviceCtl implements IEventBusSubscriber {
     String grabbedName = null;
     boolean editorPageActive = false;
     boolean[] exists = new boolean[SLOT_COUNT];
+    SelectedTrackEncoder trackEncoder;
 
     public TwisterDeviceCtl(IEventBus bus) {
         this.bus = bus;
+        this.trackEncoder = new SelectedTrackEncoder(bus);
         this.bus.subscribe(this);
     }
 
@@ -74,6 +78,10 @@ public class TwisterDeviceCtl implements IEventBusSubscriber {
 
     private void paintLed(int slot) {
         if (!isActive()) return;
+        if (slot == SelectedTrackEncoder.SLOT) {
+            this.trackEncoder.paintLed();
+            return;
+        }
         this.bus.send(
             new PaintEncoder(TwisterRcGeometry.positionForSlot(slot), this.exists[slot] ? RC_COLOR : 0)
         );
@@ -81,6 +89,8 @@ public class TwisterDeviceCtl implements IEventBusSubscriber {
 
     @Override
     public void on(Event event) {
+        if (this.trackEncoder.track(event) && isActive())
+            this.trackEncoder.paint();
         switch (event) {
             case DeviceGrabbed(String name) -> {
                 this.grabbed = true;
@@ -89,16 +99,22 @@ public class TwisterDeviceCtl implements IEventBusSubscriber {
                 this.clearRings();
                 this.paint();
                 this.bus.send(new RequestInitRcs());
+                this.trackEncoder.paintRing();
             }
             case PageSelected(int n) -> {
                 this.editorPageActive = Page.isEditorPage(n);
                 if (!isActive()) return;
                 this.paint();
                 this.bus.send(new RequestInitRcs());
+                this.trackEncoder.paintRing();
             }
             case BitwigTrackSelected(int n) -> this.deselect();
             case RequestSelectTrack(int trackId, String name) -> this.deselect();
             case RequestFxSelectTrack(int id, String name) -> this.deselect();
+            case EncoderButtonPressed(int n) -> {
+                if (isActive() && n == SelectedTrackEncoder.POSITION)
+                    this.trackEncoder.press();
+            }
             case RcExistsChanged(int slot, boolean e) -> {
                 if (slot < 0 || slot >= SLOT_COUNT) return;
                 this.exists[slot] = e;
@@ -107,6 +123,7 @@ public class TwisterDeviceCtl implements IEventBusSubscriber {
             case RcValueChanged(int slot, double v) -> {
                 if (!isActive()) return;
                 if (slot < 0 || slot >= SLOT_COUNT) return;
+                if (slot == SelectedTrackEncoder.SLOT) return;
                 this.bus.send(
                     new SetEncoderValue(
                         TwisterRcGeometry.positionForSlot(slot),
@@ -116,6 +133,10 @@ public class TwisterDeviceCtl implements IEventBusSubscriber {
             }
             case EncoderTurned(int n, int v) -> {
                 if (!isActive()) return;
+                if (n == SelectedTrackEncoder.POSITION) {
+                    this.trackEncoder.turn(v);
+                    return;
+                }
                 int slot = TwisterRcGeometry.slotForPosition(n);
                 if (slot < 0) return;
                 this.bus.send(

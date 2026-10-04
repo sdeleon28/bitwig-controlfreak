@@ -7,7 +7,21 @@ import dev.tradcode.groupctl.mixmachine.events.SetRcValue;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+
+import dev.tradcode.groupctl.Colors;
 import dev.tradcode.groupctl.Page;
+import dev.tradcode.groupctl.events.EncoderButtonPressed;
+import dev.tradcode.groupctl.events.PanModeSelected;
+import dev.tradcode.groupctl.events.RequestToggleSolo;
+import dev.tradcode.groupctl.events.SetEncoderValue;
+import dev.tradcode.groupctl.mixmachine.events.BitwigTrack;
+import dev.tradcode.groupctl.mixmachine.events.PanUpdated;
+import dev.tradcode.groupctl.mixmachine.events.RcValueChanged;
+import dev.tradcode.groupctl.mixmachine.events.SchemaChanged;
+import dev.tradcode.groupctl.mixmachine.events.SetTrackPan;
+import dev.tradcode.groupctl.mixmachine.events.SetTrackVolume;
+import dev.tradcode.groupctl.mixmachine.events.VolumeUpdated;
 import dev.tradcode.groupctl.events.EncoderTurned;
 import dev.tradcode.groupctl.events.PageSelected;
 import dev.tradcode.groupctl.events.PaintEncoder;
@@ -173,5 +187,77 @@ class TwisterDeviceCtlTest {
         var write = lastWrite(bus);
         assertNotNull(write);
         assertEquals(8, write.n());
+    }
+
+    static final int TRACK_ID = 5;
+    static final String TRACK_COLOR = "86,96,198";
+
+    private static FakeEventBus ampGrabbedOnTrack() {
+        var t = new BitwigTrack();
+        t.id = TRACK_ID;
+        t.name = "A (1)";
+        t.color = TRACK_COLOR;
+        t.children = new ArrayList<>();
+        var schema = new ArrayList<BitwigTrack>();
+        schema.add(t);
+        FakeEventBus bus = new FakeEventBus();
+        new TwisterDeviceCtl(bus);
+        bus.send(new SchemaChanged(schema), new BitwigTrackSelected(TRACK_ID), new DeviceGrabbed("Archetype Gojira X"));
+        return bus;
+    }
+
+    private static Integer ringAt(FakeEventBus bus, int pos) {
+        Integer last = null;
+        for (var e : bus.events)
+            if (e instanceof SetEncoderValue sv && sv.n() == pos) last = sv.v();
+        return last;
+    }
+
+    @Test
+    void encoder16IsLitInTheTrackColorWhileADeviceIsGrabbed() {
+        var bus = ampGrabbedOnTrack();
+        bus.send(new RcExistsChanged(SelectedTrackEncoder.SLOT, true));
+        assertEquals(Colors.toTwister(TRACK_COLOR), ledAt(bus, 16));
+    }
+
+    @Test
+    void encoder16RingFollowsTheTrackVolumeNotTheRc() {
+        var bus = ampGrabbedOnTrack();
+        bus.send(new VolumeUpdated(TRACK_ID, 0.5), new RcValueChanged(SelectedTrackEncoder.SLOT, 1.0));
+        assertEquals(64, ringAt(bus, 16));
+    }
+
+    @Test
+    void turningEncoder16SetsTrackVolumeOrPan() {
+        var bus = ampGrabbedOnTrack();
+        bus.send(new EncoderTurned(16, 127));
+        assertTrue(bus.events.contains(new SetTrackVolume(TRACK_ID, 1.0)));
+        bus.send(new PanModeSelected(), new EncoderTurned(16, 0));
+        assertTrue(bus.events.contains(new SetTrackPan(TRACK_ID, 0.0)));
+        assertFalse(wroteRc(bus));
+    }
+
+    @Test
+    void inPanModeEncoder16ShowsThePan() {
+        var bus = ampGrabbedOnTrack();
+        bus.send(new PanUpdated(TRACK_ID, 1.0), new PanModeSelected());
+        assertEquals(127, ringAt(bus, 16));
+    }
+
+    @Test
+    void pressingEncoder16TogglesSolo() {
+        var bus = ampGrabbedOnTrack();
+        bus.send(new EncoderButtonPressed(16));
+        assertTrue(bus.events.contains(new RequestToggleSolo(TRACK_ID, "A (1)")));
+    }
+
+    @Test
+    void encoder16IsInertWithoutAGrabbedDevice() {
+        var bus = ampGrabbedOnTrack();
+        bus.send(new BitwigTrackSelected(TRACK_ID));
+        bus.events.clear();
+        bus.send(new EncoderTurned(16, 127), new EncoderButtonPressed(16), new VolumeUpdated(TRACK_ID, 0.3));
+        assertTrue(bus.events.stream().noneMatch(e ->
+            e instanceof SetTrackVolume || e instanceof RequestToggleSolo || e instanceof SetEncoderValue));
     }
 }
