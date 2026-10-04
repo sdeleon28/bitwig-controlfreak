@@ -20,7 +20,7 @@ import dev.tradcode.groupctl.tones.events.ToneSelected;
  * unmuted, armed and monitored; the rest are muted, disarmed and unmonitored.
  * Muting rather than deactivating keeps the switch instant. Only the selected
  * tone's amp window is left open. Tuner mode mutes every tone, closes the amp
- * windows and opens the tuner's.
+ * windows, and opens the tuner's window and arms the track it sits on.
  */
 public class BitwigTonesTracker implements IEventBusSubscriber {
     static final int TRACKS = 64;
@@ -70,14 +70,28 @@ public class BitwigTonesTracker implements IEventBusSubscriber {
                 this.setWindow(t, ToneFocusCtl.AMP, false);
             }
         }
-        for (int t = 0; t < TRACKS; t++)
-            this.setWindow(t, TUNER, true);
+        for (int t = 0; t < TRACKS; t++) {
+            if (this.hasDevice(t, TUNER)) {
+                this.setWindow(t, TUNER, true);
+                this.trackBank.getItemAt(t).arm().set(true);
+            }
+        }
+    }
+
+    private void leaveTunerMode() {
+        for (int t = 0; t < TRACKS; t++) {
+            if (this.hasDevice(t, TUNER)) {
+                this.setWindow(t, TUNER, false);
+                this.trackBank.getItemAt(t).arm().set(false);
+            }
+        }
     }
 
     private void select(char tone) {
         int found = 0;
         int selectedTrack = -1;
         String selected = null;
+        this.leaveTunerMode();
         for (int t = 0; t < TRACKS; t++) {
             if (this.names[t] == null)
                 continue;
@@ -97,13 +111,18 @@ public class BitwigTonesTracker implements IEventBusSubscriber {
                 this.setWindow(t, ToneFocusCtl.AMP, false);
             }
         }
-        for (int t = 0; t < TRACKS; t++)
-            this.setWindow(t, TUNER, false);
         if (selectedTrack != -1)
             this.setWindow(selectedTrack, ToneFocusCtl.AMP, true);
         this.bus.send(new Log("Tone " + tone + " (" + found + " tone tracks)"));
         if (selected != null)
             this.bus.send(new ToneSelected(selected));
+    }
+
+    private boolean hasDevice(int track, String deviceName) {
+        for (int d = 0; d < DEVICES_PER_TRACK; d++)
+            if (deviceName.equals(this.deviceNames[track][d]))
+                return true;
+        return false;
     }
 
     private void setWindow(int track, String deviceName, boolean open) {
