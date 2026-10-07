@@ -59,7 +59,7 @@ public class GroupCtlExtensionDefinition extends ControllerExtensionDefinition
    @Override
    public int getNumMidiInPorts()
    {
-      return 3;
+      return 4;
    }
 
    @Override

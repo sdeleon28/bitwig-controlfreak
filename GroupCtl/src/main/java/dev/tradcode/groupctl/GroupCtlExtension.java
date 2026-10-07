@@ -16,6 +16,7 @@ import dev.tradcode.groupctl.mixmachine.MixMachine;
 import dev.tradcode.groupctl.palette.Palette;
 import dev.tradcode.groupctl.transpose.Transpose;
 import dev.tradcode.groupctl.tones.Tones;
+import dev.tradcode.groupctl.programchange.ProgramChange;
 
 public class GroupCtlExtension extends ControllerExtension
 {
@@ -69,6 +70,7 @@ public class GroupCtlExtension extends ControllerExtension
       palette = new Palette(eventBus, host);
       transpose = new Transpose(eventBus, host);
       new Tones(eventBus, host);
+      new ProgramChange(eventBus, host);
 
       host.showPopupNotification("GroupCtl Initialized");
    }
