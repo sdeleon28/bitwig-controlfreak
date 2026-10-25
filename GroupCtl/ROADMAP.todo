@@ -245,6 +245,15 @@
     [ ] mirror frequalizer
 [ ] remove direct ID references (use param indexes instead)
 
+## GroupCtl LIVE
+
+[X] second extension in the same .bwextension: Twister in/out + program change in, no Launchpad
+[X] Bitwig-selection Twister programs: group vol/pan, track RCs, master RCs (tempo, transpose)
+[X] BL+BR chord (fires on press) grabs the UI-selected device -> device RCs / Frequalizer
+    [X] side-button singles fire on click, never after taking part in a chord
+[X] TL arm guitars, TR tuner toggle, BL/BR prev/next song, PC N plays song N
+[ ] try it on stage
+
 ## backlog
 
 [ ] lowest priority: explore increased resolution by using relative mode encoders

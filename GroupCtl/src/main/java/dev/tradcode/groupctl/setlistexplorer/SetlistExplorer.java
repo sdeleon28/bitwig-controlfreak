@@ -14,6 +14,7 @@ public class SetlistExplorer {
     public SetlistExplorer(IEventBus bus, ControllerHost host) {
         new SetlistGridCalculator(bus);
         new SongPagerCtl(bus);
+        new TwisterSongPagerCtl(bus);
         new BarPagerCtl(bus);
         new SetlistGrowlCtl(bus);
         new SetlistGrowler(bus, host);

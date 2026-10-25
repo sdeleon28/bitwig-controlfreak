@@ -31,6 +31,9 @@ opener, and an orphan closer are dropped. Parsing lives in `baseexplorer`'s
 - **SongPagerCtl** — LEFT/RIGHT = previous/next song, cyan when a neighbour
   exists, dark and inert while playing (auto-follow owns switching then). Shares
   LEFT/RIGHT with the normal view's page pager, so it yields by ceasing to paint.
+- **TwisterSongPagerCtl** — the Twister's bottom-left/bottom-right side buttons
+  (on click — a button that took part in a chord never clicks) = previous/next
+  song, on any Launchpad page. Inert while playing.
 - **BarPagerCtl** — VOLUME/PAN side buttons = page bars within a long song, cyan
   when another 64-pad window exists. These buttons are the setlist's alone on
   this page, so it may blank them when not engaged. Emits `RequestExplorerPage`.

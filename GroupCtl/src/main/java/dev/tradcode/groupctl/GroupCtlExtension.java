@@ -17,6 +17,7 @@ import dev.tradcode.groupctl.palette.Palette;
 import dev.tradcode.groupctl.transpose.Transpose;
 import dev.tradcode.groupctl.tones.Tones;
 import dev.tradcode.groupctl.programchange.ProgramChange;
+import dev.tradcode.groupctl.guitarinput.GuitarInput;
 
 public class GroupCtlExtension extends ControllerExtension
 {
@@ -70,7 +71,8 @@ public class GroupCtlExtension extends ControllerExtension
       palette = new Palette(eventBus, host);
       transpose = new Transpose(eventBus, host);
       new Tones(eventBus, host);
-      new ProgramChange(eventBus, host);
+      new ProgramChange(eventBus, host, host.getMidiInPort(3));
+      new GuitarInput(eventBus, host);
 
       host.showPopupNotification("GroupCtl Initialized");
    }

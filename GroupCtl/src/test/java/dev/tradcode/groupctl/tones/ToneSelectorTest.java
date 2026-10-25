@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import dev.tradcode.groupctl.events.Event;
 import dev.tradcode.groupctl.tones.events.FootswitchPressed;
 import dev.tradcode.groupctl.tones.events.FootswitchReleased;
+import dev.tradcode.groupctl.tones.events.RequestRestoreAutomation;
 import dev.tradcode.groupctl.tones.events.RequestTunerMode;
 import dev.tradcode.groupctl.tones.events.RequestSelectTone;
 
@@ -58,6 +59,15 @@ class ToneSelectorTest {
         new ToneSelector(bus);
         bus.send(down(1), down(2), up(2), up(1));
         assertEquals(1, bus.count(RequestTunerMode.class));
+        assertEquals(0, bus.count(RequestSelectTone.class));
+    }
+
+    @Test
+    void aPlusDRestoresAutomationInsteadOfSelectingATone() {
+        var bus = new FakeEventBus();
+        new ToneSelector(bus);
+        bus.send(down(0), down(3), up(0), up(3));
+        assertEquals(1, bus.count(RequestRestoreAutomation.class));
         assertEquals(0, bus.count(RequestSelectTone.class));
     }
 }
